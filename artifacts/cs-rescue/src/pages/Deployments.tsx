@@ -22,7 +22,7 @@ const STAGES = [
 ];
 
 export default function Deployments() {
-  const { data: deployments = [], isLoading } = useListDeployments({
+  const { data: deployments = [], isLoading } = useListDeployments(undefined, {
     query: { queryKey: getListDeploymentsQueryKey() }
   });
 
@@ -35,7 +35,7 @@ export default function Deployments() {
   }
 
   return (
-    <div className="space-y-8 pb-10">
+    <div className="space-y-8 pb-10 p-6 h-full overflow-y-auto">
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
           <h1 className="text-3xl font-bold tracking-tight mb-2">Deployment Workspace</h1>

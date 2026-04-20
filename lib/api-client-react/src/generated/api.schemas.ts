@@ -42,6 +42,11 @@ export const ArchitectureNodeStatus = {
   warning: "warning",
 } as const;
 
+export type ArchitectureNodePosition = {
+  x?: number;
+  y?: number;
+};
+
 export interface ArchitectureNode {
   id: string;
   name: string;
@@ -57,6 +62,9 @@ export interface ArchitectureNode {
   status: ArchitectureNodeStatus;
   ownerTeam: string;
   color: string;
+  healthScore?: number;
+  subtype?: string;
+  position?: ArchitectureNodePosition;
 }
 
 export type NodeConnectionType =
@@ -78,6 +86,88 @@ export interface ArchitectureMap {
   nodes: ArchitectureNode[];
   connections: NodeConnection[];
   layers: string[];
+}
+
+export type ArchitectureEdgeRelationshipType =
+  (typeof ArchitectureEdgeRelationshipType)[keyof typeof ArchitectureEdgeRelationshipType];
+
+export const ArchitectureEdgeRelationshipType = {
+  data_flow: "data_flow",
+  dependency: "dependency",
+  sync: "sync",
+  composition: "composition",
+  control: "control",
+} as const;
+
+export type ArchitectureEdgeStatus =
+  (typeof ArchitectureEdgeStatus)[keyof typeof ArchitectureEdgeStatus];
+
+export const ArchitectureEdgeStatus = {
+  active: "active",
+  degraded: "degraded",
+  inactive: "inactive",
+} as const;
+
+export interface ArchitectureEdge {
+  id: string;
+  source: string;
+  target: string;
+  relationshipType: ArchitectureEdgeRelationshipType;
+  label?: string;
+  strength: number;
+  status: ArchitectureEdgeStatus;
+}
+
+export interface ArchitectureGroup {
+  id: string;
+  name: string;
+  layer: string;
+  nodeIds: string[];
+  color: string;
+}
+
+export interface GraphData {
+  nodes: ArchitectureNode[];
+  edges: ArchitectureEdge[];
+  groups: ArchitectureGroup[];
+}
+
+export interface MetricPoint {
+  timestamp: string;
+  value: number;
+  label?: string;
+}
+
+export type NodeMetricSeriesChartType =
+  (typeof NodeMetricSeriesChartType)[keyof typeof NodeMetricSeriesChartType];
+
+export const NodeMetricSeriesChartType = {
+  line: "line",
+  bar: "bar",
+  donut: "donut",
+  radial: "radial",
+  sparkline: "sparkline",
+} as const;
+
+export type NodeMetricSeriesTrendDirection =
+  (typeof NodeMetricSeriesTrendDirection)[keyof typeof NodeMetricSeriesTrendDirection];
+
+export const NodeMetricSeriesTrendDirection = {
+  up: "up",
+  down: "down",
+  flat: "flat",
+} as const;
+
+export interface NodeMetricSeries {
+  id: string;
+  nodeId: string;
+  metricName: string;
+  unit: string;
+  chartType: NodeMetricSeriesChartType;
+  trendDirection?: NodeMetricSeriesTrendDirection;
+  currentValue?: number;
+  delta?: number;
+  points: MetricPoint[];
 }
 
 export interface ArchitectureSummary {

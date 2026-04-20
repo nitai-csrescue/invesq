@@ -1,316 +1,359 @@
-import { useState } from "react";
-import { 
-  useGetArchitectureSummary, 
+import { useMemo, useState, useCallback, useEffect } from "react";
+import ReactFlow, {
+  Background,
+  Controls,
+  MiniMap,
+  type Node,
+  type Edge,
+  MarkerType,
+  ReactFlowProvider,
+  BackgroundVariant,
+} from "reactflow";
+import "reactflow/dist/style.css";
+import {
+  useGetGraph,
+  getGetGraphQueryKey,
+  useGetArchitectureSummary,
   getGetArchitectureSummaryQueryKey,
-  useGetArchitecture,
-  getGetArchitectureQueryKey,
-  useListLifecycleMotions,
-  getListLifecycleMotionsQueryKey,
-  ArchitectureNode,
-  LifecycleMotion
+  useListResources,
+  getListResourcesQueryKey,
+  type ArchitectureNode as ArchNode,
+  type ArchitectureEdge as ArchEdge,
 } from "@workspace/api-client-react";
-import { 
-  Activity, 
-  Server, 
-  ShieldCheck, 
-  Zap,
-  Box,
-  Layers,
-  Search,
-  X,
-  Rocket
-} from "lucide-react";
-import { motion, AnimatePresence } from "framer-motion";
+import { Activity, Layers, Heart, Network, Filter } from "lucide-react";
+import { ArchitectureNodeComp, type ArchNodeData } from "@/components/architecture/ArchitectureNode";
+import { Inspector } from "@/components/architecture/Inspector";
 import { cn } from "@/lib/utils";
 
-// Mock Icons mapping
-const iconMap: Record<string, any> = {
-  Server,
-  ShieldCheck,
-  Zap,
-  Box,
-  Layers,
-  Activity
+const nodeTypes = { arch: ArchitectureNodeComp };
+
+const layerLabels: Record<string, string> = {
+  lifecycle: "Lifecycle Motions",
+  delivery: "Delivery & Orchestration",
+  platform: "Shared Platform / Systems",
 };
 
-function StatCard({ title, value, icon: Icon, trend }: { title: string, value: string | number, icon: any, trend?: string }) {
-  return (
-    <div className="bg-card/50 backdrop-blur-sm border border-border rounded-xl p-4 flex items-start gap-4">
-      <div className="p-3 bg-primary/10 text-primary rounded-lg">
-        <Icon className="w-5 h-5" />
+const layerColors: Record<string, string> = {
+  lifecycle: "rgba(99, 102, 241, 0.06)",
+  delivery: "rgba(59, 130, 246, 0.06)",
+  platform: "rgba(6, 182, 212, 0.06)",
+};
+
+const edgeColorByRel: Record<string, string> = {
+  data_flow: "#22d3ee",
+  dependency: "#a78bfa",
+  sync: "#34d399",
+  composition: "#fbbf24",
+  control: "#f472b6",
+};
+
+function summarizePos(node: ArchNode): { x: number; y: number } {
+  const p = (node as ArchNode & { position?: { x: number; y: number } }).position;
+  return p ?? { x: 0, y: 0 };
+}
+
+function ArchitectureInner() {
+  const { data: graph, isLoading } = useGetGraph({
+    query: { queryKey: getGetGraphQueryKey() },
+  });
+  const { data: summary } = useGetArchitectureSummary({
+    query: { queryKey: getGetArchitectureSummaryQueryKey() },
+  });
+  const { data: resources = [] } = useListResources(undefined, {
+    query: { queryKey: getListResourcesQueryKey() },
+  });
+
+  const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [layerFilter, setLayerFilter] = useState<string>("all");
+  const [healthFilter, setHealthFilter] = useState<string>("all");
+
+  const allNodes = graph?.nodes ?? [];
+  const allEdges = graph?.edges ?? [];
+
+  const visibleNodeIds = useMemo(() => {
+    return new Set(
+      allNodes
+        .filter((n) => layerFilter === "all" || n.layer === layerFilter)
+        .filter((n) => {
+          if (healthFilter === "all") return true;
+          const h = n.healthScore ?? 100;
+          if (healthFilter === "healthy") return h >= 85;
+          if (healthFilter === "warning") return h >= 70 && h < 85;
+          if (healthFilter === "risk") return h < 70;
+          return true;
+        })
+        .map((n) => n.id),
+    );
+  }, [allNodes, layerFilter, healthFilter]);
+
+  const connectedToSelected = useMemo(() => {
+    if (!selectedId) return new Set<string>();
+    const set = new Set<string>();
+    for (const e of allEdges) {
+      if (e.source === selectedId) set.add(e.target);
+      if (e.target === selectedId) set.add(e.source);
+    }
+    return set;
+  }, [selectedId, allEdges]);
+
+  const rfNodes: Node<ArchNodeData>[] = useMemo(() => {
+    return allNodes
+      .filter((n) => visibleNodeIds.has(n.id))
+      .map((n) => {
+        const isSelected = selectedId === n.id;
+        const isConnected = connectedToSelected.has(n.id);
+        const isDimmed = !!selectedId && !isSelected && !isConnected;
+        return {
+          id: n.id,
+          type: "arch",
+          position: summarizePos(n),
+          data: {
+            label: n.name,
+            icon: n.icon,
+            layer: n.layer as ArchNodeData["layer"],
+            status: n.status,
+            healthScore: n.healthScore ?? 85,
+            ownerTeam: n.ownerTeam,
+            shortDescription: n.shortDescription,
+            isSelected,
+            isConnected,
+            isDimmed,
+          },
+        };
+      });
+  }, [allNodes, visibleNodeIds, selectedId, connectedToSelected]);
+
+  const rfEdges: Edge[] = useMemo(() => {
+    return allEdges
+      .filter((e) => visibleNodeIds.has(e.source) && visibleNodeIds.has(e.target))
+      .map((e) => {
+        const color = edgeColorByRel[e.relationshipType] ?? "#94a3b8";
+        const isHighlighted =
+          !selectedId || e.source === selectedId || e.target === selectedId;
+        return {
+          id: e.id,
+          source: e.source,
+          target: e.target,
+          type: "smoothstep",
+          animated: e.status === "active" && isHighlighted,
+          label: e.label,
+          labelBgPadding: [4, 2] as [number, number],
+          labelBgBorderRadius: 4,
+          labelBgStyle: { fill: "#0f172a", fillOpacity: 0.9 },
+          labelStyle: { fill: "#cbd5e1", fontSize: 10 },
+          style: {
+            stroke: color,
+            strokeWidth: isHighlighted ? Math.max(1.5, e.strength / 4) : 0.8,
+            opacity: isHighlighted ? (e.status === "degraded" ? 0.6 : 0.85) : 0.18,
+            strokeDasharray: e.status === "degraded" ? "6 4" : undefined,
+          },
+          markerEnd: {
+            type: MarkerType.ArrowClosed,
+            color,
+            width: 14,
+            height: 14,
+          },
+        } as Edge;
+      });
+  }, [allEdges, visibleNodeIds, selectedId]);
+
+  const onNodeClick = useCallback((_: React.MouseEvent, n: Node) => {
+    setSelectedId((cur) => (cur === n.id ? null : n.id));
+  }, []);
+
+  const onPaneClick = useCallback(() => setSelectedId(null), []);
+
+  // Clear stale selection if filters hide the selected node
+  useEffect(() => {
+    if (selectedId && !visibleNodeIds.has(selectedId)) {
+      setSelectedId(null);
+    }
+  }, [selectedId, visibleNodeIds]);
+
+  const selectedNode = allNodes.find((n) => n.id === selectedId) ?? null;
+
+  if (isLoading) {
+    return (
+      <div className="h-full flex items-center justify-center text-slate-400">
+        <div className="animate-pulse">Loading architecture graph…</div>
       </div>
-      <div>
-        <p className="text-sm font-medium text-muted-foreground">{title}</p>
-        <div className="flex items-baseline gap-2">
-          <h3 className="text-2xl font-bold">{value}</h3>
-          {trend && <span className="text-xs text-emerald-400">{trend}</span>}
+    );
+  }
+
+  return (
+    <div className="h-full flex flex-col bg-slate-950">
+      {/* Top KPI strip */}
+      <div className="px-6 py-3 border-b border-white/10 bg-slate-950/60 backdrop-blur-md flex items-center gap-6 shrink-0">
+        <div className="flex items-center gap-2">
+          <div className="w-7 h-7 rounded-md bg-cyan-500/15 text-cyan-300 flex items-center justify-center">
+            <Network className="w-3.5 h-3.5" />
+          </div>
+          <div>
+            <p className="text-[10px] uppercase text-slate-500 leading-none">Architecture</p>
+            <p className="text-sm font-bold text-white leading-tight">CS Rescue Map</p>
+          </div>
         </div>
+        <div className="h-8 w-px bg-white/10" />
+        <Kpi icon={<Heart className="w-3 h-3" />} label="System Health" value={`${summary?.systemHealth ?? 0}%`} accent="emerald" />
+        <Kpi icon={<Layers className="w-3 h-3" />} label="Nodes" value={`${summary?.totalNodes ?? 0}`} accent="cyan" />
+        <Kpi icon={<Activity className="w-3 h-3" />} label="Active Deployments" value={`${summary?.activeDeployments ?? 0}`} accent="indigo" />
+        <Kpi icon={<Network className="w-3 h-3" />} label="Edges" value={`${allEdges.length}`} accent="blue" />
+
+        <div className="ml-auto flex items-center gap-2">
+          <Filter className="w-3.5 h-3.5 text-slate-500" />
+          <SegmentedFilter
+            value={layerFilter}
+            onChange={setLayerFilter}
+            options={[
+              { v: "all", l: "All Layers" },
+              { v: "lifecycle", l: "Lifecycle" },
+              { v: "delivery", l: "Delivery" },
+              { v: "platform", l: "Platform" },
+            ]}
+          />
+          <SegmentedFilter
+            value={healthFilter}
+            onChange={setHealthFilter}
+            options={[
+              { v: "all", l: "All" },
+              { v: "healthy", l: "Healthy" },
+              { v: "warning", l: "Warning" },
+              { v: "risk", l: "At Risk" },
+            ]}
+          />
+        </div>
+      </div>
+
+      {/* Graph canvas */}
+      <div className="flex-1 relative">
+        {/* Swimlane backgrounds */}
+        <SwimlanesOverlay />
+
+        <ReactFlow
+          nodes={rfNodes}
+          edges={rfEdges}
+          nodeTypes={nodeTypes}
+          onNodeClick={onNodeClick}
+          onPaneClick={onPaneClick}
+          fitView
+          fitViewOptions={{ padding: 0.15 }}
+          minZoom={0.3}
+          maxZoom={1.6}
+          proOptions={{ hideAttribution: true }}
+          className="bg-slate-950"
+        >
+          <Background variant={BackgroundVariant.Dots} gap={24} size={1} color="rgba(148,163,184,0.18)" />
+          <Controls className="!bg-slate-900/90 !border !border-white/10 !rounded-md" showInteractive={false} />
+          <MiniMap
+            nodeColor={(n) => {
+              const layer = (n.data as ArchNodeData)?.layer;
+              if (layer === "lifecycle") return "#6366f1";
+              if (layer === "delivery") return "#3b82f6";
+              return "#06b6d4";
+            }}
+            maskColor="rgba(2,6,23,0.7)"
+            className="!bg-slate-900/90 !border !border-white/10 !rounded-md"
+            pannable
+            zoomable
+          />
+        </ReactFlow>
+
+        {/* Edge legend */}
+        <div className="absolute bottom-4 left-4 z-10 rounded-lg border border-white/10 bg-slate-900/90 backdrop-blur-md px-3 py-2 flex items-center gap-3 text-[10px]">
+          {Object.entries(edgeColorByRel).map(([k, c]) => (
+            <div key={k} className="flex items-center gap-1.5">
+              <div className="w-4 h-0.5 rounded-full" style={{ background: c }} />
+              <span className="text-slate-400 capitalize">{k.replace("_", " ")}</span>
+            </div>
+          ))}
+        </div>
+
+        <Inspector
+          node={selectedNode}
+          allNodes={allNodes}
+          allEdges={allEdges}
+          resources={resources}
+          onClose={() => setSelectedId(null)}
+        />
       </div>
     </div>
   );
 }
 
-function NodeCard({ 
-  node, 
-  onClick, 
-  selected 
-}: { 
-  node: ArchitectureNode | LifecycleMotion, 
-  onClick: () => void,
-  selected: boolean
-}) {
-  const isNode = 'layer' in node;
-  
+function Kpi({ icon, label, value, accent }: { icon: React.ReactNode; label: string; value: string; accent: string }) {
+  const accentMap: Record<string, string> = {
+    emerald: "text-emerald-300 bg-emerald-500/10",
+    cyan: "text-cyan-300 bg-cyan-500/10",
+    indigo: "text-indigo-300 bg-indigo-500/10",
+    blue: "text-blue-300 bg-blue-500/10",
+  };
   return (
-    <motion.button
-      whileHover={{ scale: 1.02 }}
-      whileTap={{ scale: 0.98 }}
-      onClick={onClick}
-      className={cn(
-        "relative p-4 rounded-xl border text-left transition-all duration-300 group",
-        "bg-card/40 backdrop-blur-sm hover:bg-card/80",
-        selected ? "border-primary shadow-[0_0_15px_rgba(var(--primary),0.3)]" : "border-border hover:border-primary/50",
-        isNode ? "w-48" : "w-56"
-      )}
-      data-testid={`node-${node.id}`}
-    >
-      <div className="flex items-start justify-between mb-3">
-        <div 
-          className="w-10 h-10 rounded-lg flex items-center justify-center bg-white/5"
-          style={{ color: node.color || 'hsl(var(--primary))' }}
-        >
-          <Box className="w-5 h-5" />
-        </div>
-        {isNode && (node as ArchitectureNode).status && (
-          <div className={cn(
-            "w-2 h-2 rounded-full",
-            (node as ArchitectureNode).status === 'active' ? "bg-emerald-400 shadow-[0_0_8px_rgba(52,211,153,0.8)]" : 
-            (node as ArchitectureNode).status === 'degraded' ? "bg-amber-400" : "bg-destructive"
-          )} />
-        )}
+    <div className="flex items-center gap-2">
+      <div className={cn("w-6 h-6 rounded flex items-center justify-center", accentMap[accent])}>{icon}</div>
+      <div>
+        <p className="text-[10px] uppercase text-slate-500 leading-none">{label}</p>
+        <p className="text-sm font-bold text-white leading-tight">{value}</p>
       </div>
-      <h4 className="font-semibold text-sm mb-1 line-clamp-1">{node.name}</h4>
-      <p className="text-xs text-muted-foreground line-clamp-2">{node.description || (node as ArchitectureNode).shortDescription}</p>
-      
-      {/* Glow effect on hover */}
-      <div className="absolute inset-0 rounded-xl opacity-0 group-hover:opacity-100 transition-opacity duration-300 pointer-events-none"
-           style={{ boxShadow: `inset 0 0 20px ${node.color ? node.color.replace(')', ', 0.1)').replace('rgb', 'rgba') : 'rgba(var(--primary), 0.1)'}` }} 
-      />
-    </motion.button>
+    </div>
   );
 }
 
-function NodeDrawer({ 
-  node, 
-  onClose 
-}: { 
-  node: ArchitectureNode | LifecycleMotion | null, 
-  onClose: () => void 
+function SegmentedFilter({
+  value,
+  onChange,
+  options,
+}: {
+  value: string;
+  onChange: (v: string) => void;
+  options: { v: string; l: string }[];
 }) {
-  if (!node) return null;
-  const isNode = 'layer' in node;
-  
   return (
-    <AnimatePresence>
-      <motion.div
-        initial={{ x: "100%" }}
-        animate={{ x: 0 }}
-        exit={{ x: "100%" }}
-        transition={{ type: "spring", damping: 25, stiffness: 200 }}
-        className="fixed inset-y-0 right-0 w-96 bg-card border-l border-border z-50 shadow-2xl flex flex-col"
-      >
-        <div className="p-6 border-b border-border flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <div 
-              className="w-10 h-10 rounded-lg flex items-center justify-center bg-white/5"
-              style={{ color: node.color || 'hsl(var(--primary))' }}
-            >
-              <Box className="w-5 h-5" />
-            </div>
-            <div>
-              <h2 className="font-bold text-lg leading-tight">{node.name}</h2>
-              {isNode && (
-                <span className="text-xs px-2 py-0.5 rounded bg-white/10 text-muted-foreground capitalize">
-                  {(node as ArchitectureNode).layer} Layer
-                </span>
-              )}
-            </div>
-          </div>
-          <button onClick={onClose} className="p-2 hover:bg-white/10 rounded-lg text-muted-foreground transition-colors" data-testid="close-drawer">
-            <X className="w-5 h-5" />
-          </button>
-        </div>
-        
-        <div className="p-6 overflow-y-auto flex-1">
-          <div className="space-y-6">
-            <div>
-              <h4 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2">Description</h4>
-              <p className="text-sm">{node.description || (node as ArchitectureNode).shortDescription}</p>
-            </div>
-            
-            {isNode && (node as ArchitectureNode).capabilities?.length > 0 && (
-              <div>
-                <h4 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-3">Capabilities</h4>
-                <div className="flex flex-wrap gap-2">
-                  {(node as ArchitectureNode).capabilities.map(cap => (
-                    <span key={cap} className="text-xs px-2.5 py-1 rounded-full bg-primary/10 text-primary border border-primary/20">
-                      {cap}
-                    </span>
-                  ))}
-                </div>
-              </div>
-            )}
-            
-            {node.kpis?.length > 0 && (
-              <div>
-                <h4 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-3">Key Metrics</h4>
-                <div className="grid gap-3">
-                  {node.kpis.map(kpi => (
-                    <div key={kpi.label} className="flex items-center justify-between p-3 rounded-lg bg-white/5 border border-white/5">
-                      <span className="text-sm text-muted-foreground">{kpi.label}</span>
-                      <div className="flex items-center gap-2">
-                        <span className="font-semibold">{kpi.value}</span>
-                        {kpi.trend === 'up' ? (
-                          <span className="text-emerald-400 text-xs">↑</span>
-                        ) : kpi.trend === 'down' ? (
-                          <span className="text-destructive text-xs">↓</span>
-                        ) : null}
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            )}
+    <div className="inline-flex items-center rounded-md border border-white/10 bg-slate-900/60 p-0.5">
+      {options.map((o) => (
+        <button
+          key={o.v}
+          onClick={() => onChange(o.v)}
+          aria-pressed={value === o.v}
+          aria-label={`Filter: ${o.l}`}
+          className={cn(
+            "text-[11px] font-medium px-2.5 py-1 rounded transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-400",
+            value === o.v ? "bg-cyan-500/20 text-cyan-200" : "text-slate-400 hover:text-white",
+          )}
+        >
+          {o.l}
+        </button>
+      ))}
+    </div>
+  );
+}
+
+function SwimlanesOverlay() {
+  const lanes = [
+    { layer: "lifecycle", top: 30, height: 200 },
+    { layer: "delivery", top: 270, height: 200 },
+    { layer: "platform", top: 530, height: 380 },
+  ];
+  return (
+    <div className="absolute inset-0 pointer-events-none z-0" style={{ transform: "translateZ(0)" }}>
+      {lanes.map((l) => (
+        <div
+          key={l.layer}
+          className="absolute left-0 right-0 border-y border-white/[0.04]"
+          style={{ top: l.top, height: l.height, background: layerColors[l.layer] }}
+        >
+          <div className="absolute left-4 top-2 text-[10px] uppercase tracking-[0.2em] font-semibold text-slate-600">
+            {layerLabels[l.layer]}
           </div>
         </div>
-      </motion.div>
-    </AnimatePresence>
+      ))}
+    </div>
   );
 }
 
 export default function Architecture() {
-  const [selectedNode, setSelectedNode] = useState<ArchitectureNode | LifecycleMotion | null>(null);
-
-  const { data: summary } = useGetArchitectureSummary({
-    query: { queryKey: getGetArchitectureSummaryQueryKey() }
-  });
-  
-  const { data: architecture, isLoading: isLoadingArch } = useGetArchitecture({
-    query: { queryKey: getGetArchitectureQueryKey() }
-  });
-  
-  const { data: motions, isLoading: isLoadingMotions } = useListLifecycleMotions({
-    query: { queryKey: getListLifecycleMotionsQueryKey() }
-  });
-
-  const deliveryNodes = architecture?.nodes?.filter(n => n.layer === 'delivery') || [];
-  const platformNodes = architecture?.nodes?.filter(n => n.layer === 'platform') || [];
-
   return (
-    <div className="space-y-8 pb-10">
-      <div>
-        <h1 className="text-3xl font-bold tracking-tight mb-2">Architecture View</h1>
-        <p className="text-muted-foreground">Live visualization of your customer lifecycle systems and delivery infrastructure.</p>
-      </div>
-
-      {summary && (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-          <StatCard 
-            title="System Health" 
-            value={`${summary.systemHealth}%`} 
-            icon={Activity} 
-            trend={summary.systemHealth > 90 ? "Optimal" : undefined}
-          />
-          <StatCard 
-            title="Active Deployments" 
-            value={summary.activeDeployments} 
-            icon={Rocket} 
-          />
-          <StatCard 
-            title="Total Nodes" 
-            value={summary.totalNodes} 
-            icon={Layers} 
-          />
-          <StatCard 
-            title="Healthy Resources" 
-            value={`${summary.healthyResources}/${summary.totalResources}`} 
-            icon={Server} 
-          />
-        </div>
-      )}
-
-      <div className="relative mt-12 bg-black/20 rounded-2xl border border-border p-8 overflow-x-auto min-h-[600px]">
-        {/* Layer 1: Motions */}
-        <div className="mb-16 relative z-10">
-          <div className="flex items-center gap-3 mb-6">
-            <div className="h-px bg-border flex-1" />
-            <span className="text-xs font-bold text-muted-foreground uppercase tracking-widest px-2">Lifecycle Motions</span>
-            <div className="h-px bg-border flex-1" />
-          </div>
-          <div className="flex justify-center gap-6 min-w-max">
-            {isLoadingMotions ? (
-              <div className="flex gap-6">
-                {[1,2,3,4,5].map(i => <div key={i} className="w-56 h-32 rounded-xl bg-white/5 animate-pulse" />)}
-              </div>
-            ) : motions?.map((motion) => (
-              <NodeCard 
-                key={motion.id} 
-                node={motion} 
-                selected={selectedNode?.id === motion.id}
-                onClick={() => setSelectedNode(motion)}
-              />
-            ))}
-          </div>
-        </div>
-
-        {/* Layer 2: Delivery */}
-        <div className="mb-16 relative z-10">
-          <div className="flex items-center gap-3 mb-6">
-            <div className="h-px bg-border flex-1" />
-            <span className="text-xs font-bold text-muted-foreground uppercase tracking-widest px-2">Delivery & Orchestration</span>
-            <div className="h-px bg-border flex-1" />
-          </div>
-          <div className="flex justify-center gap-6 flex-wrap max-w-5xl mx-auto">
-            {isLoadingArch ? (
-              <div className="flex gap-6">
-                {[1,2,3].map(i => <div key={i} className="w-48 h-32 rounded-xl bg-white/5 animate-pulse" />)}
-              </div>
-            ) : deliveryNodes.map((node) => (
-              <NodeCard 
-                key={node.id} 
-                node={node} 
-                selected={selectedNode?.id === node.id}
-                onClick={() => setSelectedNode(node)}
-              />
-            ))}
-          </div>
-        </div>
-
-        {/* Layer 3: Platform */}
-        <div className="relative z-10">
-          <div className="flex items-center gap-3 mb-6">
-            <div className="h-px bg-border flex-1" />
-            <span className="text-xs font-bold text-muted-foreground uppercase tracking-widest px-2">Platform Systems</span>
-            <div className="h-px bg-border flex-1" />
-          </div>
-          <div className="flex justify-center gap-6 flex-wrap max-w-6xl mx-auto">
-             {isLoadingArch ? (
-              <div className="flex flex-wrap gap-6 justify-center">
-                {[1,2,3,4,5,6].map(i => <div key={i} className="w-48 h-32 rounded-xl bg-white/5 animate-pulse" />)}
-              </div>
-            ) : platformNodes.map((node) => (
-              <NodeCard 
-                key={node.id} 
-                node={node} 
-                selected={selectedNode?.id === node.id}
-                onClick={() => setSelectedNode(node)}
-              />
-            ))}
-          </div>
-        </div>
-      </div>
-
-      <NodeDrawer node={selectedNode} onClose={() => setSelectedNode(null)} />
-    </div>
+    <ReactFlowProvider>
+      <ArchitectureInner />
+    </ReactFlowProvider>
   );
 }

@@ -18,12 +18,14 @@ import type {
 
 import type {
   Account,
+  ArchitectureEdge,
   ArchitectureMap,
   ArchitectureNode,
   ArchitectureSummary,
   Connector,
   ConnectorHealthSummary,
   Deployment,
+  GraphData,
   HealthStatus,
   LifecycleMotion,
   ListArchitectureNodesParams,
@@ -31,6 +33,7 @@ import type {
   ListResourcesParams,
   NewConnectorInput,
   NewResourceInput,
+  NodeMetricSeries,
   PatchConnectorInput,
   PatchResourceInput,
   Resource,
@@ -187,6 +190,225 @@ export function useGetArchitecture<
   request?: SecondParameter<typeof customFetch>;
 }): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
   const queryOptions = getGetArchitectureQueryOptions(options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * @summary Get the full architecture graph (nodes + edges + groups)
+ */
+export const getGetGraphUrl = () => {
+  return `/api/graph`;
+};
+
+export const getGraph = async (options?: RequestInit): Promise<GraphData> => {
+  return customFetch<GraphData>(getGetGraphUrl(), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getGetGraphQueryKey = () => {
+  return [`/api/graph`] as const;
+};
+
+export const getGetGraphQueryOptions = <
+  TData = Awaited<ReturnType<typeof getGraph>>,
+  TError = ErrorType<unknown>,
+>(options?: {
+  query?: UseQueryOptions<Awaited<ReturnType<typeof getGraph>>, TError, TData>;
+  request?: SecondParameter<typeof customFetch>;
+}) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey = queryOptions?.queryKey ?? getGetGraphQueryKey();
+
+  const queryFn: QueryFunction<Awaited<ReturnType<typeof getGraph>>> = ({
+    signal,
+  }) => getGraph({ signal, ...requestOptions });
+
+  return { queryKey, queryFn, ...queryOptions } as UseQueryOptions<
+    Awaited<ReturnType<typeof getGraph>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type GetGraphQueryResult = NonNullable<
+  Awaited<ReturnType<typeof getGraph>>
+>;
+export type GetGraphQueryError = ErrorType<unknown>;
+
+/**
+ * @summary Get the full architecture graph (nodes + edges + groups)
+ */
+
+export function useGetGraph<
+  TData = Awaited<ReturnType<typeof getGraph>>,
+  TError = ErrorType<unknown>,
+>(options?: {
+  query?: UseQueryOptions<Awaited<ReturnType<typeof getGraph>>, TError, TData>;
+  request?: SecondParameter<typeof customFetch>;
+}): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getGetGraphQueryOptions(options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * @summary List all architecture edges
+ */
+export const getListEdgesUrl = () => {
+  return `/api/edges`;
+};
+
+export const listEdges = async (
+  options?: RequestInit,
+): Promise<ArchitectureEdge[]> => {
+  return customFetch<ArchitectureEdge[]>(getListEdgesUrl(), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getListEdgesQueryKey = () => {
+  return [`/api/edges`] as const;
+};
+
+export const getListEdgesQueryOptions = <
+  TData = Awaited<ReturnType<typeof listEdges>>,
+  TError = ErrorType<unknown>,
+>(options?: {
+  query?: UseQueryOptions<Awaited<ReturnType<typeof listEdges>>, TError, TData>;
+  request?: SecondParameter<typeof customFetch>;
+}) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey = queryOptions?.queryKey ?? getListEdgesQueryKey();
+
+  const queryFn: QueryFunction<Awaited<ReturnType<typeof listEdges>>> = ({
+    signal,
+  }) => listEdges({ signal, ...requestOptions });
+
+  return { queryKey, queryFn, ...queryOptions } as UseQueryOptions<
+    Awaited<ReturnType<typeof listEdges>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type ListEdgesQueryResult = NonNullable<
+  Awaited<ReturnType<typeof listEdges>>
+>;
+export type ListEdgesQueryError = ErrorType<unknown>;
+
+/**
+ * @summary List all architecture edges
+ */
+
+export function useListEdges<
+  TData = Awaited<ReturnType<typeof listEdges>>,
+  TError = ErrorType<unknown>,
+>(options?: {
+  query?: UseQueryOptions<Awaited<ReturnType<typeof listEdges>>, TError, TData>;
+  request?: SecondParameter<typeof customFetch>;
+}): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getListEdgesQueryOptions(options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * @summary Get time-series metrics for a node
+ */
+export const getGetNodeMetricsUrl = (nodeId: string) => {
+  return `/api/metrics/${nodeId}`;
+};
+
+export const getNodeMetrics = async (
+  nodeId: string,
+  options?: RequestInit,
+): Promise<NodeMetricSeries[]> => {
+  return customFetch<NodeMetricSeries[]>(getGetNodeMetricsUrl(nodeId), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getGetNodeMetricsQueryKey = (nodeId: string) => {
+  return [`/api/metrics/${nodeId}`] as const;
+};
+
+export const getGetNodeMetricsQueryOptions = <
+  TData = Awaited<ReturnType<typeof getNodeMetrics>>,
+  TError = ErrorType<unknown>,
+>(
+  nodeId: string,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof getNodeMetrics>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey = queryOptions?.queryKey ?? getGetNodeMetricsQueryKey(nodeId);
+
+  const queryFn: QueryFunction<Awaited<ReturnType<typeof getNodeMetrics>>> = ({
+    signal,
+  }) => getNodeMetrics(nodeId, { signal, ...requestOptions });
+
+  return {
+    queryKey,
+    queryFn,
+    enabled: !!nodeId,
+    ...queryOptions,
+  } as UseQueryOptions<
+    Awaited<ReturnType<typeof getNodeMetrics>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type GetNodeMetricsQueryResult = NonNullable<
+  Awaited<ReturnType<typeof getNodeMetrics>>
+>;
+export type GetNodeMetricsQueryError = ErrorType<unknown>;
+
+/**
+ * @summary Get time-series metrics for a node
+ */
+
+export function useGetNodeMetrics<
+  TData = Awaited<ReturnType<typeof getNodeMetrics>>,
+  TError = ErrorType<unknown>,
+>(
+  nodeId: string,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof getNodeMetrics>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getGetNodeMetricsQueryOptions(nodeId, options);
 
   const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
     queryKey: QueryKey;

@@ -40,6 +40,14 @@ export const GetArchitectureResponse = zod.object({
       status: zod.enum(["active", "degraded", "offline", "warning"]),
       ownerTeam: zod.string(),
       color: zod.string(),
+      healthScore: zod.number().optional(),
+      subtype: zod.string().optional(),
+      position: zod
+        .object({
+          x: zod.number().optional(),
+          y: zod.number().optional(),
+        })
+        .optional(),
     }),
   ),
   connections: zod.array(
@@ -51,6 +59,116 @@ export const GetArchitectureResponse = zod.object({
   ),
   layers: zod.array(zod.string()),
 });
+
+/**
+ * @summary Get the full architecture graph (nodes + edges + groups)
+ */
+export const GetGraphResponse = zod.object({
+  nodes: zod.array(
+    zod.object({
+      id: zod.string(),
+      name: zod.string(),
+      type: zod.string(),
+      layer: zod.enum(["lifecycle", "delivery", "platform"]),
+      icon: zod.string(),
+      shortDescription: zod.string(),
+      capabilities: zod.array(zod.string()),
+      lifecycleMotionIds: zod.array(zod.string()),
+      connectedNodeIds: zod.array(zod.string()),
+      resourceIds: zod.array(zod.string()),
+      kpis: zod.array(
+        zod.object({
+          label: zod.string(),
+          value: zod.string(),
+          trend: zod.enum(["up", "down", "flat"]).optional(),
+        }),
+      ),
+      status: zod.enum(["active", "degraded", "offline", "warning"]),
+      ownerTeam: zod.string(),
+      color: zod.string(),
+      healthScore: zod.number().optional(),
+      subtype: zod.string().optional(),
+      position: zod
+        .object({
+          x: zod.number().optional(),
+          y: zod.number().optional(),
+        })
+        .optional(),
+    }),
+  ),
+  edges: zod.array(
+    zod.object({
+      id: zod.string(),
+      source: zod.string(),
+      target: zod.string(),
+      relationshipType: zod.enum([
+        "data_flow",
+        "dependency",
+        "sync",
+        "composition",
+        "control",
+      ]),
+      label: zod.string().optional(),
+      strength: zod.number(),
+      status: zod.enum(["active", "degraded", "inactive"]),
+    }),
+  ),
+  groups: zod.array(
+    zod.object({
+      id: zod.string(),
+      name: zod.string(),
+      layer: zod.string(),
+      nodeIds: zod.array(zod.string()),
+      color: zod.string(),
+    }),
+  ),
+});
+
+/**
+ * @summary List all architecture edges
+ */
+export const ListEdgesResponseItem = zod.object({
+  id: zod.string(),
+  source: zod.string(),
+  target: zod.string(),
+  relationshipType: zod.enum([
+    "data_flow",
+    "dependency",
+    "sync",
+    "composition",
+    "control",
+  ]),
+  label: zod.string().optional(),
+  strength: zod.number(),
+  status: zod.enum(["active", "degraded", "inactive"]),
+});
+export const ListEdgesResponse = zod.array(ListEdgesResponseItem);
+
+/**
+ * @summary Get time-series metrics for a node
+ */
+export const GetNodeMetricsParams = zod.object({
+  nodeId: zod.coerce.string(),
+});
+
+export const GetNodeMetricsResponseItem = zod.object({
+  id: zod.string(),
+  nodeId: zod.string(),
+  metricName: zod.string(),
+  unit: zod.string(),
+  chartType: zod.enum(["line", "bar", "donut", "radial", "sparkline"]),
+  trendDirection: zod.enum(["up", "down", "flat"]).optional(),
+  currentValue: zod.number().optional(),
+  delta: zod.number().optional(),
+  points: zod.array(
+    zod.object({
+      timestamp: zod.string(),
+      value: zod.number(),
+      label: zod.string().optional(),
+    }),
+  ),
+});
+export const GetNodeMetricsResponse = zod.array(GetNodeMetricsResponseItem);
 
 /**
  * @summary List all architecture nodes
@@ -81,6 +199,14 @@ export const ListArchitectureNodesResponseItem = zod.object({
   status: zod.enum(["active", "degraded", "offline", "warning"]),
   ownerTeam: zod.string(),
   color: zod.string(),
+  healthScore: zod.number().optional(),
+  subtype: zod.string().optional(),
+  position: zod
+    .object({
+      x: zod.number().optional(),
+      y: zod.number().optional(),
+    })
+    .optional(),
 });
 export const ListArchitectureNodesResponse = zod.array(
   ListArchitectureNodesResponseItem,
@@ -114,6 +240,14 @@ export const GetArchitectureNodeResponse = zod.object({
   status: zod.enum(["active", "degraded", "offline", "warning"]),
   ownerTeam: zod.string(),
   color: zod.string(),
+  healthScore: zod.number().optional(),
+  subtype: zod.string().optional(),
+  position: zod
+    .object({
+      x: zod.number().optional(),
+      y: zod.number().optional(),
+    })
+    .optional(),
 });
 
 /**

@@ -24,7 +24,7 @@ export default function Resources() {
   const [categoryFilter, setCategoryFilter] = useState<string>("all");
   const [envFilter, setEnvFilter] = useState<string>("all");
 
-  const { data: resources = [], isLoading } = useListResources({
+  const { data: resources = [], isLoading } = useListResources(undefined, {
     query: { queryKey: getListResourcesQueryKey() }
   });
 
@@ -38,7 +38,7 @@ export default function Resources() {
   const categories = Array.from(new Set(resources.map(r => r.category)));
 
   return (
-    <div className="space-y-6 pb-10">
+    <div className="space-y-6 pb-10 p-6 h-full overflow-y-auto">
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
           <h1 className="text-3xl font-bold tracking-tight mb-2">Resource Explorer</h1>

@@ -2,72 +2,90 @@
 
 ## Overview
 
-CS Rescue is a visually-led, dark-mode enterprise web app that maps a company's full customer lifecycle architecture. It shows how lifecycle stages, delivery orchestration, and platform systems interconnect — designed for CS leadership, solutions teams, and executives.
+CS Rescue is a visually-led, dark-mode enterprise web app that maps a company's full customer lifecycle architecture. The Architecture page is a true interactive graph (React Flow) showing how lifecycle stages, delivery orchestration, and platform systems interconnect — with edge highlighting, faux telemetry, and a rich inspector drawer. Designed for CS leadership, solutions teams, and executives.
 
 ## Stack
 
 - **Monorepo tool**: pnpm workspaces
-- **Node.js version**: 24
-- **Package manager**: pnpm
-- **TypeScript version**: 5.9
-- **API framework**: Express 5
-- **Validation**: Zod (via Orval codegen)
-- **API codegen**: Orval (from OpenAPI spec)
-- **Frontend**: React + Vite + Tailwind CSS + shadcn/ui + Framer Motion
-- **Data**: In-memory mock data (no database required)
+- **Node.js**: 24, **TypeScript**: 5.9
+- **API**: Express 5, validated with Zod (Orval codegen)
+- **Frontend**: React + Vite + Tailwind + shadcn/ui + Framer Motion
+- **Graph**: React Flow (`reactflow`)
+- **Charts**: Recharts (line, bar, radial)
+- **Data**: In-memory mock data (no DB)
 
 ## Artifacts
 
-- **cs-rescue** (preview path `/`) — Main React/Vite frontend app
+- **cs-rescue** (preview path `/`) — React/Vite frontend
 - **api-server** (preview path `/api`) — Express backend with mock data
 
 ## Key Commands
 
-- `pnpm run typecheck` — full typecheck across all packages
-- `pnpm run build` — typecheck + build all packages
-- `pnpm --filter @workspace/api-spec run codegen` — regenerate API hooks and Zod schemas from OpenAPI spec
-- `pnpm --filter @workspace/api-server run dev` — run API server locally
+- `pnpm run typecheck` — typecheck all packages
+- `pnpm --filter @workspace/api-spec run codegen` — regenerate API hooks/Zod from OpenAPI spec
+- `pnpm --filter @workspace/api-server run dev` — run backend
+- `pnpm --filter @workspace/cs-rescue run dev` — run frontend
 
-## Architecture
+## Pages
 
-### Frontend Pages
+- `/` — **Architecture** — true interactive React Flow graph: pan/zoom, swimlanes (Lifecycle / Delivery / Platform), color-coded edges by relationship type (data_flow, dependency, sync, composition, control), node click highlights neighbors and opens inspector drawer with KPI chips, line/bar/radial charts, linked resources, and dependencies. Top filters: layer + health.
+- `/resources` — **Resource Explorer** — searchable, filterable grid of integrations.
+- `/deployments` — **Deployment Workspace** — per-customer rollout tracking.
+- `/connectors` — **Connector Admin** — connector registry table with toggles.
 
-- `/` — **Architecture View** — layered visual map of lifecycle nodes, delivery, and platform systems
-- `/resources` — **Resource Explorer** — grid of connected tools and integrations with filtering
-- `/deployments` — **Deployment Workspace** — per-customer rollout tracking with health scores and workstreams
-- `/connectors` — **Connector Admin** — manage integration connectors, toggle enable/disable
+## API Endpoints
 
-### Backend Structure
+| Method | Path | Description |
+|---|---|---|
+| GET | `/api/healthz` | Health check |
+| GET | `/api/graph` | Full graph: nodes + edges + groups (used by Architecture) |
+| GET | `/api/edges` | Architecture edges only |
+| GET | `/api/metrics/:nodeId` | Time-series metric series for a node (used by Inspector) |
+| GET | `/api/architecture` | Legacy: nodes + connections + layers |
+| GET | `/api/architecture/nodes` | List/filter nodes |
+| GET | `/api/architecture/nodes/:id` | Get a node |
+| GET | `/api/architecture/summary` | Overview stats |
+| GET/POST/PATCH | `/api/resources[/:id]` | Resources CRUD |
+| GET/POST/PATCH | `/api/connectors[/:id]` | Connectors CRUD |
+| GET | `/api/connectors/health` | Connector health summary |
+| GET | `/api/deployments[/:id]` | Deployments |
+| GET | `/api/accounts` | Accounts |
+| GET | `/api/lifecycle-motions` | Lifecycle motions |
+
+## File Map
 
 ```
 artifacts/api-server/src/
 ├── data/
-│   └── mockData.ts          # All mock data: nodes, resources, connectors, deployments, accounts
-├── routes/
-│   ├── architecture.ts      # GET /api/architecture, /api/architecture/nodes, /api/architecture/summary
-│   ├── resources.ts         # GET/POST /api/resources, GET/PATCH /api/resources/:id
-│   ├── connectors.ts        # GET/POST /api/connectors, PATCH /api/connectors/:id, GET /api/connectors/health
-│   ├── deployments.ts       # GET /api/deployments, GET /api/deployments/:id
-│   ├── accounts.ts          # GET /api/accounts
-│   └── lifecycle.ts         # GET /api/lifecycle-motions
+│   ├── mockData.ts           # Nodes, resources, connectors, deployments, accounts
+│   └── graphData.ts          # Edges, groups, healthScores, positions, metrics
+└── routes/
+    ├── graph.ts              # /graph, /edges, /metrics/:nodeId
+    ├── architecture.ts       # /architecture/*
+    └── ... (resources, connectors, deployments, accounts, lifecycle, health)
+
+artifacts/cs-rescue/src/
+├── components/architecture/
+│   ├── ArchitectureNode.tsx  # Custom React Flow node (icon, status dot, health ring)
+│   └── Inspector.tsx         # Right-side drawer with Recharts visualizations
+└── pages/
+    ├── Architecture.tsx      # Main graph canvas with React Flow
+    ├── Resources.tsx
+    ├── Deployments.tsx
+    └── Connectors.tsx
+
+lib/api-spec/openapi.yaml     # OpenAPI source of truth — run codegen after changes
 ```
 
-### Data Models
+## Where to edit
 
-- **ArchitectureNode** — lifecycle/delivery/platform nodes with KPIs, connected nodes, resources
-- **Resource** — external system integrations (CRM, ticketing, data warehouse, etc.)
-- **Connector** — integration connectors with auth type, health, and configuration schema
-- **Deployment** — customer rollout with stages, milestones, workstreams, and blockers
-- **Account** — customer accounts with lifecycle stages and owner info
-- **LifecycleMotion** — the 5 primary lifecycle stages with KPIs
+- **Add or change a node** → `mockData.ts` (`architectureNodes`) + `graphData.ts` (position + healthScore + metrics)
+- **Add or change an edge** → `graphData.ts` (`architectureEdges`)
+- **Change metrics shown in inspector** → `graphData.ts` (`nodeMetrics`)
+- **Change API contract** → `openapi.yaml` then run codegen
 
 ## Customization
 
-- **Swap mock data for real APIs**: Replace data in `artifacts/api-server/src/data/mockData.ts` with database queries
-- **Add authentication**: Integrate Clerk auth or Replit auth
-- **Branding**: Update colors in `artifacts/cs-rescue/src/index.css` CSS custom properties
-- **Add new nodes/connectors**: Extend the arrays in `mockData.ts` and update the OpenAPI spec
-
-## API Spec
-
-See `lib/api-spec/openapi.yaml` for the full OpenAPI contract. After any spec change, run codegen.
+- Replace mock data with database queries in `data/*.ts` files.
+- Add auth via the auth skill.
+- Branding: edit CSS custom properties in `artifacts/cs-rescue/src/index.css`.

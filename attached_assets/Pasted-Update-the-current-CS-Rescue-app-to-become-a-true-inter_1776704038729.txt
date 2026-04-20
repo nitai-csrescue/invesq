@@ -1,0 +1,282 @@
+Update the current CS Rescue app to become a true interactive architecture-diagram product mockup rather than a layered card layout.
+
+The current version has the right conceptual structure, but it still feels like grouped UI cards instead of a real systems architecture view.
+
+I want you to refactor the main experience around a real graph-based architecture diagram with linked faux data and visualizations.
+
+PRIMARY GOAL
+Turn the current homepage into a real architecture map where:
+- nodes represent lifecycle motions, delivery capabilities, and backend/shared systems
+- edges represent actual relationships and dependencies
+- clicking a node highlights connected edges and related nodes
+- the right-side drawer shows faux data, health, linked systems, dependencies, and mini visualizations
+- the overall experience feels like a productized architecture intelligence platform
+
+DESIGN / UX CHANGES
+1. Replace the current static row-based grouped node layout with a true graph layout.
+   Prefer React Flow or a similar graph/diagram library.
+   The diagram should support:
+   - pan
+   - zoom
+   - node selection
+   - edge highlighting
+   - grouped layers or swimlanes
+   - smooth transitions
+   - visually meaningful topology
+
+2. Keep the architecture grouped into 3 conceptual zones, but show them as swimlanes / bounded regions instead of simple rows:
+   - Lifecycle Motions
+   - Delivery / Orchestration
+   - Shared Platform / Systems
+
+3. Add a 4th optional zone for Connected Resources / External Systems:
+   - Salesforce / CRM
+   - Proprietary APIs
+   - Analytics / BI
+   - Support / Ticketing
+   - Contract / Signature tools
+   - Knowledge / Documents
+   - Data warehouse
+   - Compliance / audit tools
+   - Identity / auth
+   - ETL / orchestration
+   - Event / webhook systems
+
+4. The graph should visually communicate relationships:
+   - lifecycle motions connect into delivery
+   - delivery connects into platform services
+   - platform services connect into concrete tools/resources
+   - some resources connect to multiple nodes
+
+5. Reduce on-screen explanatory text significantly.
+   Make the app feel more visual and intuitive:
+   - icon-led nodes
+   - compact labels
+   - hover tooltips
+   - status dots
+   - health rings
+   - small badges
+   - mini KPI chips
+   - mini charts in the side panel
+   - fewer paragraphs
+
+INTERACTION MODEL
+When the user clicks a node, do all of the following:
+- highlight the selected node
+- dim unrelated nodes
+- highlight directly connected nodes and edges
+- open a right-side inspector drawer
+- show faux metadata for that node
+- show a list of connected systems/resources
+- show a small dependency visualization or related mini-map
+- show 2–3 mini charts with faux data
+
+EXAMPLES OF FAUX DATA TO SHOW
+For lifecycle nodes:
+- conversion trend
+- avg cycle time
+- readiness score
+- active projects count
+
+For implementation / deployment nodes:
+- launch readiness %
+- blockers by category
+- milestone burndown
+- linked systems health
+
+For platform nodes:
+- API availability
+- jobs processed
+- policy/rule versions
+- dependency count
+- incident count
+- recent sync activity
+
+For resource nodes:
+- connector health
+- last sync time
+- environment
+- owner team
+- sensitivity tier
+- downstream dependencies
+
+VISUALIZATION REQUIREMENTS
+In the inspector panel, include lightweight charts using faux data:
+- line chart for trend over time
+- donut or radial chart for health/readiness
+- bar chart for blockers/dependency categories
+- tiny sparkline or KPI tiles
+Use a clean charting library like Recharts.
+
+Do not make charts huge.
+They should feel like embedded intelligence cards.
+
+DATA MODEL IMPROVEMENTS
+Refactor the mock data model so the graph is driven by explicit nodes and edges.
+
+Use typed interfaces for:
+- ArchitectureNode
+- ArchitectureEdge
+- Resource
+- Connector
+- Deployment
+- Account
+- NodeMetricSeries
+
+ArchitectureNode should include:
+- id
+- name
+- category
+- layer
+- subtype
+- icon
+- status
+- healthScore
+- shortDescription
+- ownerTeam
+- linkedResourceIds
+- linkedDeploymentIds
+- metricIds
+
+ArchitectureEdge should include:
+- id
+- source
+- target
+- relationshipType
+- label
+- strength
+- status
+
+Resource should include:
+- id
+- name
+- category
+- vendor
+- environment
+- owner
+- health
+- status
+- lastSyncAt
+- linkedNodeIds
+- metadata
+
+NodeMetricSeries should include:
+- id
+- nodeId
+- metricName
+- points
+- unit
+- trendDirection
+
+FAUX DATA REQUIREMENTS
+Create realistic seeded mock data for:
+- 12–18 architecture nodes
+- 18–30 edges
+- 12–20 resources/connectors
+- 3 deployments
+- 4 accounts
+- 3–5 metric series per major node
+
+Seed the mock data so the UI feels believable:
+- some nodes healthy
+- some warning
+- some at risk
+- some resources shared across multiple nodes
+- some deployments blocked by dependencies
+- some nodes have high readiness but low adoption
+- some platform services are heavily connected
+
+NEW UI STRUCTURE
+Keep the overall shell, but improve it:
+
+Top nav:
+- Architecture
+- Deployments
+- Resources
+- Connectors
+- Admin
+
+Main Architecture page:
+- full graph canvas as the hero
+- top-level filters:
+  - by lifecycle motion
+  - by environment
+  - by deployment
+  - by resource category
+  - by health status
+- right-side inspector drawer
+- small top summary strip with 3–4 KPI chips only
+
+Deployment page:
+- select a deployment/account
+- show subgraph of only relevant nodes/resources
+- show deployment readiness, blockers, milestones, linked resources
+- show faux status visualizations
+
+Resources page:
+- show resources as cards and optionally as a network map
+- enable filtering by category, owner, health, environment
+- clicking resource should show what architecture nodes it supports
+
+Connectors/Admin page:
+- show connector registry
+- add/edit mock connector
+- map connector to nodes
+- show connector health, sync direction, owner, environment, sensitivity
+- no real auth needed, just mock forms/state
+
+TECHNICAL REQUIREMENTS
+Use:
+- React
+- TypeScript
+- Tailwind
+- shadcn/ui where useful
+- React Flow for the architecture graph
+- Recharts for faux visualizations
+- Framer Motion for subtle transitions
+
+Backend:
+- keep mock backend/API structure
+- use typed mock endpoints
+- organize data in a way that can later be replaced with a real DB
+
+Suggested mock API routes:
+- GET /api/graph
+- GET /api/nodes
+- GET /api/edges
+- GET /api/resources
+- GET /api/resources/:id
+- GET /api/deployments
+- GET /api/deployments/:id
+- GET /api/accounts
+- GET /api/connectors
+- GET /api/metrics/:nodeId
+
+IMPORTANT IMPLEMENTATION NOTES
+- The architecture diagram must be the centerpiece.
+- Avoid reverting back to stacked cards pretending to be architecture.
+- Relationships must be explicit and interactive.
+- The inspector drawer should feel high value and data-rich, but still visually light.
+- Keep copy concise.
+- The result should feel like a premium concept prototype for an architecture intelligence product.
+
+SPECIFIC QA FIXES TO APPLY
+1. Replace decorative connector lines with actual graph edges.
+2. Replace row-based layout with true positioned graph nodes.
+3. Make node clicks trigger faux data visualizations, not just text swaps.
+4. Reduce paragraph copy by at least 50%.
+5. Make the right panel more visual:
+   - KPI chips
+   - health ring
+   - line chart
+   - dependency list
+   - linked resources list
+6. Add clear differentiation between business architecture nodes and technical resource nodes.
+7. Make the architecture feel navigable and alive.
+
+At the end, provide:
+- updated file structure
+- summary of what changed from v1 to v2
+- which components power the graph
+- where faux data is seeded
+- where to edit nodes, edges, and metrics

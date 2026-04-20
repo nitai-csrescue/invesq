@@ -6,6 +6,7 @@
  * OpenAPI spec version: 0.1.0
  */
 import type { ArchitectureNodeLayer } from "./architectureNodeLayer";
+import type { ArchitectureNodePosition } from "./architectureNodePosition";
 import type { ArchitectureNodeStatus } from "./architectureNodeStatus";
 import type { Kpi } from "./kpi";
 
@@ -24,4 +25,7 @@ export interface ArchitectureNode {
   status: ArchitectureNodeStatus;
   ownerTeam: string;
   color: string;
+  healthScore?: number;
+  subtype?: string;
+  position?: ArchitectureNodePosition;
 }

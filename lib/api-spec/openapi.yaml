@@ -49,6 +49,55 @@ paths:
               schema:
                 $ref: "#/components/schemas/ArchitectureMap"
 
+  /graph:
+    get:
+      operationId: getGraph
+      tags: [architecture]
+      summary: Get the full architecture graph (nodes + edges + groups)
+      responses:
+        "200":
+          description: Graph data for visualization
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/GraphData"
+
+  /edges:
+    get:
+      operationId: listEdges
+      tags: [architecture]
+      summary: List all architecture edges
+      responses:
+        "200":
+          description: List of edges
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/ArchitectureEdge"
+
+  /metrics/{nodeId}:
+    get:
+      operationId: getNodeMetrics
+      tags: [architecture]
+      summary: Get time-series metrics for a node
+      parameters:
+        - name: nodeId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: List of metric series for the node
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/NodeMetricSeries"
+
   /architecture/nodes:
     get:
       operationId: listArchitectureNodes
@@ -411,6 +460,17 @@ components:
           type: string
         color:
           type: string
+        healthScore:
+          type: number
+        subtype:
+          type: string
+        position:
+          type: object
+          properties:
+            x:
+              type: number
+            y:
+              type: number
       required:
         - id
         - name
@@ -426,6 +486,121 @@ components:
         - status
         - ownerTeam
         - color
+
+    ArchitectureEdge:
+      type: object
+      properties:
+        id:
+          type: string
+        source:
+          type: string
+        target:
+          type: string
+        relationshipType:
+          type: string
+          enum: [data_flow, dependency, sync, composition, control]
+        label:
+          type: string
+        strength:
+          type: number
+        status:
+          type: string
+          enum: [active, degraded, inactive]
+      required:
+        - id
+        - source
+        - target
+        - relationshipType
+        - strength
+        - status
+
+    ArchitectureGroup:
+      type: object
+      properties:
+        id:
+          type: string
+        name:
+          type: string
+        layer:
+          type: string
+        nodeIds:
+          type: array
+          items:
+            type: string
+        color:
+          type: string
+      required:
+        - id
+        - name
+        - layer
+        - nodeIds
+        - color
+
+    GraphData:
+      type: object
+      properties:
+        nodes:
+          type: array
+          items:
+            $ref: "#/components/schemas/ArchitectureNode"
+        edges:
+          type: array
+          items:
+            $ref: "#/components/schemas/ArchitectureEdge"
+        groups:
+          type: array
+          items:
+            $ref: "#/components/schemas/ArchitectureGroup"
+      required:
+        - nodes
+        - edges
+        - groups
+
+    MetricPoint:
+      type: object
+      properties:
+        timestamp:
+          type: string
+        value:
+          type: number
+        label:
+          type: string
+      required:
+        - timestamp
+        - value
+
+    NodeMetricSeries:
+      type: object
+      properties:
+        id:
+          type: string
+        nodeId:
+          type: string
+        metricName:
+          type: string
+        unit:
+          type: string
+        chartType:
+          type: string
+          enum: [line, bar, donut, radial, sparkline]
+        trendDirection:
+          type: string
+          enum: [up, down, flat]
+        currentValue:
+          type: number
+        delta:
+          type: number
+        points:
+          type: array
+          items:
+            $ref: "#/components/schemas/MetricPoint"
+      required:
+        - id
+        - nodeId
+        - metricName
+        - unit
+        - chartType
+        - points
 
     NodeConnection:
       type: object

@@ -45,7 +45,7 @@ export default function Connectors() {
   };
 
   return (
-    <div className="space-y-8 pb-10">
+    <div className="space-y-8 pb-10 p-6 h-full overflow-y-auto">
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
           <h1 className="text-3xl font-bold tracking-tight mb-2">Connector Admin</h1>
@@ -135,7 +135,7 @@ export default function Connectors() {
                         </div>
                         <div>
                           <p className="font-medium text-foreground">{connector.name}</p>
-                          <p className="text-xs text-muted-foreground">{connector.owner}</p>
+                          <p className="text-xs text-muted-foreground">{connector.dataOwner}</p>
                         </div>
                       </div>
                     </td>
