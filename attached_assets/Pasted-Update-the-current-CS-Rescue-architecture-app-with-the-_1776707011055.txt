@@ -1,0 +1,241 @@
+Update the current CS Rescue architecture app with the following changes.
+
+GOAL
+Make the architecture easier to read, simpler by default, and configurable by persona.
+The app should feel less like a static architecture diagram and more like a role-aware operating interface.
+
+PRIORITY 1 — ADD PERSONA-AWARE RENDERING
+
+1. Add a persona switcher to the top bar.
+Use these personas:
+- VP
+- Sales
+- Post-Sales
+- Customer Success
+- Support
+- Engineering
+
+2. Store the selected persona in app state.
+Default persona = VP.
+
+3. Add persona metadata to every architecture node.
+Each node should support:
+- visibleTo: string[]
+- priorityByPersona: object
+- simplifiedLabel: string
+- clusterGroup: string
+- businessCriticality: number
+- technicalCriticality: number
+
+Example shape:
+{
+  id: "implementation",
+  title: "Implementation",
+  simplifiedLabel: "Onboarding",
+  visibleTo: ["vp", "sales", "post-sales", "cs", "support", "engineering"],
+  priorityByPersona: {
+    vp: 9,
+    sales: 8,
+    "post-sales": 10,
+    cs: 6,
+    support: 5,
+    engineering: 4
+  },
+  clusterGroup: "delivery",
+  businessCriticality: 10,
+  technicalCriticality: 6
+}
+
+4. Render nodes differently based on persona.
+Rules:
+- VP: show only the most important business and delivery nodes; collapse technical/platform detail
+- Sales: emphasize Pre-Sales, Contract, Implementation, CRM-related nodes
+- Post-Sales: emphasize Implementation, Delivery, Playbooks, Deployment Intelligence
+- Customer Success: emphasize CSM / Upsell, Support, Analytics, CRM
+- Support: emphasize Support, Case Management, Knowledge, impacted systems
+- Engineering: show all platform nodes and system/resource relationships in full
+
+5. Filter and sort nodes by persona before rendering.
+- hide nodes not relevant to that persona
+- sort visible nodes by priorityByPersona[selectedPersona]
+
+PRIORITY 2 — REDUCE VISUAL NOISE
+
+6. Remove the always-visible horizontal connector lines from each node row.
+Delete or disable the CSS rule:
+.node-grid::before
+
+7. Remove the always-visible vertical connector lines between tiers.
+Delete or disable the CSS rules:
+.architecture-shell::before
+.architecture-shell::after
+
+8. Keep the tier grouping and tier labels.
+These are useful and should remain.
+
+9. Replace visual line dependency cues with compact relationship hints inside nodes.
+Each node card should optionally show one small metadata chip such as:
+- “3 linked systems”
+- “2 dependencies”
+- “Feeds delivery”
+- “Shared platform”
+Do not show more than 1 or 2 small chips on the card.
+
+10. Make the main canvas readable without needing lines.
+The grouping, color, spacing, and labels should carry the meaning.
+
+PRIORITY 3 — ADD VIEW MODES
+
+11. Add a view mode switcher next to the persona switcher.
+Modes:
+- Business View
+- Dependency View
+- Systems View
+
+12. Default to Business View.
+
+13. Business View behavior:
+- hide most platform detail unless highly relevant
+- hide connector lines entirely
+- show grouped nodes only
+- emphasize health/status and role relevance
+
+14. Dependency View behavior:
+- show only selected-node relationships
+- do not show all lines at once
+- when a node is clicked, reveal first-degree dependencies only
+
+15. Systems View behavior:
+- available especially for Engineering persona
+- show full platform/system layer
+- show explicit relationships and connected resources
+- surface technical health and integration metadata
+
+PRIORITY 4 — SIMPLIFY MAIN CANVAS CONTENT
+
+16. Reduce copy in the top header.
+Replace longer explanatory sentences with shorter text.
+
+Change:
+“This view is structured like an architecture map rather than a dashboard...”
+To something like:
+“See how lifecycle, delivery, and platform systems connect.”
+
+17. Reduce text inside the side panels and summary cards.
+Keep text concise and visual-first.
+
+18. Keep node cards compact.
+Each node card should show only:
+- icon
+- title
+- short subtitle or simplifiedLabel
+- status/health indicator
+- optional chip for dependency count or relationship type
+
+19. Do not show long descriptive text on the canvas.
+All longer explanation belongs in the detail drawer/panel.
+
+PRIORITY 5 — IMPROVE DETAIL PANEL
+
+20. Keep the right-side detail panel, but make it more useful and slightly more visual.
+For a selected node show:
+- title
+- one short sentence
+- 3 KPI chips
+- 3–5 responsibilities
+- 2–4 related systems/resources
+- persona-aware “why this matters” section
+
+21. Add persona-aware detail copy.
+Example:
+- VP sees: business impact, risk, deployment relevance
+- Sales sees: deal relevance, readiness, handoff implications
+- Engineering sees: dependencies, technical role, systems impact
+
+22. Add a small “Related systems” list to the detail panel even if it is faux/static for now.
+
+PRIORITY 6 — MAKE THE APP CONFIG-DRIVEN
+
+23. Refactor the architectureNodes array so rendering is driven by metadata, not hardcoded assumptions.
+Move toward a config-driven model:
+- persona visibility
+- priority
+- chips
+- related systems
+- health
+- view mode relevance
+
+24. Create helper functions:
+- getVisibleNodes(persona, viewMode)
+- sortNodesForPersona(nodes, persona)
+- getCollapsedPlatformNodeIfNeeded(persona, viewMode)
+- getDetailContent(node, persona)
+
+25. Add a collapsed platform representation for non-technical personas.
+For VP / Sales / CS / Post-Sales in Business View:
+- replace most platform nodes with one grouped node:
+  “Platform Systems”
+- clicking it can still reveal the deeper platform detail in the side panel
+
+PRIORITY 7 — HEALTH / STATUS IMPROVEMENTS
+
+26. Add a small health status indicator to every node.
+Possible forms:
+- colored dot
+- mini badge
+- thin top border color
+Do not make it visually heavy.
+
+27. Use simple semantic statuses:
+- healthy
+- warning
+- at-risk
+
+28. Surface this status in the detail panel too.
+
+PRIORITY 8 — UX POLISH
+
+29. Add subtle transitions when switching persona or view mode.
+- fade or animate node updates
+- do not use heavy animation
+
+30. On persona switch:
+- re-render the canvas with visible changes
+- do not just update a label; the architecture itself must adapt
+
+31. On node selection:
+- highlight the selected node clearly
+- dim non-relevant nodes slightly in Dependency View
+- keep Business View clean and readable
+
+32. Preserve responsiveness.
+Mobile/tablet can stack, but desktop should remain the primary experience.
+
+SUCCESS CRITERIA
+
+The update is successful if:
+1. VP mode is understandable in under 10 seconds
+2. Engineering mode feels deeper and more technical
+3. Business View does not rely on connector lines to make sense
+4. The architecture feels configurable, not hardcoded
+5. The same system looks meaningfully different by persona
+6. The canvas is simpler and easier to scan than the current version
+
+IMPLEMENTATION NOTES
+
+- Do not rebuild the whole app from scratch
+- Refactor the current structure
+- Keep the current visual quality
+- Keep the current tier model
+- Focus on simplifying the reading experience
+- Make lines secondary, not primary
+- Use metadata and conditional rendering instead of static one-size-fits-all layout
+
+DELIVERABLES
+
+After implementing, provide:
+1. summary of what changed
+2. which files were updated
+3. how persona rendering works
+4. how view mode rendering works
+5. where to edit node metadata later

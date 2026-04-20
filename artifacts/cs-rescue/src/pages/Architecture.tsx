@@ -58,11 +58,12 @@ function ArchitectureInner() {
     query: { queryKey: getListResourcesQueryKey() },
   });
 
-  const { persona, viewMode, setViewMode, simplify, setSimplify, clusterByRelevance, setClusterByRelevance } = usePersona();
+  const { persona, setPersona, viewMode, setViewMode, simplify, setSimplify, clusterByRelevance, setClusterByRelevance } = usePersona();
 
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [hoverId, setHoverId] = useState<string | null>(null);
   const [showDepsForId, setShowDepsForId] = useState<string | null>(null);
+  const [highlightIds, setHighlightIds] = useState<Set<string>>(new Set());
 
   const allNodes = graph?.nodes ?? [];
   const allEdges = graph?.edges ?? [];
@@ -186,6 +187,52 @@ function ArchitectureInner() {
     setShowDepsForId(null);
   }, [persona, viewMode]);
 
+  // Consume "Open recommended view" handoff from AI Copilot.
+  // We read the payload once on mount, apply persona + highlight set, and
+  // clear the highlight after a few seconds so the page settles.
+  useEffect(() => {
+    const raw = sessionStorage.getItem("cs-rescue:highlight");
+    if (!raw) return;
+    let timeoutId: number | null = null;
+    try {
+      const payload = JSON.parse(raw) as {
+        nodeIds?: string[];
+        persona?: string;
+        ts?: number;
+      };
+      sessionStorage.removeItem("cs-rescue:highlight");
+
+      // Stale handoffs (older than 60s) are ignored.
+      if (payload.ts && Date.now() - payload.ts > 60_000) return;
+
+      const allowedPersonas = ["vp", "sales", "post-sales", "cs", "support", "engineering"] as const;
+      if (
+        typeof payload.persona === "string" &&
+        (allowedPersonas as readonly string[]).includes(payload.persona)
+      ) {
+        setPersona(payload.persona as typeof persona);
+      }
+      // Always land users in Business view — that's where the highlight reads best.
+      setViewMode("business");
+
+      const ids = Array.isArray(payload.nodeIds)
+        ? payload.nodeIds.filter((x): x is string => typeof x === "string")
+        : [];
+      if (ids.length > 0) {
+        setHighlightIds(new Set(ids));
+        // Auto-clear after a short pulse so the rest of the page returns to normal.
+        timeoutId = window.setTimeout(() => setHighlightIds(new Set()), 6000);
+      }
+    } catch {
+      // Ignore malformed payloads.
+    }
+    return () => {
+      if (timeoutId !== null) window.clearTimeout(timeoutId);
+    };
+    // We intentionally only run this on mount.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   const selectedNode = allNodes.find((n) => n.id === selectedId) ?? null;
 
   if (isLoading) {
@@ -268,6 +315,7 @@ function ArchitectureInner() {
             showDepsForId={showDepsForId}
             onSelect={setSelectedId}
             onHover={setHoverId}
+            highlightIds={highlightIds}
           />
         ) : (
           <>

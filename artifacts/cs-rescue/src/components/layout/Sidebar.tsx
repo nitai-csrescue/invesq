@@ -3,12 +3,14 @@ import {
   Network, 
   Database, 
   Rocket, 
-  Link as LinkIcon 
+  Link as LinkIcon,
+  Sparkles,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 const navItems = [
   { href: "/", icon: Network, label: "Architecture" },
+  { href: "/ai-copilot", icon: Sparkles, label: "AI Copilot" },
   { href: "/resources", icon: Database, label: "Resources" },
   { href: "/deployments", icon: Rocket, label: "Deployments" },
   { href: "/connectors", icon: LinkIcon, label: "Connectors" },

@@ -16,6 +16,8 @@ interface BusinessViewProps {
   showDepsForId: string | null;
   onSelect: (id: string | null) => void;
   onHover: (id: string | null) => void;
+  /** Optional set of node ids to highlight (e.g. AI Copilot recommendations). */
+  highlightIds?: Set<string>;
 }
 
 type NodeWithMeta = ArchitectureNode & {
@@ -49,6 +51,7 @@ export function BusinessView({
   showDepsForId,
   onSelect,
   onHover,
+  highlightIds,
 }: BusinessViewProps) {
   // Compute neighbors (used for highlight on hover/selection/show-deps)
   const neighborMap = useMemo(() => {
@@ -171,7 +174,8 @@ export function BusinessView({
                   const isFocused = focusId === n.id;
                   const isFocusNeighbor = focusNeighbors.has(n.id);
                   const isShowDepsNeighbor = showDepsNeighbors.has(n.id);
-                  const isDimmed = focusId && !isFocused && !isFocusNeighbor;
+                  const isRecommended = highlightIds?.has(n.id) ?? false;
+                  const isDimmed = focusId && !isFocused && !isFocusNeighbor && !isRecommended;
                   const ringMeta = healthRing(n.healthScore ?? 85);
 
                   return (
@@ -191,6 +195,7 @@ export function BusinessView({
                         isCollapsed ? "py-2 px-3" : "p-3",
                         isFocused && "border-cyan-400/80 bg-cyan-500/10 shadow-lg shadow-cyan-500/20",
                         (isFocusNeighbor || isShowDepsNeighbor) && !isFocused && "border-purple-400/40 bg-purple-500/5",
+                        isRecommended && !isFocused && "border-purple-400/80 bg-purple-500/10 shadow-lg shadow-purple-500/30 animate-pulse",
                         isDimmed && "opacity-30",
                       )}
                     >

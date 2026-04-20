@@ -10,6 +10,7 @@ import Architecture from "@/pages/Architecture";
 import Resources from "@/pages/Resources";
 import Deployments from "@/pages/Deployments";
 import Connectors from "@/pages/Connectors";
+import AICopilot from "@/pages/AICopilot";
 
 const queryClient = new QueryClient();
 
@@ -21,6 +22,7 @@ function Router() {
         <Route path="/resources" component={Resources} />
         <Route path="/deployments" component={Deployments} />
         <Route path="/connectors" component={Connectors} />
+        <Route path="/ai-copilot" component={AICopilot} />
         <Route component={NotFound} />
       </Switch>
     </Layout>

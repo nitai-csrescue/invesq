@@ -1,0 +1,181 @@
+Add a new tab called “AI Copilot” to the CS Rescue app.
+
+GOAL
+Create a demo-friendly AI experience that can generate persona-specific summaries, walkthroughs, and recommended architecture focus areas using the existing mock data.
+
+This should not be a fully autonomous agent.
+It should be a lightweight AI-assisted persona briefing and demo builder.
+
+CORE UX
+
+Create a new top nav tab:
+- AI Copilot
+
+On the AI Copilot page, build a clean interface with these sections:
+
+1. Input Panel
+Include:
+- Persona selector
+  - VP
+  - Sales
+  - Post-Sales
+  - Customer Success
+  - Support
+  - Engineering
+- Account selector
+- Deployment selector
+- Goal selector
+  - Executive Review
+  - Deal Strategy
+  - Rollout Checkpoint
+  - Renewal Risk Review
+  - Support Escalation Review
+  - Technical Dependency Review
+- Optional freeform prompt field:
+  - “What should this person care about?”
+  - “Generate a demo summary”
+  - “Summarize top risks”
+
+2. Generate Button
+Button label:
+- Generate Briefing
+
+3. Output Area
+Return a persona-specific mock AI response with:
+- brief summary
+- top 3 priorities
+- top 3 risks
+- top 3 opportunities
+- recommended nodes to inspect
+- recommended systems/resources to inspect
+- suggested demo talk track
+- optional next actions
+
+AI OUTPUT FORMAT
+Render output as cards/sections, not one giant block of chat text.
+
+Suggested sections:
+- Executive Summary
+- Priorities
+- Risks
+- Opportunities
+- Recommended Architecture Focus
+- Suggested Walkthrough
+- Next Actions
+
+MOCK AI IMPLEMENTATION APPROACH
+
+Implement this in two stages:
+
+STAGE 1
+Use a structured mock “agent” function that generates persona-specific summaries from existing mock data.
+No real model required yet.
+
+Create helper functions such as:
+- buildPersonaContext(persona, account, deployment)
+- getRelevantNodesForPersona(persona)
+- getTopRisks(persona, deployment)
+- getTopOpportunities(persona, deployment)
+- generateDemoBriefing(persona, account, deployment, goal)
+
+Use existing node/resource/deployment/metric data to generate believable summaries.
+
+STAGE 2
+Structure the code so a real LLM call could be added later.
+Abstract the generator behind a service layer such as:
+- /services/ai/generateBriefing.ts
+
+The current implementation can return deterministic mock output, but the code should be ready to swap to a real API later.
+
+PERSONA OUTPUT RULES
+
+VP:
+- summarize health, blockers, adoption, deployment risk, business impact
+- keep technical detail low
+- highlight 3 business-critical nodes only
+
+Sales:
+- focus on deal readiness, scope risk, handoff confidence, CRM context
+- highlight commercial blockers and implementation dependencies
+
+Post-Sales:
+- focus on rollout health, milestones, linked systems, blockers, enablement
+
+Customer Success:
+- focus on adoption, renewal risk, support signals, expansion opportunity
+
+Support:
+- focus on case volume, escalations, impacted systems, likely root-cause clusters
+
+Engineering:
+- focus on dependencies, degraded systems, API/platform risk, linked resources
+
+MOCK DATA USAGE
+
+The AI Copilot should use:
+- nodes
+- resources
+- deployments
+- accounts
+- metrics
+- statuses
+- health scores
+
+Examples:
+- if deployment healthScore < 70, surface as risk
+- if api-gateway is at-risk, mention integration risk for Engineering and Post-Sales
+- if support/case-management metrics are worsening, mention operational strain for Support and CS
+- if csm-upsell metrics are strong, mention expansion opportunity for VP and CS
+
+UI REQUIREMENTS
+
+Keep the AI page lightweight and polished:
+- no dense chatbot interface
+- use cards and chips
+- keep outputs concise
+- allow regenerate
+- include a “Copy demo summary” button
+- include a “Highlight recommended nodes in architecture” button
+
+OPTIONAL BONUS FEATURE
+Add a button:
+- “Open recommended view”
+This should route back to the architecture tab and preselect/highlight the recommended nodes for that persona.
+
+TECHNICAL STRUCTURE
+
+Add:
+- /pages or /routes/ai-copilot
+- /services/ai/generateBriefing.ts
+- /components/ai/AICopilotInputPanel.tsx
+- /components/ai/AICopilotOutput.tsx
+- /components/ai/BriefingCard.tsx
+
+Suggested output object shape:
+{
+  persona: "vp",
+  accountId: "acct-northstar-bank",
+  deploymentId: "dep-northstar",
+  goal: "Executive Review",
+  summary: "...",
+  priorities: ["...", "...", "..."],
+  risks: ["...", "...", "..."],
+  opportunities: ["...", "...", "..."],
+  recommendedNodeIds: ["implementation", "fd-delivery", "deployment-intelligence"],
+  recommendedResourceIds: ["salesforce-crm", "proprietary-api"],
+  walkthroughSteps: ["...", "...", "..."],
+  nextActions: ["...", "...", "..."]
+}
+
+SUCCESS CRITERIA
+
+This feature is successful if:
+1. A user can choose a persona and get a believable role-specific summary in one click
+2. The summary feels tied to the architecture and mock data
+3. The output is concise and demo-friendly
+4. The feature makes the overall platform feel more usable and intelligent
+5. The AI tab feels like a real product extension, not a gimmick
+
+IMPORTANT
+Do not build a fully open-ended chatbot yet.
+Build a focused persona-demo generator with structured outputs first.
