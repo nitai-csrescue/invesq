@@ -1,0 +1,159 @@
+What I’d do (very clear call)
+
+Do #1 + #2 + #5 now.
+Bundle #3 lightly, skip heavy work on #4 for this pass.
+
+Why
+#1 (AI becomes data-reactive) → this is the wow moment in demos
+#2 (less linear graph) → makes the architecture feel real, not staged
+#5 (persona “why this matters”) → makes it instantly understandable
+#3 (owner teams) → quick credibility boost, low lift
+#4 (resource vs connector teaching) → nice-to-have, not demo-critical yet
+🔧 Concrete build plan (one pass)
+1) Make AI Copilot outputs visibly data-reactive (highest ROI)
+
+Add a scoring layer (deterministic, simple, obvious in debug):
+
+// services/ai/scoreSignals.ts
+export function scoreSignals(ctx) {
+  const { deployment, edges, nodes, resources } = ctx;
+
+  const signals = [];
+
+  // Deployment health
+  if (deployment.healthScore < 70) {
+    signals.push({ type: "risk", label: "Low deployment health", weight: 3, source: ["deployment", deployment.id] });
+  }
+
+  // Blockers
+  deployment.blockers.forEach(b =>
+    signals.push({ type: "risk", label: b.label, weight: b.severity === "high" ? 3 : 2, source: ["blocker", b.id] })
+  );
+
+  // Degraded edges
+  edges.filter(e => e.status === "degraded").forEach(e =>
+    signals.push({ type: "risk", label: `Degraded: ${e.label}`, weight: 2, source: ["edge", e.id] })
+  );
+
+  // Strong positives (e.g., adoption, BI usage)
+  // (use your metrics to add “opportunity” signals)
+
+  return signals.sort((a,b)=>b.weight-a.weight);
+}
+
+Drive the briefing from signals + persona bias:
+
+Top 3 priorities = highest-weight signals filtered by persona
+Top 3 risks = highest-weight risk signals
+Top 3 opportunities = highest-weight positive signals
+Recommended nodes = nodes referenced by those signals + persona nodeBias
+
+Add a “Sources” panel to every card (trust layer):
+
+Show chips like:
+Deployment: dep-northstar
+Blocker: Webhook retries failing
+Edge: API Gateway → Data Orchestration (degraded)
+Make them clickable → open inspector / highlight node
+
+Add “Open recommended view” payload (stronger):
+
+{
+  persona,
+  viewMode: "business",
+  highlightNodeIds,
+  highlightEdgeIds,
+  highlightResourceIds,
+  reason: "AI_COPILOT"
+}
+2) Make the graph less linear (add real cross-links)
+
+Add 6–10 meaningful cross-edges:
+
+Support → CSM (risk feed)
+Support → Implementation (post-launch issues)
+Analytics → Sales (ROI / proof)
+Analytics → VP (exec reporting)
+Compliance → Contract (approvals)
+Compliance → Implementation (controls)
+Partner Hub → Pre-Sales (coverage)
+Data Orchestration → CSM (adoption signals)
+
+Edge examples:
+
+{ "id": "e-x1", "source": "support", "target": "csm-upsell", "relationshipType": "feeds-risk", "label": "escalations → renewal risk", "status": "active" },
+{ "id": "e-x2", "source": "analytics-bi", "target": "presales", "relationshipType": "feeds", "label": "ROI proof", "status": "active" },
+{ "id": "e-x3", "source": "compliance-controls", "target": "implementation", "relationshipType": "gates", "label": "controls & approvals", "status": "active" }
+
+UI rule:
+
+Keep lines hidden by default
+Reveal only:
+on node select (first-degree)
+in Dependency/Systems view
+3) Surface owner teams (quick win)
+
+Node card:
+
+small chip: Owned by: Implementation, Owned by: Platform Eng
+
+Inspector:
+
+“Owner team” line + optional avatar color
+
+AI Copilot:
+
+in “Recommended Architecture Focus”:
+Implementation (Owned by Implementation)
+API Gateway (Owned by Platform Eng)
+4) Persona “why this matters” (outside AI tab)
+
+Add a one-liner under page titles, driven by persona config:
+
+const personaCopy = {
+  vp: "Where risk, readiness, and growth converge across the lifecycle.",
+  sales: "What closes deals faster and de-risks implementation.",
+  "post-sales": "What drives successful rollout and time-to-value.",
+  cs: "What impacts adoption, renewal, and expansion.",
+  support: "Where issues originate and how they propagate.",
+  engineering: "How systems connect, fail, and recover."
+};
+
+Render on:
+
+Architecture page header
+Resources page header
+5) Minimal “resource vs connector” clarity (don’t overbuild)
+Add a one-liner on each page:
+Resources: “Systems in your environment (e.g., Salesforce, Snowflake)”
+Connectors: “Integrations that connect and sync those systems”
+On connector card:
+Wraps: Salesforce CRM (link to resource)
+
+That’s enough for demo.
+
+🧪 Acceptance checklist (demo-ready)
+Changing deployment → AI output visibly changes
+Degraded edge/blocker → shows up in Risks
+Clicking “Open recommended view”:
+switches persona + view
+highlights nodes and edges
+shows a small toast: “AI recommended (VP • Northstar)”
+Architecture default is clean (no line noise)
+Persona switch changes:
+visible nodes
+ordering
+header one-liner
+Owner team is visible on:
+node cards
+inspector
+AI recommendations
+⏱️ Suggested order of work
+Signals + data-reactive AI + Sources panel (biggest impact)
+Cross-edges (quick data change + big perception win)
+Persona header one-liners
+Owner team chips
+(Optional) light resource/connector copy
+One-sentence north star
+
+Make the same persona produce different, explainable answers for different deployments — and let users jump straight to the evidence in the graph.

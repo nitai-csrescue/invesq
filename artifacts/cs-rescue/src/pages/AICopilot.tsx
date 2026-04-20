@@ -73,6 +73,7 @@ export default function AICopilot() {
         goal,
         prompt,
         nodes: graph.nodes,
+        edges: graph.edges,
         resources,
       });
       setBriefing(result);

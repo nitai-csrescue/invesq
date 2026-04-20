@@ -225,9 +225,19 @@ export function BusinessView({
                             />
                           </div>
                           {!isCollapsed && (
-                            <p className="text-[11px] text-slate-500 truncate mt-0.5">
-                              {n.roleTag ?? n.ownerTeam}
-                            </p>
+                            <div className="flex items-center gap-1.5 mt-0.5">
+                              {n.roleTag && (
+                                <p className="text-[11px] text-slate-500 truncate">{n.roleTag}</p>
+                              )}
+                              {n.ownerTeam && (
+                                <span
+                                  className="text-[9px] px-1 py-px rounded bg-slate-800/80 border border-white/10 text-slate-400 truncate max-w-[110px]"
+                                  title={`Owned by ${n.ownerTeam}`}
+                                >
+                                  {n.ownerTeam}
+                                </span>
+                              )}
+                            </div>
                           )}
                         </div>
                         {!isCollapsed && (

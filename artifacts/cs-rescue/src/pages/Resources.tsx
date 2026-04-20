@@ -18,8 +18,11 @@ import {
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { cn } from "@/lib/utils";
+import { usePersona } from "@/lib/persona";
+import { PERSONA_PAGE_COPY } from "@/lib/persona-copy";
 
 export default function Resources() {
+  const { persona } = usePersona();
   const [search, setSearch] = useState("");
   const [categoryFilter, setCategoryFilter] = useState<string>("all");
   const [envFilter, setEnvFilter] = useState<string>("all");
@@ -42,7 +45,10 @@ export default function Resources() {
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
           <h1 className="text-3xl font-bold tracking-tight mb-2">Resource Explorer</h1>
-          <p className="text-muted-foreground">Manage databases, APIs, and connected systems.</p>
+          <p className="text-muted-foreground italic">{PERSONA_PAGE_COPY[persona].resources}</p>
+          <p className="text-xs text-slate-500 mt-1">
+            Resources are the underlying systems in your environment (CRM, warehouse, identity, APIs).
+          </p>
         </div>
       </div>
 

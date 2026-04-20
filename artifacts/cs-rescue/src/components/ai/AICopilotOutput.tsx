@@ -87,19 +87,19 @@ export function AICopilotOutput({ briefing, isGenerating, nodes, resources }: Pr
       `Summary: ${briefing.summary}`,
       "",
       "Top priorities:",
-      ...briefing.priorities.map((p) => `  • ${p}`),
+      ...briefing.priorities.map((p) => `  • ${p.text}`),
       "",
       "Top risks:",
-      ...briefing.risks.map((r) => `  • ${r}`),
+      ...briefing.risks.map((r) => `  • ${r.text}`),
       "",
       "Opportunities:",
-      ...briefing.opportunities.map((o) => `  • ${o}`),
+      ...briefing.opportunities.map((o) => `  • ${o.text}`),
       "",
       "Walkthrough:",
-      ...briefing.walkthroughSteps.map((s) => `  ${s}`),
+      ...briefing.walkthroughSteps.map((s) => `  ${s.text}`),
       "",
       "Next actions:",
-      ...briefing.nextActions.map((a) => `  • ${a}`),
+      ...briefing.nextActions.map((a) => `  • ${a.text}`),
     ];
     navigator.clipboard.writeText(lines.join("\n"));
     setCopied(true);
@@ -112,7 +112,12 @@ export function AICopilotOutput({ briefing, isGenerating, nodes, resources }: Pr
       "cs-rescue:highlight",
       JSON.stringify({
         nodeIds: briefing.recommendedNodeIds,
+        edgeIds: briefing.recommendedEdgeIds,
+        resourceIds: briefing.recommendedResourceIds,
         persona: briefing.persona,
+        viewMode: "business",
+        reason: "AI_COPILOT",
+        goal: briefing.goal,
         ts: Date.now(),
       }),
     );
@@ -185,8 +190,13 @@ export function AICopilotOutput({ briefing, isGenerating, nodes, resources }: Pr
                       className="flex items-center gap-2.5 px-2.5 py-1.5 rounded-md bg-slate-900/60 border border-white/5"
                     >
                       <span className={cn("w-1.5 h-1.5 rounded-full shrink-0", dot)} />
-                      <span className="text-sm text-white font-medium flex-1 truncate">{n.name}</span>
-                      <span className="text-[10px] text-slate-400">{score}%</span>
+                      <span className="text-sm text-white font-medium truncate">{n.name}</span>
+                      {n.ownerTeam && (
+                        <span className="text-[10px] px-1.5 py-0.5 rounded bg-slate-800/80 border border-white/10 text-slate-300 truncate max-w-[140px]">
+                          {n.ownerTeam}
+                        </span>
+                      )}
+                      <span className="text-[10px] text-slate-400 ml-auto">{score}%</span>
                     </li>
                   );
                 })}
@@ -223,7 +233,21 @@ export function AICopilotOutput({ briefing, isGenerating, nodes, resources }: Pr
                   <span className="shrink-0 w-5 h-5 rounded-full bg-indigo-500/20 border border-indigo-400/40 text-indigo-200 text-[10px] font-bold flex items-center justify-center mt-0.5">
                     {i + 1}
                   </span>
-                  <span className="leading-relaxed">{s}</span>
+                  <div className="flex-1 min-w-0">
+                    <span className="leading-relaxed">{s.text}</span>
+                    {s.sources.length > 0 && (
+                      <div className="mt-1 flex flex-wrap gap-1">
+                        {s.sources.slice(0, 3).map((src, j) => (
+                          <span
+                            key={j}
+                            className="text-[10px] px-1.5 py-0.5 rounded bg-cyan-500/10 border border-cyan-400/30 text-cyan-200"
+                          >
+                            {src.label}
+                          </span>
+                        ))}
+                      </div>
+                    )}
+                  </div>
                 </li>
               ))}
             </ol>
@@ -237,6 +261,18 @@ export function AICopilotOutput({ briefing, isGenerating, nodes, resources }: Pr
           >
             <BulletList items={briefing.nextActions} />
           </BriefingCard>
+        </div>
+
+        {/* Signals footer — explains why this output looks the way it does */}
+        <div className="mt-6 px-4 py-3 rounded-lg border border-white/10 bg-slate-900/40 flex flex-wrap items-center gap-x-4 gap-y-1 text-[11px] text-slate-400">
+          <span className="text-slate-500 uppercase tracking-wider font-semibold">Signals scanned</span>
+          <span><span className="text-white font-semibold">{briefing.signalStats.total}</span> total</span>
+          <span><span className="text-rose-300 font-semibold">{briefing.signalStats.risk}</span> risk</span>
+          <span><span className="text-cyan-300 font-semibold">{briefing.signalStats.priority}</span> priority</span>
+          <span><span className="text-emerald-300 font-semibold">{briefing.signalStats.opportunity}</span> opportunity</span>
+          <span className="ml-auto italic text-slate-500">
+            Output is deterministic today — same inputs, same briefing. Swappable for an LLM later.
+          </span>
         </div>
       </div>
     </div>

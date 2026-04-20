@@ -298,6 +298,17 @@ export const architectureEdges: ArchitectureEdge[] = [
   { id: "e-doc-cm", source: "node-document", target: "node-case-management", relationshipType: "data_flow", label: "attachments", strength: 5, status: "active" },
   { id: "e-partner-crm", source: "node-partner-hub", target: "node-crm", relationshipType: "sync", label: "co-sell", strength: 6, status: "active" },
   { id: "e-comp-do", source: "node-compliance", target: "node-data-orchestration", relationshipType: "control", label: "policies", strength: 7, status: "active" },
+
+  // ── Cross-functional edges (operationally interconnected, not a funnel) ──
+  { id: "e-x-support-csm", source: "node-support", target: "node-csm", relationshipType: "data_flow", label: "escalations → renewal risk", strength: 7, status: "active" },
+  { id: "e-x-support-impl", source: "node-support", target: "node-implementation", relationshipType: "data_flow", label: "post-launch issues", strength: 6, status: "active" },
+  { id: "e-x-an-pre", source: "node-analytics", target: "node-pre-sales", relationshipType: "data_flow", label: "ROI proof points", strength: 6, status: "active" },
+  { id: "e-x-an-csm", source: "node-analytics", target: "node-csm", relationshipType: "data_flow", label: "adoption signals", strength: 8, status: "active" },
+  { id: "e-x-comp-contract", source: "node-compliance", target: "node-contract", relationshipType: "control", label: "approvals & redlines", strength: 7, status: "active" },
+  { id: "e-x-comp-impl", source: "node-compliance", target: "node-implementation", relationshipType: "control", label: "controls gating go-live", strength: 7, status: "active" },
+  { id: "e-x-partner-pre", source: "node-partner-hub", target: "node-pre-sales", relationshipType: "data_flow", label: "co-sell coverage", strength: 6, status: "active" },
+  { id: "e-x-do-csm", source: "node-data-orchestration", target: "node-csm", relationshipType: "data_flow", label: "usage telemetry", strength: 7, status: "active" },
+  { id: "e-x-di-impl", source: "node-deployment-intelligence", target: "node-implementation", relationshipType: "data_flow", label: "rollout signals", strength: 7, status: "degraded" },
 ];
 
 // Health scores per node id

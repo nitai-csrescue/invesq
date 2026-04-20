@@ -31,6 +31,7 @@ import {
 } from "@/lib/persona";
 import { Sparkles as SparklesIcon, ListOrdered } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { PERSONA_PAGE_COPY } from "@/lib/persona-copy";
 
 const nodeTypes = { arch: ArchitectureNodeComp };
 
@@ -64,6 +65,8 @@ function ArchitectureInner() {
   const [hoverId, setHoverId] = useState<string | null>(null);
   const [showDepsForId, setShowDepsForId] = useState<string | null>(null);
   const [highlightIds, setHighlightIds] = useState<Set<string>>(new Set());
+  const [highlightEdgeIds, setHighlightEdgeIds] = useState<Set<string>>(new Set());
+  const [aiToast, setAiToast] = useState<string | null>(null);
 
   const allNodes = graph?.nodes ?? [];
   const allEdges = graph?.edges ?? [];
@@ -126,23 +129,25 @@ function ArchitectureInner() {
         return ids.some((id) => e.source === id || e.target === id);
       })
       .map((e) => {
-        const color = edgeColorByRel[e.relationshipType] ?? "#94a3b8";
+        const isAiHighlighted = highlightEdgeIds.has(e.id);
+        const color = isAiHighlighted ? "#c084fc" : edgeColorByRel[e.relationshipType] ?? "#94a3b8";
         return {
           id: e.id,
           source: e.source,
           target: e.target,
           type: "smoothstep",
-          animated: e.status === "active",
+          animated: e.status === "active" || isAiHighlighted,
           label: e.label,
           labelBgPadding: [4, 2] as [number, number],
           labelBgBorderRadius: 4,
           labelBgStyle: { fill: "#0f172a", fillOpacity: 0.9 },
-          labelStyle: { fill: "#cbd5e1", fontSize: 10 },
+          labelStyle: { fill: isAiHighlighted ? "#e9d5ff" : "#cbd5e1", fontSize: 10 },
           style: {
             stroke: color,
-            strokeWidth: Math.max(1.5, e.strength / 4),
-            opacity: e.status === "degraded" ? 0.6 : 0.85,
+            strokeWidth: isAiHighlighted ? Math.max(2.5, e.strength / 3) : Math.max(1.5, e.strength / 4),
+            opacity: isAiHighlighted ? 1 : e.status === "degraded" ? 0.6 : 0.85,
             strokeDasharray: e.status === "degraded" ? "6 4" : undefined,
+            filter: isAiHighlighted ? "drop-shadow(0 0 4px rgba(192,132,252,0.6))" : undefined,
           },
           markerEnd: {
             type: MarkerType.ArrowClosed,
@@ -152,7 +157,7 @@ function ArchitectureInner() {
           },
         } as Edge;
       });
-  }, [allEdges, visibleNodeIds, revealEdgesAlways, focusId, showDepsForId]);
+  }, [allEdges, visibleNodeIds, revealEdgesAlways, focusId, showDepsForId, highlightEdgeIds]);
 
   const onNodeClick = useCallback((_: React.MouseEvent, n: Node) => {
     setSelectedId((cur) => (cur === n.id ? null : n.id));
@@ -193,11 +198,16 @@ function ArchitectureInner() {
   useEffect(() => {
     const raw = sessionStorage.getItem("cs-rescue:highlight");
     if (!raw) return;
-    let timeoutId: number | null = null;
+    const timeouts: number[] = [];
     try {
       const payload = JSON.parse(raw) as {
         nodeIds?: string[];
+        edgeIds?: string[];
+        resourceIds?: string[];
         persona?: string;
+        viewMode?: string;
+        reason?: string;
+        goal?: string;
         ts?: number;
       };
       sessionStorage.removeItem("cs-rescue:highlight");
@@ -206,11 +216,13 @@ function ArchitectureInner() {
       if (payload.ts && Date.now() - payload.ts > 60_000) return;
 
       const allowedPersonas = ["vp", "sales", "post-sales", "cs", "support", "engineering"] as const;
+      let landedPersona: typeof persona | null = null;
       if (
         typeof payload.persona === "string" &&
         (allowedPersonas as readonly string[]).includes(payload.persona)
       ) {
-        setPersona(payload.persona as typeof persona);
+        landedPersona = payload.persona as typeof persona;
+        setPersona(landedPersona);
       }
       // Always land users in Business view — that's where the highlight reads best.
       setViewMode("business");
@@ -218,16 +230,31 @@ function ArchitectureInner() {
       const ids = Array.isArray(payload.nodeIds)
         ? payload.nodeIds.filter((x): x is string => typeof x === "string")
         : [];
+      const edgeIds = Array.isArray(payload.edgeIds)
+        ? payload.edgeIds.filter((x): x is string => typeof x === "string")
+        : [];
       if (ids.length > 0) {
         setHighlightIds(new Set(ids));
-        // Auto-clear after a short pulse so the rest of the page returns to normal.
-        timeoutId = window.setTimeout(() => setHighlightIds(new Set()), 6000);
+        timeouts.push(window.setTimeout(() => setHighlightIds(new Set()), 6000));
+      }
+      if (edgeIds.length > 0) {
+        setHighlightEdgeIds(new Set(edgeIds));
+        timeouts.push(window.setTimeout(() => setHighlightEdgeIds(new Set()), 8000));
+      }
+
+      if (payload.reason === "AI_COPILOT") {
+        const personaLabel = landedPersona
+          ? landedPersona.replace("-", " ").replace(/\b\w/g, (c) => c.toUpperCase())
+          : "Persona";
+        const goal = typeof payload.goal === "string" ? payload.goal : "Briefing";
+        setAiToast(`AI recommended (${personaLabel} • ${goal}) — ${ids.length} node${ids.length === 1 ? "" : "s"} highlighted`);
+        timeouts.push(window.setTimeout(() => setAiToast(null), 5000));
       }
     } catch {
       // Ignore malformed payloads.
     }
     return () => {
-      if (timeoutId !== null) window.clearTimeout(timeoutId);
+      timeouts.forEach((t) => window.clearTimeout(t));
     };
     // We intentionally only run this on mount.
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -255,6 +282,10 @@ function ArchitectureInner() {
             <p className="text-[10px] uppercase text-slate-500 leading-none">Architecture</p>
             <p className="text-sm font-bold text-white leading-tight">CS Rescue Map</p>
           </div>
+        </div>
+
+        <div className="hidden lg:block max-w-md text-[11px] text-slate-400 italic leading-snug border-l border-white/10 pl-4">
+          {PERSONA_PAGE_COPY[persona].architecture}
         </div>
 
         <div className="h-8 w-px bg-white/10" />
@@ -300,6 +331,14 @@ function ArchitectureInner() {
           )}
         </div>
       </div>
+
+      {/* AI handoff toast */}
+      {aiToast && (
+        <div className="absolute top-16 left-1/2 -translate-x-1/2 z-30 px-3 py-2 rounded-lg bg-slate-900/95 border border-purple-400/40 text-xs text-purple-100 shadow-lg backdrop-blur flex items-center gap-2">
+          <SparklesIcon className="w-3.5 h-3.5 text-purple-300" />
+          <span>{aiToast}</span>
+        </div>
+      )}
 
       {/* Main canvas */}
       <div className="flex-1 relative overflow-hidden">
