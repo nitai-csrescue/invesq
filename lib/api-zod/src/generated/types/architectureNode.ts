@@ -5,9 +5,12 @@
  * CS Rescue API specification
  * OpenAPI spec version: 0.1.0
  */
+import type { ArchitectureNodeDefaultPriorityByPersona } from "./architectureNodeDefaultPriorityByPersona";
+import type { ArchitectureNodeDependencyVisibilityLevel } from "./architectureNodeDependencyVisibilityLevel";
 import type { ArchitectureNodeLayer } from "./architectureNodeLayer";
 import type { ArchitectureNodePosition } from "./architectureNodePosition";
 import type { ArchitectureNodeStatus } from "./architectureNodeStatus";
+import type { ArchitectureNodeVisibleToPersonasItem } from "./architectureNodeVisibleToPersonasItem";
 import type { Kpi } from "./kpi";
 
 export interface ArchitectureNode {
@@ -28,4 +31,22 @@ export interface ArchitectureNode {
   healthScore?: number;
   subtype?: string;
   position?: ArchitectureNodePosition;
+  /** Personas for which this node is visible at all */
+  visibleToPersonas?: ArchitectureNodeVisibleToPersonasItem[];
+  /** Per-persona priority (primary | secondary | hidden) */
+  defaultPriorityByPersona?: ArchitectureNodeDefaultPriorityByPersona;
+  /** Short, scannable label for compact card view */
+  simplifiedLabel?: string;
+  /** Logical cluster id for the Business view (e.g. revenue, delivery, customer-data) */
+  clusterGroup?: string;
+  /** How much dependency context to surface for this node */
+  dependencyVisibilityLevel?: ArchitectureNodeDependencyVisibilityLevel;
+  /** 1-5 — how critical to revenue / customer outcomes */
+  businessCriticality?: number;
+  /** 1-5 — how critical to platform stability */
+  technicalCriticality?: number;
+  /** Single short stat shown on compact cards (e.g. "12 active") */
+  microStat?: string;
+  /** Single role chip shown on compact cards */
+  roleTag?: string;
 }

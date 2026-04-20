@@ -471,6 +471,40 @@ components:
               type: number
             y:
               type: number
+        visibleToPersonas:
+          type: array
+          description: Personas for which this node is visible at all
+          items:
+            type: string
+            enum: [vp, sales, post-sales, cs, support, engineering]
+        defaultPriorityByPersona:
+          type: object
+          description: Per-persona priority (primary | secondary | hidden)
+          additionalProperties:
+            type: string
+            enum: [primary, secondary, hidden]
+        simplifiedLabel:
+          type: string
+          description: Short, scannable label for compact card view
+        clusterGroup:
+          type: string
+          description: Logical cluster id for the Business view (e.g. revenue, delivery, customer-data)
+        dependencyVisibilityLevel:
+          type: string
+          enum: [low, medium, high]
+          description: How much dependency context to surface for this node
+        businessCriticality:
+          type: number
+          description: 1-5 — how critical to revenue / customer outcomes
+        technicalCriticality:
+          type: number
+          description: 1-5 — how critical to platform stability
+        microStat:
+          type: string
+          description: Single short stat shown on compact cards (e.g. "12 active")
+        roleTag:
+          type: string
+          description: Single role chip shown on compact cards
       required:
         - id
         - name

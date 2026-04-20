@@ -5,6 +5,218 @@ import type {
   MetricPoint,
 } from "@workspace/api-zod";
 
+export type Persona = "vp" | "sales" | "post-sales" | "cs" | "support" | "engineering";
+export type Priority = "primary" | "secondary" | "hidden";
+
+export interface NodePersonaMeta {
+  visibleToPersonas: Persona[];
+  defaultPriorityByPersona: Partial<Record<Persona, Priority>>;
+  simplifiedLabel: string;
+  clusterGroup: string;
+  dependencyVisibilityLevel: "low" | "medium" | "high";
+  businessCriticality: number;
+  technicalCriticality: number;
+  microStat: string;
+  roleTag: string;
+}
+
+const ALL: Persona[] = ["vp", "sales", "post-sales", "cs", "support", "engineering"];
+
+export const nodePersonaMetadata: Record<string, NodePersonaMeta> = {
+  // ── Lifecycle motions ─────────────────────────────────────────
+  "node-pre-sales": {
+    visibleToPersonas: ALL,
+    defaultPriorityByPersona: { vp: "secondary", sales: "primary", "post-sales": "secondary", cs: "secondary", support: "hidden", engineering: "secondary" },
+    simplifiedLabel: "Pre-Sales",
+    clusterGroup: "revenue",
+    dependencyVisibilityLevel: "low",
+    businessCriticality: 5,
+    technicalCriticality: 2,
+    microStat: "$4.2M pipeline",
+    roleTag: "Sales",
+  },
+  "node-contract": {
+    visibleToPersonas: ALL,
+    defaultPriorityByPersona: { vp: "secondary", sales: "primary", "post-sales": "secondary", cs: "secondary", support: "hidden", engineering: "secondary" },
+    simplifiedLabel: "Contract",
+    clusterGroup: "revenue",
+    dependencyVisibilityLevel: "low",
+    businessCriticality: 5,
+    technicalCriticality: 2,
+    microStat: "12 / mo",
+    roleTag: "Sales",
+  },
+  "node-implementation": {
+    visibleToPersonas: ALL,
+    defaultPriorityByPersona: { vp: "primary", sales: "secondary", "post-sales": "primary", cs: "secondary", support: "secondary", engineering: "primary" },
+    simplifiedLabel: "Implementation",
+    clusterGroup: "delivery",
+    dependencyVisibilityLevel: "medium",
+    businessCriticality: 5,
+    technicalCriticality: 4,
+    microStat: "47d to value",
+    roleTag: "Delivery",
+  },
+  "node-csm": {
+    visibleToPersonas: ALL,
+    defaultPriorityByPersona: { vp: "primary", sales: "secondary", "post-sales": "secondary", cs: "primary", support: "secondary", engineering: "secondary" },
+    simplifiedLabel: "CSM / Upsell",
+    clusterGroup: "retention",
+    dependencyVisibilityLevel: "low",
+    businessCriticality: 5,
+    technicalCriticality: 2,
+    microStat: "118% NRR",
+    roleTag: "Customer Success",
+  },
+  "node-support": {
+    visibleToPersonas: ALL,
+    defaultPriorityByPersona: { vp: "secondary", sales: "hidden", "post-sales": "secondary", cs: "secondary", support: "primary", engineering: "secondary" },
+    simplifiedLabel: "Support",
+    clusterGroup: "retention",
+    dependencyVisibilityLevel: "medium",
+    businessCriticality: 4,
+    technicalCriticality: 3,
+    microStat: "94% CSAT",
+    roleTag: "Support",
+  },
+
+  // ── Delivery / orchestration ──────────────────────────────────
+  "node-forward-deployed": {
+    visibleToPersonas: ["vp", "sales", "post-sales", "cs", "engineering"],
+    defaultPriorityByPersona: { vp: "secondary", sales: "secondary", "post-sales": "primary", cs: "secondary", support: "hidden", engineering: "primary" },
+    simplifiedLabel: "Forward-Deployed",
+    clusterGroup: "delivery",
+    dependencyVisibilityLevel: "medium",
+    businessCriticality: 4,
+    technicalCriticality: 4,
+    microStat: "23 active",
+    roleTag: "Pro Services",
+  },
+  "node-lifecycle-playbooks": {
+    visibleToPersonas: ALL,
+    defaultPriorityByPersona: { vp: "secondary", sales: "hidden", "post-sales": "primary", cs: "primary", support: "secondary", engineering: "secondary" },
+    simplifiedLabel: "Lifecycle Playbooks",
+    clusterGroup: "delivery",
+    dependencyVisibilityLevel: "medium",
+    businessCriticality: 4,
+    technicalCriticality: 3,
+    microStat: "14 playbooks",
+    roleTag: "CS Ops",
+  },
+  "node-deployment-intelligence": {
+    visibleToPersonas: ["vp", "post-sales", "cs", "engineering"],
+    defaultPriorityByPersona: { vp: "primary", sales: "hidden", "post-sales": "primary", cs: "secondary", support: "hidden", engineering: "primary" },
+    simplifiedLabel: "Deployment Intel",
+    clusterGroup: "delivery",
+    dependencyVisibilityLevel: "high",
+    businessCriticality: 4,
+    technicalCriticality: 5,
+    microStat: "3 launches",
+    roleTag: "Engineering",
+  },
+
+  // ── Platform / systems ────────────────────────────────────────
+  "node-data-orchestration": {
+    visibleToPersonas: ["vp", "post-sales", "cs", "engineering"],
+    defaultPriorityByPersona: { vp: "hidden", sales: "hidden", "post-sales": "secondary", cs: "secondary", support: "hidden", engineering: "primary" },
+    simplifiedLabel: "Data Orchestration",
+    clusterGroup: "data-platform",
+    dependencyVisibilityLevel: "high",
+    businessCriticality: 3,
+    technicalCriticality: 5,
+    microStat: "1.2B events/d",
+    roleTag: "Data Eng",
+  },
+  "node-decisioning": {
+    visibleToPersonas: ["post-sales", "cs", "engineering"],
+    defaultPriorityByPersona: { vp: "hidden", sales: "hidden", "post-sales": "secondary", cs: "secondary", support: "hidden", engineering: "primary" },
+    simplifiedLabel: "Decisioning",
+    clusterGroup: "data-platform",
+    dependencyVisibilityLevel: "high",
+    businessCriticality: 3,
+    technicalCriticality: 5,
+    microStat: "AI signals",
+    roleTag: "Engineering",
+  },
+  "node-compliance": {
+    visibleToPersonas: ["vp", "post-sales", "support", "engineering"],
+    defaultPriorityByPersona: { vp: "secondary", sales: "hidden", "post-sales": "secondary", cs: "hidden", support: "secondary", engineering: "primary" },
+    simplifiedLabel: "Compliance",
+    clusterGroup: "platform-services",
+    dependencyVisibilityLevel: "medium",
+    businessCriticality: 4,
+    technicalCriticality: 4,
+    microStat: "SOC2 ✓",
+    roleTag: "Security",
+  },
+  "node-partner-hub": {
+    visibleToPersonas: ["vp", "sales", "engineering"],
+    defaultPriorityByPersona: { vp: "secondary", sales: "secondary", "post-sales": "hidden", cs: "hidden", support: "hidden", engineering: "secondary" },
+    simplifiedLabel: "Partner Hub",
+    clusterGroup: "revenue",
+    dependencyVisibilityLevel: "low",
+    businessCriticality: 3,
+    technicalCriticality: 2,
+    microStat: "47 partners",
+    roleTag: "Partnerships",
+  },
+  "node-analytics": {
+    visibleToPersonas: ALL,
+    defaultPriorityByPersona: { vp: "primary", sales: "secondary", "post-sales": "secondary", cs: "primary", support: "secondary", engineering: "secondary" },
+    simplifiedLabel: "Analytics / BI",
+    clusterGroup: "data-platform",
+    dependencyVisibilityLevel: "medium",
+    businessCriticality: 4,
+    technicalCriticality: 3,
+    microStat: "612 dashboards",
+    roleTag: "Analytics",
+  },
+  "node-crm": {
+    visibleToPersonas: ALL,
+    defaultPriorityByPersona: { vp: "secondary", sales: "primary", "post-sales": "secondary", cs: "primary", support: "secondary", engineering: "secondary" },
+    simplifiedLabel: "CRM",
+    clusterGroup: "customer-data",
+    dependencyVisibilityLevel: "medium",
+    businessCriticality: 5,
+    technicalCriticality: 4,
+    microStat: "32K accounts",
+    roleTag: "RevOps",
+  },
+  "node-case-management": {
+    visibleToPersonas: ["vp", "post-sales", "cs", "support", "engineering"],
+    defaultPriorityByPersona: { vp: "hidden", sales: "hidden", "post-sales": "secondary", cs: "secondary", support: "primary", engineering: "secondary" },
+    simplifiedLabel: "Case Mgmt",
+    clusterGroup: "customer-data",
+    dependencyVisibilityLevel: "medium",
+    businessCriticality: 4,
+    technicalCriticality: 3,
+    microStat: "284 open",
+    roleTag: "Support Ops",
+  },
+  "node-document": {
+    visibleToPersonas: ["vp", "post-sales", "cs", "support", "engineering"],
+    defaultPriorityByPersona: { vp: "hidden", sales: "hidden", "post-sales": "secondary", cs: "secondary", support: "primary", engineering: "secondary" },
+    simplifiedLabel: "Knowledge / Docs",
+    clusterGroup: "customer-data",
+    dependencyVisibilityLevel: "low",
+    businessCriticality: 3,
+    technicalCriticality: 2,
+    microStat: "1.4K articles",
+    roleTag: "Knowledge",
+  },
+  "node-api-gateway": {
+    visibleToPersonas: ["vp", "post-sales", "engineering"],
+    defaultPriorityByPersona: { vp: "hidden", sales: "hidden", "post-sales": "hidden", cs: "hidden", support: "hidden", engineering: "primary" },
+    simplifiedLabel: "API Gateway",
+    clusterGroup: "platform-services",
+    dependencyVisibilityLevel: "high",
+    businessCriticality: 3,
+    technicalCriticality: 5,
+    microStat: "99.99% SLO",
+    roleTag: "Platform Eng",
+  },
+};
+
 export const architectureGroups: ArchitectureGroup[] = [
   {
     id: "grp-lifecycle",

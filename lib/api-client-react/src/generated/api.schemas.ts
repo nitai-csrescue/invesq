@@ -42,9 +42,40 @@ export const ArchitectureNodeStatus = {
   warning: "warning",
 } as const;
 
+export type ArchitectureNodeVisibleToPersonasItem =
+  (typeof ArchitectureNodeVisibleToPersonasItem)[keyof typeof ArchitectureNodeVisibleToPersonasItem];
+
+export const ArchitectureNodeVisibleToPersonasItem = {
+  vp: "vp",
+  sales: "sales",
+  "post-sales": "post-sales",
+  cs: "cs",
+  support: "support",
+  engineering: "engineering",
+} as const;
+
+/**
+ * How much dependency context to surface for this node
+ */
+export type ArchitectureNodeDependencyVisibilityLevel =
+  (typeof ArchitectureNodeDependencyVisibilityLevel)[keyof typeof ArchitectureNodeDependencyVisibilityLevel];
+
+export const ArchitectureNodeDependencyVisibilityLevel = {
+  low: "low",
+  medium: "medium",
+  high: "high",
+} as const;
+
 export type ArchitectureNodePosition = {
   x?: number;
   y?: number;
+};
+
+/**
+ * Per-persona priority (primary | secondary | hidden)
+ */
+export type ArchitectureNodeDefaultPriorityByPersona = {
+  [key: string]: "primary" | "secondary" | "hidden";
 };
 
 export interface ArchitectureNode {
@@ -65,6 +96,24 @@ export interface ArchitectureNode {
   healthScore?: number;
   subtype?: string;
   position?: ArchitectureNodePosition;
+  /** Personas for which this node is visible at all */
+  visibleToPersonas?: ArchitectureNodeVisibleToPersonasItem[];
+  /** Per-persona priority (primary | secondary | hidden) */
+  defaultPriorityByPersona?: ArchitectureNodeDefaultPriorityByPersona;
+  /** Short, scannable label for compact card view */
+  simplifiedLabel?: string;
+  /** Logical cluster id for the Business view (e.g. revenue, delivery, customer-data) */
+  clusterGroup?: string;
+  /** How much dependency context to surface for this node */
+  dependencyVisibilityLevel?: ArchitectureNodeDependencyVisibilityLevel;
+  /** 1-5 — how critical to revenue / customer outcomes */
+  businessCriticality?: number;
+  /** 1-5 — how critical to platform stability */
+  technicalCriticality?: number;
+  /** Single short stat shown on compact cards (e.g. "12 active") */
+  microStat?: string;
+  /** Single role chip shown on compact cards */
+  roleTag?: string;
 }
 
 export type NodeConnectionType =

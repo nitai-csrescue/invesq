@@ -6,16 +6,21 @@ import {
   nodeHealthScores,
   nodePositions,
   nodeMetrics,
+  nodePersonaMetadata,
 } from "../data/graphData.js";
 
 const router = Router();
 
 function enrichNodes() {
-  return architectureNodes.map((n) => ({
-    ...n,
-    healthScore: nodeHealthScores[n.id] ?? 85,
-    position: nodePositions[n.id],
-  }));
+  return architectureNodes.map((n) => {
+    const meta = nodePersonaMetadata[n.id];
+    return {
+      ...n,
+      healthScore: nodeHealthScores[n.id] ?? 85,
+      position: nodePositions[n.id],
+      ...(meta ?? {}),
+    };
+  });
 }
 
 router.get("/graph", (_req, res) => {

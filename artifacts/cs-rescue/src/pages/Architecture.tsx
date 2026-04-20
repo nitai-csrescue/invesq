@@ -18,26 +18,21 @@ import {
   useListResources,
   getListResourcesQueryKey,
   type ArchitectureNode as ArchNode,
-  type ArchitectureEdge as ArchEdge,
 } from "@workspace/api-client-react";
-import { Activity, Layers, Heart, Network, Filter } from "lucide-react";
+import { Activity, Layers, Heart, Network, GitBranch, Boxes } from "lucide-react";
 import { ArchitectureNodeComp, type ArchNodeData } from "@/components/architecture/ArchitectureNode";
 import { Inspector } from "@/components/architecture/Inspector";
+import { BusinessView } from "@/components/architecture/BusinessView";
+import {
+  usePersona,
+  VIEW_MODES,
+  type ViewMode,
+  getNodePriority,
+} from "@/lib/persona";
+import { Sparkles as SparklesIcon, ListOrdered } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 const nodeTypes = { arch: ArchitectureNodeComp };
-
-const layerLabels: Record<string, string> = {
-  lifecycle: "Lifecycle Motions",
-  delivery: "Delivery & Orchestration",
-  platform: "Shared Platform / Systems",
-};
-
-const layerColors: Record<string, string> = {
-  lifecycle: "rgba(99, 102, 241, 0.06)",
-  delivery: "rgba(59, 130, 246, 0.06)",
-  platform: "rgba(6, 182, 212, 0.06)",
-};
 
 const edgeColorByRel: Record<string, string> = {
   data_flow: "#22d3ee",
@@ -63,79 +58,80 @@ function ArchitectureInner() {
     query: { queryKey: getListResourcesQueryKey() },
   });
 
+  const { persona, viewMode, setViewMode, simplify, setSimplify, clusterByRelevance, setClusterByRelevance } = usePersona();
+
   const [selectedId, setSelectedId] = useState<string | null>(null);
-  const [layerFilter, setLayerFilter] = useState<string>("all");
-  const [healthFilter, setHealthFilter] = useState<string>("all");
+  const [hoverId, setHoverId] = useState<string | null>(null);
+  const [showDepsForId, setShowDepsForId] = useState<string | null>(null);
 
   const allNodes = graph?.nodes ?? [];
   const allEdges = graph?.edges ?? [];
 
-  const visibleNodeIds = useMemo(() => {
-    return new Set(
-      allNodes
-        .filter((n) => layerFilter === "all" || n.layer === layerFilter)
-        .filter((n) => {
-          if (healthFilter === "all") return true;
-          const h = n.healthScore ?? 100;
-          if (healthFilter === "healthy") return h >= 85;
-          if (healthFilter === "warning") return h >= 70 && h < 85;
-          if (healthFilter === "risk") return h < 70;
-          return true;
-        })
-        .map((n) => n.id),
-    );
-  }, [allNodes, layerFilter, healthFilter]);
+  // Persona-filtered visible nodes
+  const visibleNodes = useMemo(() => {
+    return allNodes.filter((n) => getNodePriority(n, persona) !== "hidden");
+  }, [allNodes, persona]);
 
-  const connectedToSelected = useMemo(() => {
-    if (!selectedId) return new Set<string>();
+  const visibleNodeIds = useMemo(() => new Set(visibleNodes.map((n) => n.id)), [visibleNodes]);
+
+  // Connected to current focus (selected has priority over hover)
+  const focusId = selectedId ?? hoverId;
+  const connectedToFocus = useMemo(() => {
+    if (!focusId) return new Set<string>();
     const set = new Set<string>();
     for (const e of allEdges) {
-      if (e.source === selectedId) set.add(e.target);
-      if (e.target === selectedId) set.add(e.source);
+      if (e.source === focusId) set.add(e.target);
+      if (e.target === focusId) set.add(e.source);
     }
     return set;
-  }, [selectedId, allEdges]);
+  }, [focusId, allEdges]);
+
+  // Reveal edges only on selection/hover/show-deps in dependency view; always in systems view
+  const revealEdgesAlways = viewMode === "systems";
 
   const rfNodes: Node<ArchNodeData>[] = useMemo(() => {
-    return allNodes
-      .filter((n) => visibleNodeIds.has(n.id))
-      .map((n) => {
-        const isSelected = selectedId === n.id;
-        const isConnected = connectedToSelected.has(n.id);
-        const isDimmed = !!selectedId && !isSelected && !isConnected;
-        return {
-          id: n.id,
-          type: "arch",
-          position: summarizePos(n),
-          data: {
-            label: n.name,
-            icon: n.icon,
-            layer: n.layer as ArchNodeData["layer"],
-            status: n.status,
-            healthScore: n.healthScore ?? 85,
-            ownerTeam: n.ownerTeam,
-            shortDescription: n.shortDescription,
-            isSelected,
-            isConnected,
-            isDimmed,
-          },
-        };
-      });
-  }, [allNodes, visibleNodeIds, selectedId, connectedToSelected]);
+    return visibleNodes.map((n) => {
+      const isSelected = selectedId === n.id;
+      const isConnected = connectedToFocus.has(n.id);
+      const isDimmed = !!focusId && !isSelected && !isConnected;
+      return {
+        id: n.id,
+        type: "arch",
+        position: summarizePos(n),
+        data: {
+          label: n.name,
+          icon: n.icon,
+          layer: n.layer as ArchNodeData["layer"],
+          status: n.status,
+          healthScore: n.healthScore ?? 85,
+          ownerTeam: n.ownerTeam,
+          shortDescription: n.shortDescription,
+          isSelected,
+          isConnected,
+          isDimmed,
+        },
+      };
+    });
+  }, [visibleNodes, selectedId, focusId, connectedToFocus]);
 
   const rfEdges: Edge[] = useMemo(() => {
     return allEdges
       .filter((e) => visibleNodeIds.has(e.source) && visibleNodeIds.has(e.target))
+      .filter((e) => {
+        if (revealEdgesAlways) return true;
+        // Dependency view: only edges touching focus or showDepsForId
+        if (!focusId && !showDepsForId) return false;
+        const ids = [focusId, showDepsForId].filter(Boolean) as string[];
+        return ids.some((id) => e.source === id || e.target === id);
+      })
       .map((e) => {
         const color = edgeColorByRel[e.relationshipType] ?? "#94a3b8";
-        const isHighlighted =
-          !selectedId || e.source === selectedId || e.target === selectedId;
         return {
           id: e.id,
           source: e.source,
           target: e.target,
           type: "smoothstep",
-          animated: e.status === "active" && isHighlighted,
+          animated: e.status === "active",
           label: e.label,
           labelBgPadding: [4, 2] as [number, number],
           labelBgBorderRadius: 4,
@@ -143,8 +139,8 @@ function ArchitectureInner() {
           labelStyle: { fill: "#cbd5e1", fontSize: 10 },
           style: {
             stroke: color,
-            strokeWidth: isHighlighted ? Math.max(1.5, e.strength / 4) : 0.8,
-            opacity: isHighlighted ? (e.status === "degraded" ? 0.6 : 0.85) : 0.18,
+            strokeWidth: Math.max(1.5, e.strength / 4),
+            opacity: e.status === "degraded" ? 0.6 : 0.85,
             strokeDasharray: e.status === "degraded" ? "6 4" : undefined,
           },
           markerEnd: {
@@ -155,20 +151,40 @@ function ArchitectureInner() {
           },
         } as Edge;
       });
-  }, [allEdges, visibleNodeIds, selectedId]);
+  }, [allEdges, visibleNodeIds, revealEdgesAlways, focusId, showDepsForId]);
 
   const onNodeClick = useCallback((_: React.MouseEvent, n: Node) => {
     setSelectedId((cur) => (cur === n.id ? null : n.id));
+    setShowDepsForId(null);
   }, []);
 
-  const onPaneClick = useCallback(() => setSelectedId(null), []);
+  const onNodeMouseEnter = useCallback((_: React.MouseEvent, n: Node) => {
+    setHoverId(n.id);
+  }, []);
 
-  // Clear stale selection if filters hide the selected node
+  const onNodeMouseLeave = useCallback(() => {
+    setHoverId(null);
+  }, []);
+
+  const onPaneClick = useCallback(() => {
+    setSelectedId(null);
+    setShowDepsForId(null);
+  }, []);
+
+  // Clear stale state when persona/view changes hide selection
   useEffect(() => {
     if (selectedId && !visibleNodeIds.has(selectedId)) {
       setSelectedId(null);
+      setShowDepsForId(null);
     }
   }, [selectedId, visibleNodeIds]);
+
+  // Reset selection when persona changes (different focus)
+  useEffect(() => {
+    setSelectedId(null);
+    setHoverId(null);
+    setShowDepsForId(null);
+  }, [persona, viewMode]);
 
   const selectedNode = allNodes.find((n) => n.id === selectedId) ?? null;
 
@@ -182,7 +198,7 @@ function ArchitectureInner() {
 
   return (
     <div className="h-full flex flex-col bg-slate-950">
-      {/* Top KPI strip */}
+      {/* Top control strip */}
       <div className="px-6 py-3 border-b border-white/10 bg-slate-950/60 backdrop-blur-md flex items-center gap-6 shrink-0">
         <div className="flex items-center gap-2">
           <div className="w-7 h-7 rounded-md bg-cyan-500/15 text-cyan-300 flex items-center justify-center">
@@ -193,86 +209,126 @@ function ArchitectureInner() {
             <p className="text-sm font-bold text-white leading-tight">CS Rescue Map</p>
           </div>
         </div>
-        <div className="h-8 w-px bg-white/10" />
-        <Kpi icon={<Heart className="w-3 h-3" />} label="System Health" value={`${summary?.systemHealth ?? 0}%`} accent="emerald" />
-        <Kpi icon={<Layers className="w-3 h-3" />} label="Nodes" value={`${summary?.totalNodes ?? 0}`} accent="cyan" />
-        <Kpi icon={<Activity className="w-3 h-3" />} label="Active Deployments" value={`${summary?.activeDeployments ?? 0}`} accent="indigo" />
-        <Kpi icon={<Network className="w-3 h-3" />} label="Edges" value={`${allEdges.length}`} accent="blue" />
 
-        <div className="ml-auto flex items-center gap-2">
-          <Filter className="w-3.5 h-3.5 text-slate-500" />
-          <SegmentedFilter
-            value={layerFilter}
-            onChange={setLayerFilter}
-            options={[
-              { v: "all", l: "All Layers" },
-              { v: "lifecycle", l: "Lifecycle" },
-              { v: "delivery", l: "Delivery" },
-              { v: "platform", l: "Platform" },
-            ]}
-          />
-          <SegmentedFilter
-            value={healthFilter}
-            onChange={setHealthFilter}
-            options={[
-              { v: "all", l: "All" },
-              { v: "healthy", l: "Healthy" },
-              { v: "warning", l: "Warning" },
-              { v: "risk", l: "At Risk" },
-            ]}
-          />
+        <div className="h-8 w-px bg-white/10" />
+
+        <Kpi icon={<Heart className="w-3 h-3" />} label="System Health" value={`${summary?.systemHealth ?? 0}%`} accent="emerald" />
+        <Kpi icon={<Layers className="w-3 h-3" />} label="Visible" value={`${visibleNodes.length}/${allNodes.length}`} accent="cyan" />
+        <Kpi icon={<Activity className="w-3 h-3" />} label="Deployments" value={`${summary?.activeDeployments ?? 0}`} accent="indigo" />
+
+        <div className="ml-auto flex items-center gap-3">
+          <ViewModeSwitcher value={viewMode} onChange={setViewMode} />
+          {viewMode === "business" && (
+            <>
+              <button
+                onClick={() => setClusterByRelevance(!clusterByRelevance)}
+                aria-pressed={clusterByRelevance}
+                data-testid="cluster-relevance-toggle"
+                title="Re-order so primary nodes for this persona float to the top"
+                className={cn(
+                  "text-[11px] font-medium px-2.5 py-1 rounded border transition-colors flex items-center gap-1.5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-400",
+                  clusterByRelevance
+                    ? "bg-purple-500/15 text-purple-200 border-purple-400/40"
+                    : "bg-slate-900/60 text-slate-400 border-white/10 hover:text-white",
+                )}
+              >
+                <ListOrdered className="w-3 h-3" />
+                By relevance
+              </button>
+              <button
+                onClick={() => setSimplify(!simplify)}
+                aria-pressed={simplify}
+                data-testid="simplify-toggle"
+                className={cn(
+                  "text-[11px] font-medium px-2.5 py-1 rounded border transition-colors flex items-center gap-1.5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-400",
+                  simplify
+                    ? "bg-cyan-500/15 text-cyan-200 border-cyan-400/40"
+                    : "bg-slate-900/60 text-slate-400 border-white/10 hover:text-white",
+                )}
+              >
+                <SparklesIcon className="w-3 h-3" />
+                Simplify
+              </button>
+            </>
+          )}
         </div>
       </div>
 
-      {/* Graph canvas */}
-      <div className="flex-1 relative">
-        {/* Swimlane backgrounds */}
-        <SwimlanesOverlay />
-
-        <ReactFlow
-          nodes={rfNodes}
-          edges={rfEdges}
-          nodeTypes={nodeTypes}
-          onNodeClick={onNodeClick}
-          onPaneClick={onPaneClick}
-          fitView
-          fitViewOptions={{ padding: 0.15 }}
-          minZoom={0.3}
-          maxZoom={1.6}
-          proOptions={{ hideAttribution: true }}
-          className="bg-slate-950"
-        >
-          <Background variant={BackgroundVariant.Dots} gap={24} size={1} color="rgba(148,163,184,0.18)" />
-          <Controls className="!bg-slate-900/90 !border !border-white/10 !rounded-md" showInteractive={false} />
-          <MiniMap
-            nodeColor={(n) => {
-              const layer = (n.data as ArchNodeData)?.layer;
-              if (layer === "lifecycle") return "#6366f1";
-              if (layer === "delivery") return "#3b82f6";
-              return "#06b6d4";
-            }}
-            maskColor="rgba(2,6,23,0.7)"
-            className="!bg-slate-900/90 !border !border-white/10 !rounded-md"
-            pannable
-            zoomable
+      {/* Main canvas */}
+      <div className="flex-1 relative overflow-hidden">
+        {viewMode === "business" ? (
+          <BusinessView
+            nodes={visibleNodes}
+            edges={allEdges}
+            persona={persona}
+            simplify={simplify}
+            clusterByRelevance={clusterByRelevance}
+            selectedId={selectedId}
+            hoverId={hoverId}
+            showDepsForId={showDepsForId}
+            onSelect={setSelectedId}
+            onHover={setHoverId}
           />
-        </ReactFlow>
+        ) : (
+          <>
+            <ReactFlow
+              nodes={rfNodes}
+              edges={rfEdges}
+              nodeTypes={nodeTypes}
+              onNodeClick={onNodeClick}
+              onNodeMouseEnter={onNodeMouseEnter}
+              onNodeMouseLeave={onNodeMouseLeave}
+              onPaneClick={onPaneClick}
+              fitView
+              fitViewOptions={{ padding: 0.15 }}
+              minZoom={0.3}
+              maxZoom={1.6}
+              proOptions={{ hideAttribution: true }}
+              className="bg-slate-950"
+            >
+              <Background variant={BackgroundVariant.Dots} gap={24} size={1} color="rgba(148,163,184,0.18)" />
+              <Controls className="!bg-slate-900/90 !border !border-white/10 !rounded-md" showInteractive={false} />
+              <MiniMap
+                nodeColor={(n) => {
+                  const layer = (n.data as ArchNodeData)?.layer;
+                  if (layer === "lifecycle") return "#6366f1";
+                  if (layer === "delivery") return "#3b82f6";
+                  return "#06b6d4";
+                }}
+                maskColor="rgba(2,6,23,0.7)"
+                className="!bg-slate-900/90 !border !border-white/10 !rounded-md"
+                pannable
+                zoomable
+              />
+            </ReactFlow>
 
-        {/* Edge legend */}
-        <div className="absolute bottom-4 left-4 z-10 rounded-lg border border-white/10 bg-slate-900/90 backdrop-blur-md px-3 py-2 flex items-center gap-3 text-[10px]">
-          {Object.entries(edgeColorByRel).map(([k, c]) => (
-            <div key={k} className="flex items-center gap-1.5">
-              <div className="w-4 h-0.5 rounded-full" style={{ background: c }} />
-              <span className="text-slate-400 capitalize">{k.replace("_", " ")}</span>
+            {/* Edge legend */}
+            <div className="absolute bottom-4 left-4 z-10 rounded-lg border border-white/10 bg-slate-900/90 backdrop-blur-md px-3 py-2 flex items-center gap-3 text-[10px]">
+              {Object.entries(edgeColorByRel).map(([k, c]) => (
+                <div key={k} className="flex items-center gap-1.5">
+                  <div className="w-4 h-0.5 rounded-full" style={{ background: c }} />
+                  <span className="text-slate-400 capitalize">{k.replace("_", " ")}</span>
+                </div>
+              ))}
             </div>
-          ))}
-        </div>
+
+            {/* Hint when no edges visible */}
+            {viewMode === "dependency" && !focusId && !showDepsForId && (
+              <div className="absolute top-4 left-1/2 -translate-x-1/2 z-10 rounded-full border border-cyan-400/30 bg-cyan-500/10 px-3 py-1.5 text-[11px] text-cyan-200 backdrop-blur-md">
+                Click a node to reveal its dependencies
+              </div>
+            )}
+          </>
+        )}
 
         <Inspector
           node={selectedNode}
           allNodes={allNodes}
           allEdges={allEdges}
           resources={resources}
+          persona={persona}
+          showDeps={showDepsForId === selectedId}
+          onToggleDeps={() => setShowDepsForId((cur) => (cur === selectedId ? null : selectedId))}
           onClose={() => setSelectedId(null)}
         />
       </div>
@@ -298,53 +354,30 @@ function Kpi({ icon, label, value, accent }: { icon: React.ReactNode; label: str
   );
 }
 
-function SegmentedFilter({
-  value,
-  onChange,
-  options,
-}: {
-  value: string;
-  onChange: (v: string) => void;
-  options: { v: string; l: string }[];
-}) {
+function ViewModeSwitcher({ value, onChange }: { value: ViewMode; onChange: (v: ViewMode) => void }) {
+  const iconFor = (v: ViewMode) => {
+    if (v === "business") return <Layers className="w-3 h-3" />;
+    if (v === "dependency") return <GitBranch className="w-3 h-3" />;
+    return <Boxes className="w-3 h-3" />;
+  };
   return (
     <div className="inline-flex items-center rounded-md border border-white/10 bg-slate-900/60 p-0.5">
-      {options.map((o) => (
+      {VIEW_MODES.map((m) => (
         <button
-          key={o.v}
-          onClick={() => onChange(o.v)}
-          aria-pressed={value === o.v}
-          aria-label={`Filter: ${o.l}`}
+          key={m.id}
+          onClick={() => onChange(m.id)}
+          aria-pressed={value === m.id}
+          aria-label={m.description}
+          title={m.description}
+          data-testid={`view-mode-${m.id}`}
           className={cn(
-            "text-[11px] font-medium px-2.5 py-1 rounded transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-400",
-            value === o.v ? "bg-cyan-500/20 text-cyan-200" : "text-slate-400 hover:text-white",
+            "text-[11px] font-medium px-2.5 py-1 rounded transition-colors flex items-center gap-1.5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-400",
+            value === m.id ? "bg-cyan-500/20 text-cyan-200" : "text-slate-400 hover:text-white",
           )}
         >
-          {o.l}
+          {iconFor(m.id)}
+          {m.label}
         </button>
-      ))}
-    </div>
-  );
-}
-
-function SwimlanesOverlay() {
-  const lanes = [
-    { layer: "lifecycle", top: 30, height: 200 },
-    { layer: "delivery", top: 270, height: 200 },
-    { layer: "platform", top: 530, height: 380 },
-  ];
-  return (
-    <div className="absolute inset-0 pointer-events-none z-0" style={{ transform: "translateZ(0)" }}>
-      {lanes.map((l) => (
-        <div
-          key={l.layer}
-          className="absolute left-0 right-0 border-y border-white/[0.04]"
-          style={{ top: l.top, height: l.height, background: layerColors[l.layer] }}
-        >
-          <div className="absolute left-4 top-2 text-[10px] uppercase tracking-[0.2em] font-semibold text-slate-600">
-            {layerLabels[l.layer]}
-          </div>
-        </div>
       ))}
     </div>
   );

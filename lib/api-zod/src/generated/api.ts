@@ -48,6 +48,55 @@ export const GetArchitectureResponse = zod.object({
           y: zod.number().optional(),
         })
         .optional(),
+      visibleToPersonas: zod
+        .array(
+          zod.enum([
+            "vp",
+            "sales",
+            "post-sales",
+            "cs",
+            "support",
+            "engineering",
+          ]),
+        )
+        .optional()
+        .describe("Personas for which this node is visible at all"),
+      defaultPriorityByPersona: zod
+        .record(zod.string(), zod.enum(["primary", "secondary", "hidden"]))
+        .optional()
+        .describe("Per-persona priority (primary | secondary | hidden)"),
+      simplifiedLabel: zod
+        .string()
+        .optional()
+        .describe("Short, scannable label for compact card view"),
+      clusterGroup: zod
+        .string()
+        .optional()
+        .describe(
+          "Logical cluster id for the Business view (e.g. revenue, delivery, customer-data)",
+        ),
+      dependencyVisibilityLevel: zod
+        .enum(["low", "medium", "high"])
+        .optional()
+        .describe("How much dependency context to surface for this node"),
+      businessCriticality: zod
+        .number()
+        .optional()
+        .describe("1-5 — how critical to revenue \/ customer outcomes"),
+      technicalCriticality: zod
+        .number()
+        .optional()
+        .describe("1-5 — how critical to platform stability"),
+      microStat: zod
+        .string()
+        .optional()
+        .describe(
+          'Single short stat shown on compact cards (e.g. \"12 active\")',
+        ),
+      roleTag: zod
+        .string()
+        .optional()
+        .describe("Single role chip shown on compact cards"),
     }),
   ),
   connections: zod.array(
@@ -94,6 +143,55 @@ export const GetGraphResponse = zod.object({
           y: zod.number().optional(),
         })
         .optional(),
+      visibleToPersonas: zod
+        .array(
+          zod.enum([
+            "vp",
+            "sales",
+            "post-sales",
+            "cs",
+            "support",
+            "engineering",
+          ]),
+        )
+        .optional()
+        .describe("Personas for which this node is visible at all"),
+      defaultPriorityByPersona: zod
+        .record(zod.string(), zod.enum(["primary", "secondary", "hidden"]))
+        .optional()
+        .describe("Per-persona priority (primary | secondary | hidden)"),
+      simplifiedLabel: zod
+        .string()
+        .optional()
+        .describe("Short, scannable label for compact card view"),
+      clusterGroup: zod
+        .string()
+        .optional()
+        .describe(
+          "Logical cluster id for the Business view (e.g. revenue, delivery, customer-data)",
+        ),
+      dependencyVisibilityLevel: zod
+        .enum(["low", "medium", "high"])
+        .optional()
+        .describe("How much dependency context to surface for this node"),
+      businessCriticality: zod
+        .number()
+        .optional()
+        .describe("1-5 — how critical to revenue \/ customer outcomes"),
+      technicalCriticality: zod
+        .number()
+        .optional()
+        .describe("1-5 — how critical to platform stability"),
+      microStat: zod
+        .string()
+        .optional()
+        .describe(
+          'Single short stat shown on compact cards (e.g. \"12 active\")',
+        ),
+      roleTag: zod
+        .string()
+        .optional()
+        .describe("Single role chip shown on compact cards"),
     }),
   ),
   edges: zod.array(
@@ -207,6 +305,46 @@ export const ListArchitectureNodesResponseItem = zod.object({
       y: zod.number().optional(),
     })
     .optional(),
+  visibleToPersonas: zod
+    .array(
+      zod.enum(["vp", "sales", "post-sales", "cs", "support", "engineering"]),
+    )
+    .optional()
+    .describe("Personas for which this node is visible at all"),
+  defaultPriorityByPersona: zod
+    .record(zod.string(), zod.enum(["primary", "secondary", "hidden"]))
+    .optional()
+    .describe("Per-persona priority (primary | secondary | hidden)"),
+  simplifiedLabel: zod
+    .string()
+    .optional()
+    .describe("Short, scannable label for compact card view"),
+  clusterGroup: zod
+    .string()
+    .optional()
+    .describe(
+      "Logical cluster id for the Business view (e.g. revenue, delivery, customer-data)",
+    ),
+  dependencyVisibilityLevel: zod
+    .enum(["low", "medium", "high"])
+    .optional()
+    .describe("How much dependency context to surface for this node"),
+  businessCriticality: zod
+    .number()
+    .optional()
+    .describe("1-5 — how critical to revenue \/ customer outcomes"),
+  technicalCriticality: zod
+    .number()
+    .optional()
+    .describe("1-5 — how critical to platform stability"),
+  microStat: zod
+    .string()
+    .optional()
+    .describe('Single short stat shown on compact cards (e.g. \"12 active\")'),
+  roleTag: zod
+    .string()
+    .optional()
+    .describe("Single role chip shown on compact cards"),
 });
 export const ListArchitectureNodesResponse = zod.array(
   ListArchitectureNodesResponseItem,
@@ -248,6 +386,46 @@ export const GetArchitectureNodeResponse = zod.object({
       y: zod.number().optional(),
     })
     .optional(),
+  visibleToPersonas: zod
+    .array(
+      zod.enum(["vp", "sales", "post-sales", "cs", "support", "engineering"]),
+    )
+    .optional()
+    .describe("Personas for which this node is visible at all"),
+  defaultPriorityByPersona: zod
+    .record(zod.string(), zod.enum(["primary", "secondary", "hidden"]))
+    .optional()
+    .describe("Per-persona priority (primary | secondary | hidden)"),
+  simplifiedLabel: zod
+    .string()
+    .optional()
+    .describe("Short, scannable label for compact card view"),
+  clusterGroup: zod
+    .string()
+    .optional()
+    .describe(
+      "Logical cluster id for the Business view (e.g. revenue, delivery, customer-data)",
+    ),
+  dependencyVisibilityLevel: zod
+    .enum(["low", "medium", "high"])
+    .optional()
+    .describe("How much dependency context to surface for this node"),
+  businessCriticality: zod
+    .number()
+    .optional()
+    .describe("1-5 — how critical to revenue \/ customer outcomes"),
+  technicalCriticality: zod
+    .number()
+    .optional()
+    .describe("1-5 — how critical to platform stability"),
+  microStat: zod
+    .string()
+    .optional()
+    .describe('Single short stat shown on compact cards (e.g. \"12 active\")'),
+  roleTag: zod
+    .string()
+    .optional()
+    .describe("Single role chip shown on compact cards"),
 });
 
 /**

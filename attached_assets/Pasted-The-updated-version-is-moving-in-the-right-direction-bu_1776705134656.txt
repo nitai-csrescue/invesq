@@ -1,0 +1,114 @@
+The updated version is moving in the right direction, but it is still too visually dependent on connector lines and not configurable enough by user persona.
+
+Refactor the architecture experience to be easier for humans to scan first, and only show deep dependency relationships when needed.
+
+PRIMARY CHANGES
+
+1. Add persona-based viewing modes at the top of the app:
+- VP
+- Sales
+- Post-Sales
+- Customer Success
+- Support
+- Engineering
+
+2. Add display modes for the architecture page:
+- Business View
+- Dependency View
+- Systems View
+
+DEFAULT BEHAVIOR
+- Default to Business View
+- Business View should minimize connector lines
+- The interface should rely more on grouped lanes, clusters, card groupings, and status badges
+- Only show explicit connecting lines on hover, click, or in Dependency / Systems view
+
+READABILITY IMPROVEMENTS
+- Reduce line density significantly
+- Make nodes easier to scan with compact title, icon, health state, and 1–2 mini chips only
+- Reduce long descriptions on the main canvas
+- Use progressive disclosure in the inspector panel
+- Group nodes by function and persona relevance rather than showing everything with equal weight
+- Add whitespace and simplify the visual hierarchy
+
+PERSONA RULES
+
+VP view:
+- show lifecycle stages, health, blockers, deployment risk, adoption summary
+- hide most low-level systems
+- emphasize high-level cluster status
+
+Sales view:
+- emphasize Pre-Sales, Contract, Implementation handoff, CRM, readiness blockers
+- de-emphasize support and deep platform internals
+
+Post-Sales view:
+- emphasize Implementation, Delivery, Playbooks, Deployment Intelligence, launch blockers, linked systems
+
+Customer Success view:
+- emphasize CSM / Upsell, Support signals, Analytics, CRM, adoption, renewal risk, expansion
+
+Support view:
+- emphasize Support, Case Management, Knowledge, impacted systems, issue clusters
+- allow dependency inspection but keep default simplified
+
+Engineering view:
+- show full system topology, explicit connectors, resource nodes, API/dependency relationships, environment and health metadata
+
+INTERACTION RULES
+- In Business View, connector lines should be hidden or extremely faint by default
+- When a node is clicked, reveal only first-degree relationships
+- Add a “Show dependencies” toggle for each node
+- Add a “Simplify view” toggle that collapses low-priority nodes
+- Add a “Cluster by persona relevance” mode
+
+VISUAL PATTERNS TO USE
+Replace always-visible lines with:
+- grouped swimlanes
+- expandable clusters
+- edge highlighting only on selection
+- relationship pills/chips
+- soft glow around related nodes instead of persistent lines
+- mini dependency count badges like “3 linked systems” or “2 upstream”
+
+INFORMATION DENSITY
+Main canvas should show:
+- icon
+- title
+- health
+- maybe one micro-stat
+- maybe one role tag
+
+All deeper text, metrics, and dependencies should move into:
+- right-side drawer
+- hover panel
+- drill-in modal
+- persona-specific overlays
+
+CONFIGURABILITY
+Make the architecture easy to configure with simple metadata, not hardcoded visual logic.
+
+Each node should support:
+- visibleToPersonas: ["vp", "sales", "post-sales", "cs", "support", "engineering"]
+- defaultPriorityByPersona
+- simplifiedLabel
+- clusterGroup
+- dependencyVisibilityLevel
+- businessCriticality
+- technicalCriticality
+
+Use that metadata to dynamically re-render the canvas for each persona.
+
+SUCCESS CRITERIA
+The architecture should be understandable in under 10 seconds in VP mode.
+The same architecture should become progressively more technical when switching to Engineering mode.
+The system should feel configurable, readable, and role-aware rather than one-size-fits-all.
+
+Please implement:
+1. persona switcher
+2. view mode switcher
+3. reduced line density in default mode
+4. relationship reveal on selection
+5. metadata-driven node visibility and prioritization
+6. simpler main canvas cards
+7. richer inspector panel with persona-aware content
