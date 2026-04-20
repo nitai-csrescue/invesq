@@ -1,0 +1,385 @@
+Build a polished mockup web app called “CS Rescue” that visualizes a company’s customer lifecycle architecture in a highly visual, lightweight, intuitive way.
+
+The app should feel like a hybrid of:
+- a modern architecture diagram
+- a product operating system
+- a visual systems map
+- a lightweight executive command center
+
+This is NOT a text-heavy dashboard. It should be visually led, minimal in copy, easy to understand at a glance, and feel closer to a clean Miro / Lucidchart / Figma prototype than a dense BI dashboard.
+
+Core idea:
+The app shows a high-level view of an organization’s product architecture across the full customer lifecycle, and lets users click into parts of the architecture to reveal deeper detail. It should be company-agnostic in structure, but for now use the placeholder company name “CS Rescue.”
+
+The main use case:
+A professional services / financial services software company wants to see how customer-facing lifecycle motions connect to delivery, product capabilities, systems, integrations, data sources, and downstream teams.
+
+Important design direction:
+- extremely visual
+- lightweight on text
+- minimal clutter
+- intuitive information hierarchy
+- elegant and modern
+- premium enterprise SaaS feel
+- dark mode by default
+- animation should be subtle and smooth
+- cards and nodes should feel tactile and clickable
+- use whitespace generously
+- use iconography, color, grouping, connection lines, and progressive disclosure instead of large blocks of text
+
+Do NOT make this feel like a traditional analytics dashboard with too many panels and paragraphs.
+Do NOT overload the screen with explanatory text.
+Do NOT make it look like a generic admin panel.
+
+--------------------------------------------------
+PRODUCT CONCEPT
+--------------------------------------------------
+
+The app should center around a visual architecture map with 3 major layers:
+
+1. Lifecycle Motions
+These represent the customer lifecycle and should appear as a top row or top-level layer:
+- Pre-Sales
+- Contract / Signature
+- Implementation / Onboarding
+- CSM / Upsell
+- Support
+
+2. Delivery / Orchestration Layer
+This is the middle layer and should visually connect the top lifecycle motions to the bottom platform systems:
+- Forward-Deployed Delivery
+- Lifecycle Playbooks
+- Deployment Intelligence
+
+3. Shared Platform / Systems Layer
+This is the foundation layer and should represent reusable backend/product capabilities:
+- Data Orchestration
+- Decisioning Engine
+- Compliance & Controls
+- Partner Hub
+- Analytics / BI
+- CRM / Customer Data
+- Case Management / Ticketing
+- Document / Knowledge Layer
+- API Gateway / Integration Hub
+
+Each node should be clickable.
+
+When clicked, a node should reveal a lightweight drill-in panel with:
+- short title
+- one sentence description max
+- 3–5 key capabilities shown as chips or bullets
+- key systems/resources connected to it
+- sample KPIs or metadata
+- related downstream nodes / dependencies
+
+--------------------------------------------------
+PRIMARY UX
+--------------------------------------------------
+
+Build the app with these main views:
+
+1. Main Architecture View
+This is the default landing screen.
+It should show:
+- company name “CS Rescue” in the header
+- a large architecture map occupying most of the screen
+- nodes arranged in clear grouped layers
+- visible relationships / connectors between layers
+- hover states and selected states
+- zoom/pan feel if possible
+- a right-side detail drawer or floating inspector panel on click
+
+2. Resource / Systems Explorer
+A secondary view or tab that shows all connected resources and systems.
+It should allow the user to see and manage:
+- Salesforce / CRM
+- proprietary API endpoints
+- internal data warehouse
+- BI tools
+- support/ticketing tools
+- contract/signature tools
+- document repositories
+- cloud storage / object storage
+- compliance systems
+- identity / auth providers
+- event streams / messaging
+- customer data platforms
+- operational databases
+
+This view should show resource cards or a network-style relationship map.
+It should feel modular and extensible.
+
+3. Deployment Workspace
+A view focused on a single customer rollout / deployment.
+This should show:
+- selected customer/account
+- lifecycle stage progress
+- linked systems/resources
+- workstreams
+- major blockers / risks
+- implementation dependencies
+- system readiness
+- status indicators
+Use visual status blocks and minimal text.
+
+--------------------------------------------------
+BACKEND / SYSTEM SETUP REQUIREMENTS
+--------------------------------------------------
+
+I want this mockup app to also include a backend setup system that is agnostic to company type and lets an admin plug in resources.
+
+Create a backend architecture for the mockup with:
+- a modular connector registry
+- a normalized resource model
+- a normalized system relationship model
+- a node metadata model
+- a deployment/project model
+- a customer/account model
+- a lifecycle motion model
+
+The backend does NOT need real production integrations, but should be structured cleanly so that real integrations could be added later.
+
+Include mock backend functionality for:
+- registering connectors
+- storing connector metadata
+- storing credentials placeholders securely
+- mapping external resources to architecture nodes
+- defining dependencies between systems
+- tagging resources by lifecycle motion
+- tagging resources by function (CRM, analytics, contract, support, compliance, API, etc.)
+- loading mock data into the frontend
+- returning filtered architecture data per company / deployment / lifecycle stage
+
+Supported connector/resource categories should include:
+- Salesforce or similar CRM
+- HubSpot or equivalent
+- proprietary internal APIs
+- REST APIs
+- GraphQL APIs
+- data warehouse (Snowflake, BigQuery, Redshift equivalent)
+- BI tools (Looker, Tableau, Power BI equivalent)
+- ticketing/support (Zendesk, Jira Service Management, ServiceNow equivalent)
+- e-signature / contracts
+- document storage / knowledge bases
+- cloud object storage
+- identity/auth systems
+- messaging/webhook/event systems
+- operational databases
+- compliance / audit tools
+- file ingestion pipelines
+- ETL / orchestration systems
+
+Provide mock configuration screens for:
+- add new connector
+- view connector health
+- map connector to node(s)
+- define sync direction
+- define data owner / business owner
+- define environment (prod, sandbox, staging)
+- define sensitivity level
+- define dependency relationships
+- enable/disable connector
+
+--------------------------------------------------
+TECHNICAL BUILD REQUEST
+--------------------------------------------------
+
+Build this as a polished modern web app using:
+
+Frontend:
+- React
+- TypeScript
+- Tailwind CSS
+- shadcn/ui components where helpful
+- Framer Motion for subtle transitions
+- Lucide icons
+- optional React Flow or a similar library for the architecture diagram if it improves the UX
+
+Backend:
+- Node.js + Express or Next.js API routes
+- TypeScript
+- simple mock JSON or in-memory data store is fine
+- organize code cleanly so a real database could be added later
+- create clear mock API endpoints
+
+Suggested frontend structure:
+- app shell with top nav and left mini-nav
+- main architecture canvas
+- slide-over detail panel
+- resource explorer page
+- deployment workspace page
+- admin connector setup page
+
+Suggested backend API routes:
+- GET /api/architecture
+- GET /api/architecture/nodes
+- GET /api/resources
+- GET /api/resources/:id
+- POST /api/resources
+- PATCH /api/resources/:id
+- GET /api/deployments
+- GET /api/deployments/:id
+- GET /api/connectors
+- POST /api/connectors
+- PATCH /api/connectors/:id
+- GET /api/accounts
+- GET /api/lifecycle-motions
+
+--------------------------------------------------
+DATA MODEL EXPECTATIONS
+--------------------------------------------------
+
+Create sample mock data models for:
+
+ArchitectureNode
+- id
+- name
+- type
+- layer
+- icon
+- shortDescription
+- lifecycleMotionIds
+- connectedNodeIds
+- resourceIds
+- kpis
+- status
+- ownerTeam
+
+Resource
+- id
+- name
+- category
+- vendor
+- environment
+- status
+- dataDirection
+- linkedNodeIds
+- owner
+- sensitivity
+- lastSyncAt
+- metadata
+
+Connector
+- id
+- name
+- type
+- authType
+- status
+- health
+- configSchema
+- supportedResourceCategories
+
+Deployment
+- id
+- accountId
+- name
+- stage
+- architectureNodeIds
+- resourceIds
+- blockers
+- milestones
+- healthScore
+
+Account
+- id
+- name
+- segment
+- lifecycleStage
+- deploymentIds
+- owner
+- status
+
+--------------------------------------------------
+VISUAL DESIGN REQUIREMENTS
+--------------------------------------------------
+
+The visual style should be more elegant and visual than text-heavy.
+
+Use:
+- glowing nodes
+- clean connector lines
+- subtle animated hover states
+- semantic colors by layer
+- compact cards
+- icon-first hierarchy
+- progressive disclosure
+- modern enterprise polish
+
+Use fewer paragraphs and more:
+- chips
+- icons
+- status dots
+- connection lines
+- mini metrics
+- hover tooltips
+- light labels
+
+The architecture view should be the hero.
+Text should support the experience, not dominate it.
+
+The user should be able to understand the structure of the company/system visually in under 10 seconds.
+
+--------------------------------------------------
+INSPIRATION / BEHAVIORAL GOALS
+--------------------------------------------------
+
+The app should communicate:
+- how commercial lifecycle stages connect to delivery
+- how delivery connects to product/system architecture
+- how systems/resources support each motion
+- how a company can plug in its own tools and resources generically
+- how an executive or operator could inspect dependencies quickly
+
+It should feel useful for:
+- solutions teams
+- implementation teams
+- CS leadership
+- support leadership
+- operations leaders
+- product teams
+- executives
+
+--------------------------------------------------
+SPECIFIC BUILD OUTPUTS I WANT
+--------------------------------------------------
+
+Please generate:
+1. a fully working mock frontend
+2. a mocked backend/API structure
+3. sample mock data
+4. a modular architecture diagram component
+5. a connector setup/admin screen
+6. a deployment workspace screen
+7. a resource explorer screen
+8. polished styling and animations
+9. reusable components with clean code organization
+10. a README explaining project structure and how to extend it later
+
+Also include:
+- sensible folder structure
+- typed interfaces/types
+- reusable mock service layer
+- comments only where helpful
+- no unnecessary complexity
+- clean component boundaries
+
+--------------------------------------------------
+IMPORTANT SIMPLIFICATION RULES
+--------------------------------------------------
+
+- prioritize visual clarity over explanatory text
+- keep on-screen text concise
+- prefer one-line labels and short descriptors
+- avoid giant sidebars full of copy
+- avoid long paragraphs
+- avoid crowded tables
+- avoid enterprise ugliness
+- make it feel like a premium clickable concept prototype that could become a real product
+
+At the end, provide:
+- the project file structure
+- key architectural decisions
+- how to run it locally
+- where to customize branding later
+- where to swap mock data for real APIs

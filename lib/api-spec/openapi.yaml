@@ -3,20 +3,31 @@ info:
   # Do not change the title, if the title changes, the import paths will be broken
   title: Api
   version: 0.1.0
-  description: API specification
+  description: CS Rescue API specification
 servers:
   - url: /api
     description: Base API path
 tags:
   - name: health
     description: Health operations
+  - name: architecture
+    description: Architecture nodes and diagram
+  - name: resources
+    description: System resources and integrations
+  - name: connectors
+    description: Connector registry and configuration
+  - name: deployments
+    description: Customer deployments and rollouts
+  - name: accounts
+    description: Customer accounts
+  - name: lifecycle
+    description: Lifecycle motions
 paths:
   /healthz:
     get:
       operationId: healthCheck
       tags: [health]
       summary: Health check
-      description: Returns server health status
       responses:
         "200":
           description: Healthy
@@ -24,6 +35,309 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/HealthStatus"
+
+  /architecture:
+    get:
+      operationId: getArchitecture
+      tags: [architecture]
+      summary: Get full architecture map
+      responses:
+        "200":
+          description: Full architecture data
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ArchitectureMap"
+
+  /architecture/nodes:
+    get:
+      operationId: listArchitectureNodes
+      tags: [architecture]
+      summary: List all architecture nodes
+      parameters:
+        - name: layer
+          in: query
+          schema:
+            type: string
+            enum: [lifecycle, delivery, platform]
+        - name: lifecycleMotionId
+          in: query
+          schema:
+            type: string
+      responses:
+        "200":
+          description: List of nodes
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/ArchitectureNode"
+
+  /architecture/nodes/{id}:
+    get:
+      operationId: getArchitectureNode
+      tags: [architecture]
+      summary: Get a specific architecture node
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Node detail
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ArchitectureNode"
+        "404":
+          description: Not found
+
+  /architecture/summary:
+    get:
+      operationId: getArchitectureSummary
+      tags: [architecture]
+      summary: Get architecture summary stats
+      responses:
+        "200":
+          description: Summary statistics
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ArchitectureSummary"
+
+  /resources:
+    get:
+      operationId: listResources
+      tags: [resources]
+      summary: List all resources
+      parameters:
+        - name: category
+          in: query
+          schema:
+            type: string
+        - name: status
+          in: query
+          schema:
+            type: string
+      responses:
+        "200":
+          description: List of resources
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Resource"
+    post:
+      operationId: createResource
+      tags: [resources]
+      summary: Create a new resource
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/NewResourceInput"
+      responses:
+        "201":
+          description: Created resource
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Resource"
+
+  /resources/{id}:
+    get:
+      operationId: getResource
+      tags: [resources]
+      summary: Get a resource by ID
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Resource detail
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Resource"
+        "404":
+          description: Not found
+    patch:
+      operationId: updateResource
+      tags: [resources]
+      summary: Update a resource
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/PatchResourceInput"
+      responses:
+        "200":
+          description: Updated resource
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Resource"
+
+  /connectors:
+    get:
+      operationId: listConnectors
+      tags: [connectors]
+      summary: List all connectors
+      responses:
+        "200":
+          description: List of connectors
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Connector"
+    post:
+      operationId: createConnector
+      tags: [connectors]
+      summary: Register a new connector
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/NewConnectorInput"
+      responses:
+        "201":
+          description: Created connector
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Connector"
+
+  /connectors/{id}:
+    patch:
+      operationId: updateConnector
+      tags: [connectors]
+      summary: Update a connector
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/PatchConnectorInput"
+      responses:
+        "200":
+          description: Updated connector
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Connector"
+
+  /connectors/health:
+    get:
+      operationId: getConnectorHealth
+      tags: [connectors]
+      summary: Get health status of all connectors
+      responses:
+        "200":
+          description: Connector health overview
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ConnectorHealthSummary"
+
+  /deployments:
+    get:
+      operationId: listDeployments
+      tags: [deployments]
+      summary: List all deployments
+      parameters:
+        - name: accountId
+          in: query
+          schema:
+            type: string
+        - name: stage
+          in: query
+          schema:
+            type: string
+      responses:
+        "200":
+          description: List of deployments
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Deployment"
+
+  /deployments/{id}:
+    get:
+      operationId: getDeployment
+      tags: [deployments]
+      summary: Get a deployment by ID
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Deployment detail
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Deployment"
+        "404":
+          description: Not found
+
+  /accounts:
+    get:
+      operationId: listAccounts
+      tags: [accounts]
+      summary: List all accounts
+      responses:
+        "200":
+          description: List of accounts
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Account"
+
+  /lifecycle-motions:
+    get:
+      operationId: listLifecycleMotions
+      tags: [lifecycle]
+      summary: List all lifecycle motions
+      responses:
+        "200":
+          description: List of lifecycle motions
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/LifecycleMotion"
+
 components:
   schemas:
     HealthStatus:
@@ -34,3 +348,576 @@ components:
       required:
         - status
 
+    ArchitectureMap:
+      type: object
+      properties:
+        nodes:
+          type: array
+          items:
+            $ref: "#/components/schemas/ArchitectureNode"
+        connections:
+          type: array
+          items:
+            $ref: "#/components/schemas/NodeConnection"
+        layers:
+          type: array
+          items:
+            type: string
+      required:
+        - nodes
+        - connections
+        - layers
+
+    ArchitectureNode:
+      type: object
+      properties:
+        id:
+          type: string
+        name:
+          type: string
+        type:
+          type: string
+        layer:
+          type: string
+          enum: [lifecycle, delivery, platform]
+        icon:
+          type: string
+        shortDescription:
+          type: string
+        capabilities:
+          type: array
+          items:
+            type: string
+        lifecycleMotionIds:
+          type: array
+          items:
+            type: string
+        connectedNodeIds:
+          type: array
+          items:
+            type: string
+        resourceIds:
+          type: array
+          items:
+            type: string
+        kpis:
+          type: array
+          items:
+            $ref: "#/components/schemas/KPI"
+        status:
+          type: string
+          enum: [active, degraded, offline, warning]
+        ownerTeam:
+          type: string
+        color:
+          type: string
+      required:
+        - id
+        - name
+        - type
+        - layer
+        - icon
+        - shortDescription
+        - capabilities
+        - lifecycleMotionIds
+        - connectedNodeIds
+        - resourceIds
+        - kpis
+        - status
+        - ownerTeam
+        - color
+
+    NodeConnection:
+      type: object
+      properties:
+        from:
+          type: string
+        to:
+          type: string
+        type:
+          type: string
+          enum: [data, dependency, bidirectional]
+      required:
+        - from
+        - to
+        - type
+
+    KPI:
+      type: object
+      properties:
+        label:
+          type: string
+        value:
+          type: string
+        trend:
+          type: string
+          enum: [up, down, flat]
+      required:
+        - label
+        - value
+
+    ArchitectureSummary:
+      type: object
+      properties:
+        totalNodes:
+          type: integer
+        activeNodes:
+          type: integer
+        totalResources:
+          type: integer
+        healthyResources:
+          type: integer
+        totalConnectors:
+          type: integer
+        activeDeployments:
+          type: integer
+        systemHealth:
+          type: number
+      required:
+        - totalNodes
+        - activeNodes
+        - totalResources
+        - healthyResources
+        - totalConnectors
+        - activeDeployments
+        - systemHealth
+
+    Resource:
+      type: object
+      properties:
+        id:
+          type: string
+        name:
+          type: string
+        category:
+          type: string
+        vendor:
+          type: string
+        environment:
+          type: string
+          enum: [production, sandbox, staging]
+        status:
+          type: string
+          enum: [connected, disconnected, degraded, pending]
+        dataDirection:
+          type: string
+          enum: [inbound, outbound, bidirectional]
+        linkedNodeIds:
+          type: array
+          items:
+            type: string
+        owner:
+          type: string
+        sensitivity:
+          type: string
+          enum: [public, internal, confidential, restricted]
+        lastSyncAt:
+          type: string
+          nullable: true
+        metadata:
+          type: object
+          additionalProperties: true
+      required:
+        - id
+        - name
+        - category
+        - vendor
+        - environment
+        - status
+        - dataDirection
+        - linkedNodeIds
+        - owner
+        - sensitivity
+
+    NewResourceInput:
+      type: object
+      properties:
+        name:
+          type: string
+        category:
+          type: string
+        vendor:
+          type: string
+        environment:
+          type: string
+          enum: [production, sandbox, staging]
+        dataDirection:
+          type: string
+          enum: [inbound, outbound, bidirectional]
+        linkedNodeIds:
+          type: array
+          items:
+            type: string
+        owner:
+          type: string
+        sensitivity:
+          type: string
+          enum: [public, internal, confidential, restricted]
+      required:
+        - name
+        - category
+        - vendor
+        - environment
+        - dataDirection
+        - linkedNodeIds
+        - owner
+        - sensitivity
+
+    PatchResourceInput:
+      type: object
+      properties:
+        status:
+          type: string
+          enum: [connected, disconnected, degraded, pending]
+        environment:
+          type: string
+          enum: [production, sandbox, staging]
+        dataDirection:
+          type: string
+          enum: [inbound, outbound, bidirectional]
+        owner:
+          type: string
+        sensitivity:
+          type: string
+          enum: [public, internal, confidential, restricted]
+
+    Connector:
+      type: object
+      properties:
+        id:
+          type: string
+        name:
+          type: string
+        type:
+          type: string
+        authType:
+          type: string
+          enum: [oauth2, api_key, basic, jwt, none]
+        status:
+          type: string
+          enum: [enabled, disabled, pending]
+        health:
+          type: string
+          enum: [healthy, degraded, offline, unknown]
+        configSchema:
+          type: object
+          additionalProperties: true
+        supportedResourceCategories:
+          type: array
+          items:
+            type: string
+        environment:
+          type: string
+          enum: [production, sandbox, staging]
+        dataOwner:
+          type: string
+        businessOwner:
+          type: string
+        syncDirection:
+          type: string
+          enum: [inbound, outbound, bidirectional]
+        sensitivityLevel:
+          type: string
+          enum: [public, internal, confidential, restricted]
+        dependencies:
+          type: array
+          items:
+            type: string
+        lastCheckedAt:
+          type: string
+          nullable: true
+      required:
+        - id
+        - name
+        - type
+        - authType
+        - status
+        - health
+        - supportedResourceCategories
+        - environment
+        - dataOwner
+        - businessOwner
+        - syncDirection
+        - sensitivityLevel
+        - dependencies
+
+    NewConnectorInput:
+      type: object
+      properties:
+        name:
+          type: string
+        type:
+          type: string
+        authType:
+          type: string
+          enum: [oauth2, api_key, basic, jwt, none]
+        environment:
+          type: string
+          enum: [production, sandbox, staging]
+        dataOwner:
+          type: string
+        businessOwner:
+          type: string
+        syncDirection:
+          type: string
+          enum: [inbound, outbound, bidirectional]
+        sensitivityLevel:
+          type: string
+          enum: [public, internal, confidential, restricted]
+      required:
+        - name
+        - type
+        - authType
+        - environment
+        - dataOwner
+        - businessOwner
+        - syncDirection
+        - sensitivityLevel
+
+    PatchConnectorInput:
+      type: object
+      properties:
+        status:
+          type: string
+          enum: [enabled, disabled, pending]
+        health:
+          type: string
+          enum: [healthy, degraded, offline, unknown]
+        syncDirection:
+          type: string
+          enum: [inbound, outbound, bidirectional]
+        environment:
+          type: string
+          enum: [production, sandbox, staging]
+        dataOwner:
+          type: string
+        businessOwner:
+          type: string
+
+    ConnectorHealthSummary:
+      type: object
+      properties:
+        healthy:
+          type: integer
+        degraded:
+          type: integer
+        offline:
+          type: integer
+        unknown:
+          type: integer
+        total:
+          type: integer
+        connectors:
+          type: array
+          items:
+            type: object
+            properties:
+              id:
+                type: string
+              name:
+                type: string
+              health:
+                type: string
+              lastCheckedAt:
+                type: string
+                nullable: true
+            required:
+              - id
+              - name
+              - health
+      required:
+        - healthy
+        - degraded
+        - offline
+        - unknown
+        - total
+        - connectors
+
+    Deployment:
+      type: object
+      properties:
+        id:
+          type: string
+        accountId:
+          type: string
+        accountName:
+          type: string
+        name:
+          type: string
+        stage:
+          type: string
+          enum: [pre_sales, contracting, implementation, csm, support, completed]
+        architectureNodeIds:
+          type: array
+          items:
+            type: string
+        resourceIds:
+          type: array
+          items:
+            type: string
+        blockers:
+          type: array
+          items:
+            $ref: "#/components/schemas/Blocker"
+        milestones:
+          type: array
+          items:
+            $ref: "#/components/schemas/Milestone"
+        healthScore:
+          type: number
+        startedAt:
+          type: string
+        estimatedCompletionAt:
+          type: string
+          nullable: true
+        workstreams:
+          type: array
+          items:
+            $ref: "#/components/schemas/Workstream"
+      required:
+        - id
+        - accountId
+        - accountName
+        - name
+        - stage
+        - architectureNodeIds
+        - resourceIds
+        - blockers
+        - milestones
+        - healthScore
+        - startedAt
+        - workstreams
+
+    Blocker:
+      type: object
+      properties:
+        id:
+          type: string
+        description:
+          type: string
+        severity:
+          type: string
+          enum: [critical, high, medium, low]
+        status:
+          type: string
+          enum: [open, in_progress, resolved]
+        owner:
+          type: string
+      required:
+        - id
+        - description
+        - severity
+        - status
+        - owner
+
+    Milestone:
+      type: object
+      properties:
+        id:
+          type: string
+        name:
+          type: string
+        status:
+          type: string
+          enum: [completed, in_progress, pending, blocked]
+        dueDate:
+          type: string
+          nullable: true
+        completedAt:
+          type: string
+          nullable: true
+      required:
+        - id
+        - name
+        - status
+
+    Workstream:
+      type: object
+      properties:
+        id:
+          type: string
+        name:
+          type: string
+        status:
+          type: string
+          enum: [active, paused, completed, not_started]
+        owner:
+          type: string
+        progress:
+          type: number
+      required:
+        - id
+        - name
+        - status
+        - owner
+        - progress
+
+    Account:
+      type: object
+      properties:
+        id:
+          type: string
+        name:
+          type: string
+        segment:
+          type: string
+          enum: [enterprise, mid_market, smb]
+        lifecycleStage:
+          type: string
+          enum: [pre_sales, contracting, implementation, csm, support, churned]
+        deploymentIds:
+          type: array
+          items:
+            type: string
+        owner:
+          type: string
+        status:
+          type: string
+          enum: [active, at_risk, churned, prospect]
+        industry:
+          type: string
+        arr:
+          type: number
+          nullable: true
+      required:
+        - id
+        - name
+        - segment
+        - lifecycleStage
+        - deploymentIds
+        - owner
+        - status
+        - industry
+
+    LifecycleMotion:
+      type: object
+      properties:
+        id:
+          type: string
+        name:
+          type: string
+        icon:
+          type: string
+        description:
+          type: string
+        order:
+          type: integer
+        color:
+          type: string
+        nodeIds:
+          type: array
+          items:
+            type: string
+        kpis:
+          type: array
+          items:
+            $ref: "#/components/schemas/KPI"
+      required:
+        - id
+        - name
+        - icon
+        - description
+        - order
+        - color
+        - nodeIds
+        - kpis
