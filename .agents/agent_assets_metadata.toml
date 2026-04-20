@@ -1,0 +1,8 @@
+uploads = []
+generated = []
+
+[[outputs]]
+id = "TyN0NGofSWU4SFfkvKKtF"
+uri = "file://CS_Rescue_Demo_Guide.md"
+type = "text"
+title = "CS Rescue — Product Overview & Demo Guide"
