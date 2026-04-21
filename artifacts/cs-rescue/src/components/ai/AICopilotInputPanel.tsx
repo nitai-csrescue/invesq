@@ -1,12 +1,14 @@
-import { Sparkles, Loader2 } from "lucide-react";
+import { Sparkles, Loader2, Building2, User } from "lucide-react";
 import type { Account, Deployment } from "@workspace/api-client-react";
 import { PERSONAS, type Persona } from "@/lib/persona";
-import { GOALS, type Goal } from "@/services/ai/generateBriefing";
+import { GOALS, type Goal, type Scope } from "@/services/ai/generateBriefing";
 import { cn } from "@/lib/utils";
 
 interface Props {
   persona: Persona;
   setPersona: (p: Persona) => void;
+  scope: Scope;
+  setScope: (s: Scope) => void;
   accountId: string | null;
   setAccountId: (id: string | null) => void;
   deploymentId: string | null;
@@ -29,6 +31,8 @@ const FIELD_BASE =
 export function AICopilotInputPanel({
   persona,
   setPersona,
+  scope,
+  setScope,
   accountId,
   setAccountId,
   deploymentId,
@@ -43,6 +47,9 @@ export function AICopilotInputPanel({
   isGenerating,
   disabled = false,
 }: Props) {
+  const isCompany = scope === "company";
+  // Company scope is meaningless for the outside-in customer persona — lock it.
+  const companyDisabled = persona === "customer";
   // Filter deployments by selected account, if any
   const filteredDeployments = accountId
     ? deployments.filter((d) => d.accountId === accountId)
@@ -59,6 +66,58 @@ export function AICopilotInputPanel({
           <h2 className="text-lg font-semibold text-white">Generate a briefing</h2>
           <p className="text-xs text-slate-400 mt-1">
             Pick a persona and goal — Copilot uses live architecture data to produce a demo-ready summary.
+          </p>
+        </div>
+
+        {/* Scope */}
+        <div>
+          <span className="text-[11px] uppercase tracking-wider text-slate-400 font-semibold">
+            Scope
+          </span>
+          <div
+            role="group"
+            aria-label="Briefing scope"
+            className="mt-1.5 grid grid-cols-2 gap-1 p-1 rounded-lg bg-slate-900/60 border border-white/10"
+            data-testid="copilot-scope-toggle"
+          >
+            <button
+              type="button"
+              onClick={() => setScope("company")}
+              disabled={companyDisabled}
+              data-testid="copilot-scope-company"
+              aria-pressed={isCompany}
+              title={companyDisabled ? "Company scope isn't available for the Customer persona." : undefined}
+              className={cn(
+                "flex items-center justify-center gap-1.5 px-2 py-1.5 rounded-md text-xs font-semibold transition-colors",
+                isCompany
+                  ? "bg-cyan-500/20 border border-cyan-400/40 text-cyan-100"
+                  : "text-slate-400 hover:text-white",
+                companyDisabled && "opacity-40 cursor-not-allowed hover:text-slate-400",
+              )}
+            >
+              <Building2 className="w-3.5 h-3.5" />
+              Company
+            </button>
+            <button
+              type="button"
+              onClick={() => setScope("customer")}
+              data-testid="copilot-scope-customer"
+              aria-pressed={!isCompany}
+              className={cn(
+                "flex items-center justify-center gap-1.5 px-2 py-1.5 rounded-md text-xs font-semibold transition-colors",
+                !isCompany
+                  ? "bg-indigo-500/20 border border-indigo-400/40 text-indigo-100"
+                  : "text-slate-400 hover:text-white",
+              )}
+            >
+              <User className="w-3.5 h-3.5" />
+              Customer
+            </button>
+          </div>
+          <p className="mt-1.5 text-[10px] text-slate-500 leading-relaxed">
+            {isCompany
+              ? "Aggregating signals across every active deployment."
+              : "Focusing on a single account and deployment."}
           </p>
         </div>
 
@@ -85,7 +144,13 @@ export function AICopilotInputPanel({
           </select>
         </div>
 
-        {/* Account */}
+        {/* Account + Deployment — only when scope = customer */}
+        {isCompany ? (
+          <div className="text-[11px] text-slate-500 italic px-3 py-2 rounded-lg bg-slate-900/40 border border-white/5" data-testid="copilot-context-all">
+            Context: <span className="text-slate-300 not-italic font-medium">All accounts · all deployments</span>
+          </div>
+        ) : (
+          <>
         <div>
           <label
             htmlFor="copilot-account"
@@ -136,6 +201,8 @@ export function AICopilotInputPanel({
             ))}
           </select>
         </div>
+          </>
+        )}
 
         {/* Goal */}
         <div>

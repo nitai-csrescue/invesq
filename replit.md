@@ -89,3 +89,12 @@ lib/api-spec/openapi.yaml     # OpenAPI source of truth — run codegen after ch
 - Replace mock data with database queries in `data/*.ts` files.
 - Add auth via the auth skill.
 - Branding: edit CSS custom properties in `artifacts/cs-rescue/src/index.css`.
+
+## AI Copilot — scoping model
+
+- **Scope**: `"company"` (default) or `"customer"`. Source of truth: `Scope` type in `artifacts/cs-rescue/src/services/ai/generateBriefing.ts`.
+- **Persona** (vp/sales/post-sales/cs/support/engineering/customer) determines framing/tone; **scope** determines data slice. Persona is global (`usePersona` context); scope is local to the AI Copilot page.
+- **Company scope**: `aggregateCompanySignals` runs `scoreSignals` once per deployment + a baseline pass with no deployment, dedupes by signal text, accumulates affected-deployment counts, and stores them on `Signal.affectedDeploymentCount`. The `(affects N deployments)` suffix is rendered LAST via `withAffectedSuffix`, after `customerizeText` has run, so the regexes still match. Customer-persona variant of the suffix is `— also affecting N other rollouts`.
+- **Customer persona guardrail**: when persona flips to `"customer"`, scope auto-flips to `"customer"` and the Company toggle button is disabled (book-of-business view doesn't fit the outside-in lens).
+- **Auto-generate**: the page generates the first briefing on mount once data is ready, so the user sees value without picking an account.
+- **Account/Deployment selectors** are hidden in Company scope and replaced with an "All accounts · all deployments" placeholder.

@@ -130,9 +130,24 @@ export function AICopilotOutput({ briefing, isGenerating, nodes, resources }: Pr
         {/* Header */}
         <div className="flex flex-wrap items-start justify-between gap-4 mb-6">
           <div>
-            <p className="text-[10px] uppercase tracking-wider text-cyan-400 font-semibold mb-1">
-              Briefing · {briefing.goal}
-            </p>
+            <div className="flex items-center gap-2 mb-1">
+              <p className="text-[10px] uppercase tracking-wider text-cyan-400 font-semibold">
+                Briefing · {briefing.goal}
+              </p>
+              <span
+                data-testid="copilot-scope-badge"
+                className={cn(
+                  "text-[10px] uppercase tracking-wider font-bold px-2 py-0.5 rounded-full border",
+                  briefing.scope === "company"
+                    ? "bg-cyan-500/15 border-cyan-400/40 text-cyan-200"
+                    : "bg-indigo-500/15 border-indigo-400/40 text-indigo-200",
+                )}
+              >
+                {briefing.scope === "company"
+                  ? `Company · ${briefing.deploymentsCovered} deployments`
+                  : "Customer"}
+              </span>
+            </div>
             <h1 className="text-2xl font-bold text-white">For the {personaLabel}</h1>
             <p className="text-sm text-slate-400 mt-2 max-w-2xl">{briefing.summary}</p>
           </div>

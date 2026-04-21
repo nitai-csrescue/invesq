@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import {
   useGetGraph,
   getGetGraphQueryKey,
@@ -12,7 +12,7 @@ import {
 import { usePersona } from "@/lib/persona";
 import { AICopilotInputPanel } from "@/components/ai/AICopilotInputPanel";
 import { AICopilotOutput } from "@/components/ai/AICopilotOutput";
-import { generateBriefing, type Briefing, type Goal } from "@/services/ai/generateBriefing";
+import { generateBriefing, type Briefing, type Goal, type Scope } from "@/services/ai/generateBriefing";
 
 export default function AICopilot() {
   const { persona, setPersona } = usePersona();
@@ -30,6 +30,8 @@ export default function AICopilot() {
     query: { queryKey: getListResourcesQueryKey() },
   });
 
+  // Default scope = Company so the user gets value immediately without picking an account.
+  const [scope, setScope] = useState<Scope>("company");
   const [accountId, setAccountId] = useState<string | null>(null);
   const [deploymentId, setDeploymentId] = useState<string | null>(null);
   const [goal, setGoal] = useState<Goal>("Executive Review");
@@ -38,7 +40,16 @@ export default function AICopilot() {
   const [briefing, setBriefing] = useState<Briefing | null>(null);
   const [isGenerating, setIsGenerating] = useState(false);
 
-  // Default selections once data arrives
+  // The Customer persona is an outside-in single-customer lens; the Company
+  // (book-of-business) scope doesn't make sense for it. Force Customer scope
+  // whenever the persona flips to "customer".
+  useEffect(() => {
+    if (persona === "customer" && scope !== "customer") {
+      setScope("customer");
+    }
+  }, [persona, scope]);
+
+  // Default selections once data arrives (only matter for customer scope)
   useEffect(() => {
     if (!accountId && accounts.length > 0) setAccountId(accounts[0].id);
   }, [accounts, accountId]);
@@ -68,13 +79,16 @@ export default function AICopilot() {
     try {
       const result = await generateBriefing({
         persona,
-        account,
-        deployment,
+        scope,
+        account: scope === "company" ? null : account,
+        deployment: scope === "company" ? null : deployment,
         goal,
         prompt,
         nodes: graph.nodes,
         edges: graph.edges,
         resources,
+        accounts,
+        deployments,
       });
       setBriefing(result);
     } finally {
@@ -82,11 +96,25 @@ export default function AICopilot() {
     }
   }
 
+  // Auto-generate the first briefing once data is ready (Company + default persona),
+  // so the user sees value without having to pick anything.
+  const didAutoGenerate = useRef(false);
+  useEffect(() => {
+    if (didAutoGenerate.current) return;
+    if (graphLoading || !graph) return;
+    if (deployments.length === 0) return;
+    didAutoGenerate.current = true;
+    void onGenerate();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [graphLoading, graph, deployments.length]);
+
   return (
     <div className="h-full flex flex-col lg:flex-row" data-testid="ai-copilot-page">
       <AICopilotInputPanel
         persona={persona}
         setPersona={setPersona}
+        scope={scope}
+        setScope={setScope}
         accountId={accountId}
         setAccountId={setAccountId}
         deploymentId={deploymentId}

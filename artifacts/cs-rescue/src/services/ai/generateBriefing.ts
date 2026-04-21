@@ -32,8 +32,12 @@ export const GOALS: Goal[] = [
   "Technical Dependency Review",
 ];
 
+export type Scope = "company" | "customer";
+
 export interface BriefingInput {
   persona: Persona;
+  /** Data slice. "company" = aggregate across all deployments; "customer" = single account/deployment. */
+  scope: Scope;
   account: Account | null;
   deployment: Deployment | null;
   goal: Goal;
@@ -41,20 +45,32 @@ export interface BriefingInput {
   nodes: ArchitectureNode[];
   edges: ArchitectureEdge[];
   resources: Resource[];
+  /** Required for company scope (aggregation source). Ignored for customer scope. */
+  accounts?: Account[];
+  deployments?: Deployment[];
 }
 
 /** Each line carries the evidence chips that produced it. */
 export interface BriefingItem {
   text: string;
   sources: SignalSource[];
+  /**
+   * Carried through from a Signal so we can render an "(affects N deployments)"
+   * suffix at the very end — after persona post-processing (customerizeText)
+   * has already run and won't see the suffix.
+   */
+  affectedDeploymentCount?: number;
 }
 
 export interface Briefing {
   persona: Persona;
+  scope: Scope;
   accountId: string | null;
   deploymentId: string | null;
   goal: Goal;
   generatedAt: string;
+  /** Number of deployments aggregated (company scope). 1 for customer scope. */
+  deploymentsCovered: number;
   summary: string;
   priorities: BriefingItem[];
   risks: BriefingItem[];
@@ -217,7 +233,36 @@ function customerizeItems(items: BriefingItem[]): BriefingItem[] {
 }
 
 function toItem(s: Signal): BriefingItem {
-  return { text: s.text, sources: s.sources };
+  return {
+    text: s.text,
+    sources: s.sources,
+    affectedDeploymentCount: s.affectedDeploymentCount,
+  };
+}
+
+/**
+ * Final-pass suffix. Runs AFTER customerizeText so the regex anchors in
+ * customerizeText still match unmodified text.
+ *  - non-customer persona: " (affects N deployments)"
+ *  - customer persona:     " — also affecting N other rollouts"
+ */
+function withAffectedSuffix(items: BriefingItem[], persona: Persona): BriefingItem[] {
+  return items.map((it) => {
+    const n = it.affectedDeploymentCount;
+    if (!n || n < 2) return it;
+    const suffix =
+      persona === "customer"
+        ? ` — also affecting ${n - 1} other rollout${n - 1 === 1 ? "" : "s"}.`
+        : ` (affects ${n} deployments)`;
+    // Avoid double-suffixing if a builder already inlined it
+    if (it.text.includes("affects ") || it.text.includes("also affecting")) return it;
+    // For customer suffix replace trailing period, otherwise append
+    const trimmed = it.text.replace(/\s+$/, "");
+    if (persona === "customer") {
+      return { ...it, text: trimmed.replace(/\.$/, "") + suffix };
+    }
+    return { ...it, text: trimmed + suffix };
+  });
 }
 
 function applyPromptOverlay(
@@ -373,6 +418,151 @@ function summarise(input: BriefingInput, recommended: ArchitectureNode[], signal
 }
 
 /**
+ * Aggregate signals across every deployment for company scope.
+ * - Runs scoreSignals once per deployment (with its parent account)
+ * - Plus a baseline pass with no deployment so global node/edge/resource
+ *   signals are captured even when no deployments exist
+ * - Dedupes by signal text, keeps highest weight, accumulates affected
+ *   deployment names, and suffixes "(affects N deployments)" when N > 1
+ */
+function aggregateCompanySignals(input: BriefingInput): {
+  signals: Signal[];
+  deploymentsCovered: number;
+} {
+  const persona = input.persona;
+  const accounts = input.accounts ?? [];
+  const deployments = input.deployments ?? [];
+  const acctById = new Map(accounts.map((a) => [a.id, a]));
+
+  // Baseline pass — global node/edge/resource health that isn't deployment-tied
+  const baseline = scoreSignals({
+    persona,
+    account: null,
+    deployment: null,
+    nodes: input.nodes,
+    edges: input.edges,
+    resources: input.resources,
+  });
+
+  type Bucket = Signal & { affected: Set<string>; depNames: string[] };
+  const merged = new Map<string, Bucket>();
+
+  function add(s: Signal, dep?: Deployment) {
+    const key = s.text;
+    const existing = merged.get(key);
+    if (existing) {
+      if (dep) {
+        existing.affected.add(dep.id);
+        if (!existing.depNames.includes(dep.name)) existing.depNames.push(dep.name);
+      }
+      if (s.weight > existing.weight) existing.weight = s.weight;
+      // Union sources (cap at 6 for output sanity)
+      for (const src of s.sources) {
+        if (existing.sources.length >= 6) break;
+        const dup = existing.sources.some((x) => x.kind === src.kind && x.id === src.id);
+        if (!dup) existing.sources.push(src);
+      }
+    } else {
+      merged.set(key, {
+        ...s,
+        sources: [...s.sources],
+        affected: new Set(dep ? [dep.id] : []),
+        depNames: dep ? [dep.name] : [],
+      });
+    }
+  }
+
+  baseline.forEach((s) => add(s));
+  for (const dep of deployments) {
+    const acct = dep.accountId ? acctById.get(dep.accountId) ?? null : null;
+    const perDep = scoreSignals({
+      persona,
+      account: acct,
+      deployment: dep,
+      nodes: input.nodes,
+      edges: input.edges,
+      resources: input.resources,
+    });
+    perDep.forEach((s) => add(s, dep));
+  }
+
+  // IMPORTANT: do NOT append the "(affects N deployments)" suffix to text here.
+  // We carry the count on the signal and append the suffix AFTER any persona
+  // post-processing (e.g. customerizeText) has run, so its regexes still match.
+  const aggregated: Signal[] = [...merged.values()]
+    .map<Signal>((b) => {
+      const count = b.affected.size;
+      const popularityBoost = count > 1 ? Math.min(count - 1, 3) : 0;
+      return {
+        kind: b.kind,
+        text: b.text,
+        weight: b.weight + popularityBoost,
+        sources: b.sources,
+        personas: b.personas,
+        nodeIds: b.nodeIds,
+        edgeIds: b.edgeIds,
+        resourceIds: b.resourceIds,
+        affectedDeploymentCount: count > 1 ? count : undefined,
+      };
+    })
+    .sort((a, b) => b.weight - a.weight);
+
+  return { signals: aggregated, deploymentsCovered: deployments.length };
+}
+
+function buildCompanyPriorities(
+  signals: Signal[],
+  goal: Goal,
+  deploymentsCovered: number,
+): BriefingItem[] {
+  const goalSeed: Record<Goal, string> = {
+    "Executive Review": `Roll up portfolio health across ${deploymentsCovered} active deployments.`,
+    "Deal Strategy": `Surface the deals most exposed to delivery or scope risk.`,
+    "Rollout Checkpoint": `Identify the rollouts trending below safe thresholds this week.`,
+    "Renewal Risk Review": `Flag accounts whose adoption signals threaten renewal.`,
+    "Support Escalation Review": `Cluster top escalations by impacted system across the book.`,
+    "Technical Dependency Review": `List degraded dependencies with the widest blast radius.`,
+  };
+  const seed: BriefingItem = { text: goalSeed[goal], sources: [] };
+  const fromSignals = topByKind(signals, "priority", 3).map(toItem);
+  return [seed, ...fromSignals].slice(0, 4);
+}
+
+function buildCompanyNextActions(persona: Persona, goal: Goal, deploymentsCovered: number): BriefingItem[] {
+  const personaActions: Record<Persona, string> = {
+    vp: "Draft a portfolio summary for Monday exec sync.",
+    sales: "Identify the top 3 deals at delivery risk and brief the AEs.",
+    cs: "Triage the at-risk accounts and schedule save-plan reviews.",
+    support: "Open a war-room for the largest cross-deployment escalation cluster.",
+    engineering: "Prioritize fixes for the dependency with the widest blast radius.",
+    "post-sales": "Re-sequence implementations behind the most-affected milestones.",
+    customer: "Pick the rollout you care about and switch to Customer scope to see specifics.",
+  };
+  return [
+    { text: `Drill into the top-affected deployment to see specifics (Customer scope).`, sources: [] },
+    { text: personaActions[persona], sources: [] },
+    { text: `Re-run this ${goal} portfolio brief in 7 days to track movement across all ${deploymentsCovered} rollouts.`, sources: [] },
+  ];
+}
+
+function summariseCompany(
+  persona: Persona,
+  signals: Signal[],
+  recommended: ArchitectureNode[],
+  deploymentsCovered: number,
+): string {
+  const lens = PERSONA_LENS[persona];
+  const topRisk = signals.find((s) => s.kind === "risk");
+  const topNode = recommended[0];
+  const tail = topRisk
+    ? `Top portfolio risk: ${topRisk.text}`
+    : topNode
+      ? `Watch ${topNode.name}${topNode.healthScore !== undefined ? ` (${topNode.healthScore}%)` : ""} closely.`
+      : "Portfolio is stable across the persona-relevant slice.";
+  return `Company-wide view for the ${lens.audience}: ${deploymentsCovered} active deployments scanned. Focus is ${lens.focus}. ${tail}`;
+}
+
+/**
  * Generate a persona-aware briefing from existing mock data.
  *
  * STAGE 1: deterministic signal-driven generator (current).
@@ -382,18 +572,31 @@ function summarise(input: BriefingInput, recommended: ArchitectureNode[], signal
 export async function generateBriefing(input: BriefingInput): Promise<Briefing> {
   await new Promise((r) => setTimeout(r, 300));
 
-  const signals = scoreSignals({
-    persona: input.persona,
-    account: input.account,
-    deployment: input.deployment,
-    nodes: input.nodes,
-    edges: input.edges,
-    resources: input.resources,
-  });
+  const isCompany = input.scope === "company";
+  const isCustomer = input.persona === "customer";
+  const xform = (items: BriefingItem[]) => (isCustomer ? customerizeItems(items) : items);
+
+  // ── Signal pool ────────────────────────────────────────────────────────
+  let signals: Signal[];
+  let deploymentsCovered: number;
+  if (isCompany) {
+    const agg = aggregateCompanySignals(input);
+    signals = agg.signals;
+    deploymentsCovered = agg.deploymentsCovered;
+  } else {
+    signals = scoreSignals({
+      persona: input.persona,
+      account: input.account,
+      deployment: input.deployment,
+      nodes: input.nodes,
+      edges: input.edges,
+      resources: input.resources,
+    });
+    deploymentsCovered = input.deployment ? 1 : 0;
+  }
 
   const recommended = pickRecommendedNodes(signals, input.persona, input.nodes, 5);
 
-  // Recommended edges come from the highest-impact signals (e.g. degraded deps)
   const recommendedEdgeIds = Array.from(
     new Set(signals.slice(0, 8).flatMap((s) => s.edgeIds ?? [])),
   ).slice(0, 6);
@@ -412,38 +615,58 @@ export async function generateBriefing(input: BriefingInput): Promise<Briefing> 
     opportunity: signals.filter((s) => s.kind === "opportunity").length,
   };
 
-  const isCustomer = input.persona === "customer";
-  const xform = (items: BriefingItem[]) => (isCustomer ? customerizeItems(items) : items);
+  // ── Section builders branch on scope ──────────────────────────────────
+  const summary = isCompany
+    ? summariseCompany(input.persona, signals, recommended, deploymentsCovered)
+    : summarise(input, recommended, signals);
+
+  const priorities = isCompany
+    ? buildCompanyPriorities(signals, input.goal, deploymentsCovered)
+    : buildPriorities(signals, input.goal, input.account, input.deployment);
+
+  const walkthrough = isCompany
+    ? [
+        { text: `Open with a portfolio framing for the ${PERSONA_LENS[input.persona].audience}: ${PERSONA_LENS[input.persona].focus}.`, sources: [] },
+        ...recommended.slice(0, 3).map<BriefingItem>((n, i) => ({
+          text: `${i + 1}. Open ${n.name}${n.ownerTeam ? ` (owned by ${n.ownerTeam})` : ""} — show why it's the highest-leverage focus across the book.`,
+          sources: [{ kind: "node", id: n.id, label: n.name }],
+        })),
+        { text: `Close by drilling into the most-affected deployment for specifics.`, sources: [] },
+      ]
+    : buildWalkthrough(input.persona, recommended, input.goal);
+
+  const nextActions = isCompany
+    ? buildCompanyNextActions(input.persona, input.goal, deploymentsCovered)
+    : buildNextActions(input.persona, input.deployment, input.goal);
 
   return {
     persona: input.persona,
-    accountId: input.account?.id ?? null,
-    deploymentId: input.deployment?.id ?? null,
+    scope: input.scope,
+    accountId: isCompany ? null : input.account?.id ?? null,
+    deploymentId: isCompany ? null : input.deployment?.id ?? null,
     goal: input.goal,
     generatedAt: new Date().toISOString(),
-    summary: isCustomer
-      ? customerizeText(summarise(input, recommended, signals))
-      : summarise(input, recommended, signals),
-    priorities: xform(
-      applyPromptOverlay(
-        buildPriorities(signals, input.goal, input.account, input.deployment),
-        input.prompt,
-        "priority",
-      ),
+    deploymentsCovered,
+    summary: isCustomer ? customerizeText(summary) : summary,
+    // Pipeline order matters: build → prompt overlay → persona rewrite (xform)
+    // → "(affects N deployments)" suffix LAST so customerizeText regexes match.
+    priorities: withAffectedSuffix(
+      xform(applyPromptOverlay(priorities, input.prompt, "priority")),
+      input.persona,
     ),
-    risks: xform(applyPromptOverlay(topByKind(signals, "risk", 3).map(toItem), input.prompt, "risk")),
-    opportunities: xform(
-      applyPromptOverlay(
-        topByKind(signals, "opportunity", 3).map(toItem),
-        input.prompt,
-        "opportunity",
-      ),
+    risks: withAffectedSuffix(
+      xform(applyPromptOverlay(topByKind(signals, "risk", 3).map(toItem), input.prompt, "risk")),
+      input.persona,
+    ),
+    opportunities: withAffectedSuffix(
+      xform(applyPromptOverlay(topByKind(signals, "opportunity", 3).map(toItem), input.prompt, "opportunity")),
+      input.persona,
     ),
     recommendedNodeIds: recommended.map((n) => n.id),
     recommendedEdgeIds,
     recommendedResourceIds,
-    walkthroughSteps: xform(buildWalkthrough(input.persona, recommended, input.goal)),
-    nextActions: xform(buildNextActions(input.persona, input.deployment, input.goal)),
+    walkthroughSteps: xform(walkthrough),
+    nextActions: xform(nextActions),
     signalStats: stats,
   };
 }

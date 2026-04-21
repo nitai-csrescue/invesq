@@ -34,6 +34,12 @@ export interface Signal {
   edgeIds?: string[];
   /** Resources implicated by this signal. */
   resourceIds?: string[];
+  /**
+   * Set by the company-scope aggregator when this signal text was seen across
+   * more than one deployment. Used to render an "(affects N deployments)"
+   * suffix AFTER any persona-aware text rewrites have run.
+   */
+  affectedDeploymentCount?: number;
 }
 
 interface ScoreContext {
