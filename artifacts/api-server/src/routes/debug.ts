@@ -23,6 +23,7 @@ const PERSONAS = [
   { id: "cs", label: "Customer Success" },
   { id: "support", label: "Support" },
   { id: "engineering", label: "Engineering" },
+  { id: "customer", label: "Customer (outside-in)" },
 ];
 
 const GOALS = [
@@ -73,6 +74,12 @@ const PERSONA_LENS: Record<
     focus: "dependencies, degraded systems, integration risk",
     tone: "technical, dependency-aware",
     nodeBias: ["node-api-gateway", "node-data-orchestration", "node-decisioning", "node-deployment-intelligence", "node-compliance"],
+  },
+  customer: {
+    audience: "customer (outside-in view)",
+    focus: "what you experience: handoffs, delays, friction, and who supports you",
+    tone: "plain, experience-oriented",
+    nodeBias: ["node-implementation", "node-csm", "node-support", "node-forward-deployed", "node-lifecycle-playbooks"],
   },
 };
 
