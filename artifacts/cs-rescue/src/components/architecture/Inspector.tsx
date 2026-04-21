@@ -53,6 +53,7 @@ const PERSONA_FOCUS: Record<Persona, { headline: string; sections: ("blockers" |
   cs: { headline: "Adoption & expansion", sections: ["adoption", "risk", "resources"] },
   support: { headline: "Support context", sections: ["blockers", "deps", "resources"] },
   engineering: { headline: "Full system detail", sections: ["deps", "resources", "capabilities", "risk"] },
+  customer: { headline: "Your experience here", sections: ["adoption", "blockers", "deps"] },
 };
 
 const layerAccent: Record<string, string> = {

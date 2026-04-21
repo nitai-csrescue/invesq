@@ -13,6 +13,7 @@ import {
   type Signal,
   type SignalSource,
 } from "./scoreSignals";
+import { isHiddenForCustomer } from "@/lib/persona-data";
 
 export type Goal =
   | "Executive Review"
@@ -101,7 +102,119 @@ const PERSONA_LENS: Record<
     focus: "dependencies, degraded systems, integration risk",
     tone: "technical, dependency-aware",
   },
+  customer: {
+    audience: "customer (outside-in view)",
+    focus: "what you experience: handoffs, delays, friction, and who supports you",
+    tone: "plain, experience-oriented",
+  },
 };
+
+/**
+ * Customer-language post-processor.
+ * Rewrites internal-system phrasing into outside-in experience phrasing.
+ * Mappings (per spec):
+ *   degraded edge   → delay
+ *   blocker         → friction point
+ *   dependency      → handoff
+ *   retry / failure → repeated requests
+ * Applied only when persona === "customer".
+ */
+function customerizeText(s: string): string {
+  let t = s;
+  // Degraded dependency: A → B (label).  →  Likely delay between A and B (label).
+  t = t.replace(
+    /Degraded dependency:\s*([^→]+?)\s*→\s*([^.]+?)\./,
+    "Likely delay between $1 and $2.",
+  );
+  // Blocker (severity): desc — owner: o.
+  t = t.replace(
+    /Blocker\s*\(([^)]+)\):\s*(.+?)(?:\s*—\s*owner:\s*[^.]+)?\./,
+    (_m, _sev, desc) => `Friction point in your experience: ${String(desc).trim()}.`,
+  );
+  // Health-score risk lines
+  t = t.replace(
+    /(.+?) is at (\d+)% — needs immediate attention.*\./,
+    "$1 is responding slowly right now and is being worked on.",
+  );
+  t = t.replace(
+    /(.+?) trending toward degraded at (\d+)%.*\./,
+    "$1 is showing early signs of slowness.",
+  );
+  // Deployment health bands
+  t = t.replace(
+    /(.+?) is at (\d+)% health — well below safe.*\./,
+    "Your rollout ($1) is running into difficulty right now.",
+  );
+  t = t.replace(
+    /(.+?) health is (\d+)% — trending toward warning\./,
+    "Your rollout ($1) feels a little bumpy this week.",
+  );
+  t = t.replace(
+    /(.+?) is healthy at (\d+)% — qualified for case-study advocacy\./,
+    "Your rollout ($1) is on track — a strong story to share.",
+  );
+  // Resource lines
+  t = t.replace(
+    /(.+?) is degraded — affects your focus area systems\./,
+    "$1 is intermittently slow — you may notice repeated requests.",
+  );
+  t = t.replace(
+    /(.+?) is operational and tied to your focus area — viable foundation for the next play\./,
+    "$1 is reliable today and supports your day-to-day.",
+  );
+  // Account lifecycle / status lines
+  t = t.replace(
+    /(.+?) is in active CSM\/renewal motion — align success plan and confirm sponsor\./,
+    "Your account team is in steady contact and reviewing renewal with you.",
+  );
+  t = t.replace(
+    /(.+?) is in implementation — protect time-to-value and milestone cadence\./,
+    "Your rollout is in progress — expect frequent updates and milestones.",
+  );
+  t = t.replace(
+    /(.+?) is pre-go-live \(([^)]+)\) — protect scope and de-risk handoff\./,
+    "You're getting set up ($2) — expect scoping and contracting conversations.",
+  );
+  t = t.replace(
+    /(.+?) is in steady-state support — watch escalation patterns for renewal signals\./,
+    "You're in day-to-day support mode; reach out anytime.",
+  );
+  t = t.replace(
+    /(.+?) is flagged as at-risk — drive a 60-day save plan\./,
+    "Your account team is actively re-engaging to support you over the next 60 days.",
+  );
+  t = t.replace(
+    /(.+?) is active in CSM — qualified for expansion conversation; pull Partner Hub in\./,
+    "Your team and ours are well-aligned — new use cases are on the table.",
+  );
+  t = t.replace(
+    /(.+?) is a prospect — anchor the demo on outcomes, not features\./,
+    "You're evaluating fit — focus is on outcomes, not features.",
+  );
+  t = t.replace(
+    /(.+?) is churned.*\./,
+    "$1 is no longer an active customer.",
+  );
+  // Milestone & systems-walking phrasing
+  t = t.replace(
+    /Confirm path to "([^"]+)"(\s*by\s*[^.]+)?\./,
+    'Next visible step: "$1"$2.',
+  );
+  t = t.replace(
+    /Walk the systems backing (.+?):\s*(.+?)\./,
+    "Behind the scenes, these teams support your rollout ($1): $2.",
+  );
+  // Generic vocabulary swaps (last-pass, safe)
+  t = t.replace(/\bdependency\b/gi, "handoff");
+  t = t.replace(/\bdependencies\b/gi, "handoffs");
+  t = t.replace(/\bdegraded\b/gi, "delayed");
+  t = t.replace(/\b(?:retry|retries|failures?)\b/gi, "repeated requests");
+  return t;
+}
+
+function customerizeItems(items: BriefingItem[]): BriefingItem[] {
+  return items.map((it) => ({ ...it, text: customerizeText(it.text) }));
+}
 
 function toItem(s: Signal): BriefingItem {
   return { text: s.text, sources: s.sources };
@@ -147,8 +260,12 @@ function pickRecommendedNodes(
     scored.set(id, (scored.get(id) ?? 0) + 0.5);
   }
   const visible = nodes.filter((n) => {
+    if (persona === "customer") {
+      // Cluster-based filter: drop platform/data plumbing for the outside-in lens.
+      return !isHiddenForCustomer(n.clusterGroup);
+    }
     if (!n.visibleToPersonas?.length) return true;
-    return n.visibleToPersonas.includes(persona);
+    return (n.visibleToPersonas as readonly string[]).includes(persona);
   });
   return [...visible]
     .sort((a, b) => {
@@ -232,6 +349,7 @@ function buildNextActions(persona: Persona, deployment: Deployment | null, goal:
     support: "Open a war-room channel for the top escalation cluster.",
     engineering: "File mitigation tickets for each degraded dependency.",
     "post-sales": "Lock the next milestone owner per workstream.",
+    customer: "Send a recap to your sponsor and confirm the next visible touchpoint.",
   };
   out.push({ text: personaActions[persona], sources: [] });
   out.push({ text: `Re-run the ${goal} briefing in 7 days to track movement.`, sources: [] });
@@ -294,29 +412,38 @@ export async function generateBriefing(input: BriefingInput): Promise<Briefing> 
     opportunity: signals.filter((s) => s.kind === "opportunity").length,
   };
 
+  const isCustomer = input.persona === "customer";
+  const xform = (items: BriefingItem[]) => (isCustomer ? customerizeItems(items) : items);
+
   return {
     persona: input.persona,
     accountId: input.account?.id ?? null,
     deploymentId: input.deployment?.id ?? null,
     goal: input.goal,
     generatedAt: new Date().toISOString(),
-    summary: summarise(input, recommended, signals),
-    priorities: applyPromptOverlay(
-      buildPriorities(signals, input.goal, input.account, input.deployment),
-      input.prompt,
-      "priority",
+    summary: isCustomer
+      ? customerizeText(summarise(input, recommended, signals))
+      : summarise(input, recommended, signals),
+    priorities: xform(
+      applyPromptOverlay(
+        buildPriorities(signals, input.goal, input.account, input.deployment),
+        input.prompt,
+        "priority",
+      ),
     ),
-    risks: applyPromptOverlay(topByKind(signals, "risk", 3).map(toItem), input.prompt, "risk"),
-    opportunities: applyPromptOverlay(
-      topByKind(signals, "opportunity", 3).map(toItem),
-      input.prompt,
-      "opportunity",
+    risks: xform(applyPromptOverlay(topByKind(signals, "risk", 3).map(toItem), input.prompt, "risk")),
+    opportunities: xform(
+      applyPromptOverlay(
+        topByKind(signals, "opportunity", 3).map(toItem),
+        input.prompt,
+        "opportunity",
+      ),
     ),
     recommendedNodeIds: recommended.map((n) => n.id),
     recommendedEdgeIds,
     recommendedResourceIds,
-    walkthroughSteps: buildWalkthrough(input.persona, recommended, input.goal),
-    nextActions: buildNextActions(input.persona, input.deployment, input.goal),
+    walkthroughSteps: xform(buildWalkthrough(input.persona, recommended, input.goal)),
+    nextActions: xform(buildNextActions(input.persona, input.deployment, input.goal)),
     signalStats: stats,
   };
 }

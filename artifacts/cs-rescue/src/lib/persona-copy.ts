@@ -26,4 +26,8 @@ export const PERSONA_PAGE_COPY: Record<Persona, { architecture: string; resource
     architecture: "How systems connect, fail, and recover — and what's degraded right now.",
     resources: "The platform inventory: data, identity, APIs, storage, observability.",
   },
+  customer: {
+    architecture: "What you actually feel — handoffs, delays, friction, and the people behind your rollout.",
+    resources: "The tools your team touches and the ones working quietly in the background.",
+  },
 };

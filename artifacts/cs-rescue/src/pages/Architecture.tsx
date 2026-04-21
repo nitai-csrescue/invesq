@@ -215,7 +215,7 @@ function ArchitectureInner() {
       // Stale handoffs (older than 60s) are ignored.
       if (payload.ts && Date.now() - payload.ts > 60_000) return;
 
-      const allowedPersonas = ["vp", "sales", "post-sales", "cs", "support", "engineering"] as const;
+      const allowedPersonas = ["vp", "sales", "post-sales", "cs", "support", "engineering", "customer"] as const;
       let landedPersona: typeof persona | null = null;
       if (
         typeof payload.persona === "string" &&
@@ -285,6 +285,14 @@ function ArchitectureInner() {
         </div>
 
         <div className="hidden lg:block max-w-md text-[11px] text-slate-400 italic leading-snug border-l border-white/10 pl-4">
+          {persona === "customer" && (
+            <span
+              data-testid="customer-experience-badge"
+              className="inline-flex items-center gap-1 mr-2 px-1.5 py-0.5 rounded bg-emerald-500/15 border border-emerald-400/40 text-emerald-200 not-italic text-[10px] font-semibold uppercase tracking-wide align-middle"
+            >
+              Customer Experience View
+            </span>
+          )}
           {PERSONA_PAGE_COPY[persona].architecture}
         </div>
 

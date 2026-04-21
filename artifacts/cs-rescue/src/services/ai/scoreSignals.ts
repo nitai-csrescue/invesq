@@ -6,6 +6,7 @@ import type {
   Resource,
 } from "@workspace/api-client-react";
 import type { Persona } from "@/lib/persona";
+import { isHiddenForCustomer } from "@/lib/persona-data";
 
 /** A traceable evidence chip attached to every Copilot recommendation. */
 export type SignalSource =
@@ -61,6 +62,14 @@ const PERSONA_NODE_BIAS: Record<Persona, string[]> = {
     "node-decisioning",
     "node-deployment-intelligence",
     "node-compliance",
+  ],
+  // Customer feels lifecycle teams + support + the people who deploy with them.
+  customer: [
+    "node-implementation",
+    "node-csm",
+    "node-support",
+    "node-forward-deployed",
+    "node-lifecycle-playbooks",
   ],
 };
 
@@ -160,7 +169,17 @@ export function scoreSignals(ctx: ScoreContext): Signal[] {
   // ── Node-health signals ─────────────────────────────────────────────────
   for (const n of nodes) {
     const score = n.healthScore ?? 100;
-    if (n.visibleToPersonas?.length && !n.visibleToPersonas.includes(persona)) continue;
+    // "customer" is UI-only — bypass per-node visibility allowlist for it,
+    // but apply the cluster-based hidden rule so platform/data plumbing
+    // never surfaces in customer briefings.
+    if (persona === "customer") {
+      if (isHiddenForCustomer(n.clusterGroup)) continue;
+    } else if (
+      n.visibleToPersonas?.length &&
+      !(n.visibleToPersonas as readonly string[]).includes(persona)
+    ) {
+      continue;
+    }
 
     if (score < 70) {
       out.push({
@@ -196,6 +215,14 @@ export function scoreSignals(ctx: ScoreContext): Signal[] {
     if (e.status !== "degraded") continue;
     const src = nodeById.get(e.source);
     const tgt = nodeById.get(e.target);
+    // For customer lens, drop the edge if EITHER endpoint is hidden plumbing —
+    // we should never name a hidden node in customer-facing output.
+    if (
+      persona === "customer" &&
+      (isHiddenForCustomer(src?.clusterGroup) || isHiddenForCustomer(tgt?.clusterGroup))
+    ) {
+      continue;
+    }
     const label = `${src?.name ?? e.source} → ${tgt?.name ?? e.target}${e.label ? ` (${e.label})` : ""}`;
     out.push({
       kind: "risk",
