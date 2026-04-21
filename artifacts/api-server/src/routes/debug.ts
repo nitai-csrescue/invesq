@@ -297,7 +297,7 @@ function renderHtml(snapshot: ReturnType<typeof buildSnapshot>): string {
 <h2>1. Product overview</h2>
 <p>
   CS Rescue is a dark-mode enterprise web app that visualizes a company's full customer lifecycle architecture.
-  It is persona-aware (<span class="pill">VP</span><span class="pill">Sales</span><span class="pill">Post-Sales</span><span class="pill">CS</span><span class="pill">Support</span><span class="pill">Engineering</span>)
+  It is persona-aware (${PERSONAS.map((p) => `<span class="pill">${escapeHtml(p.label)}</span>`).join("")})
   with three view modes (<strong>Business</strong>, <strong>Dependency</strong>, <strong>Systems</strong>),
   plus an <strong>AI Copilot</strong> tab that generates persona-aware demo briefings from live architecture, account, and deployment data.
 </p>
