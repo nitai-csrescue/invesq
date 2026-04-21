@@ -13,6 +13,47 @@ const graphData = { edges: architectureEdges };
 
 const router: IRouter = Router();
 
+// ── Build / version markers ───────────────────────────────────────────────
+// Bump personaConfigVersion any time the persona enum, lens, or contract
+// changes shape. Reviewers can use this to confirm whether a stale response
+// is being cached vs. an older deployed artifact being served.
+const PERSONA_CONFIG_VERSION = "2026-04-21.customer-persona.v1";
+
+// Captured once at module load. buildStartedAt = process start; gitSha resolved
+// lazily from env (REPLIT_GIT_COMMIT / GIT_SHA / VERCEL_GIT_COMMIT_SHA) and
+// then from `git rev-parse HEAD` as a last resort. Failures are non-fatal.
+const BUILD_STARTED_AT = new Date().toISOString();
+let resolvedGitSha: string | null = null;
+function getGitSha(): string {
+  if (resolvedGitSha) return resolvedGitSha;
+  const fromEnv =
+    process.env["REPLIT_GIT_COMMIT"] ||
+    process.env["GIT_SHA"] ||
+    process.env["VERCEL_GIT_COMMIT_SHA"] ||
+    process.env["RENDER_GIT_COMMIT"];
+  if (fromEnv) {
+    resolvedGitSha = fromEnv;
+    return resolvedGitSha;
+  }
+  try {
+    // eslint-disable-next-line @typescript-eslint/no-var-requires
+    const cp = require("node:child_process") as typeof import("node:child_process");
+    resolvedGitSha = cp.execSync("git rev-parse HEAD", { stdio: ["ignore", "pipe", "ignore"] })
+      .toString()
+      .trim() || "unknown";
+  } catch {
+    resolvedGitSha = "unknown";
+  }
+  return resolvedGitSha;
+}
+// buildId = short sha + start timestamp suffix so a redeploy of the same sha
+// is still distinguishable from a cached response of a prior process.
+function getBuildId(): string {
+  const sha = getGitSha();
+  const shortSha = sha === "unknown" ? "nogit" : sha.slice(0, 7);
+  return `${shortSha}-${BUILD_STARTED_AT}`;
+}
+
 // ── AI Copilot context (mirrors artifacts/cs-rescue/src/services/ai/generateBriefing.ts)
 // Kept here so the debug snapshot is self-describing for an external reviewer
 // that cannot execute the SPA's JavaScript.
@@ -107,6 +148,12 @@ const ROUTES = [
 function buildSnapshot() {
   return {
     generatedAt: new Date().toISOString(),
+    version: {
+      buildId: getBuildId(),
+      gitSha: getGitSha(),
+      personaConfigVersion: PERSONA_CONFIG_VERSION,
+      buildStartedAt: BUILD_STARTED_AT,
+    },
     summary: {
       personas: PERSONAS.length,
       goals: GOALS.length,
@@ -292,6 +339,13 @@ function renderHtml(snapshot: ReturnType<typeof buildSnapshot>): string {
     snapshot.generatedAt,
   )}</code>.
   For raw JSON, request this URL with <code>Accept: application/json</code> or append <code>?format=json</code>.
+</p>
+<p class="meta">
+  <strong>Build:</strong>
+  <span class="pill">buildId: ${escapeHtml(snapshot.version.buildId)}</span>
+  <span class="pill">gitSha: ${escapeHtml(snapshot.version.gitSha)}</span>
+  <span class="pill">personaConfigVersion: ${escapeHtml(snapshot.version.personaConfigVersion)}</span>
+  <span class="pill">buildStartedAt: ${escapeHtml(snapshot.version.buildStartedAt)}</span>
 </p>
 
 <h2>1. Product overview</h2>
