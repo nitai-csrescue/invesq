@@ -72,7 +72,7 @@ export default function Dashboard() {
               {atRiskAccounts().slice(0, 5).map((a) => (
                 <Link
                   key={a.id}
-                  href="/accounts"
+                  href={`/accounts?accountId=${a.id}`}
                   className="flex items-center justify-between gap-3 rounded-lg border border-white/5 bg-white/[0.02] px-3 py-2.5 hover:border-rose-400/30 hover:bg-rose-500/5 transition-colors"
                   data-testid={`atrisk-${a.id}`}
                 >
@@ -102,7 +102,7 @@ export default function Dashboard() {
               {expansionAccounts().slice(0, 5).map((a) => (
                 <Link
                   key={a.id}
-                  href="/accounts"
+                  href={`/accounts?accountId=${a.id}`}
                   className="flex items-center justify-between gap-3 rounded-lg border border-white/5 bg-white/[0.02] px-3 py-2.5 hover:border-emerald-400/30 hover:bg-emerald-500/5 transition-colors"
                   data-testid={`expansion-${a.id}`}
                 >
@@ -140,7 +140,7 @@ export default function Dashboard() {
               return (
                 <Link
                   key={a.id}
-                  href="/actions"
+                  href={`/actions?actionId=${a.id}`}
                   className="block py-3 first:pt-1 hover:bg-white/[0.02] -mx-2 px-2 rounded-md"
                   data-testid={`rec-action-${a.id}`}
                 >

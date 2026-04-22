@@ -1,6 +1,7 @@
 import { Link } from "wouter";
 import { Sparkles, AlertTriangle, TrendingUp, Clock, ArrowRight } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { usePersona } from "@/lib/persona";
 import type { AIInsight } from "@/data/insights";
 
 const KIND_META = {
@@ -11,7 +12,8 @@ const KIND_META = {
 
 export function InsightRailCard({ insight }: { insight: AIInsight }) {
   const meta = KIND_META[insight.kind];
-  const href = `/platform/ai-copilot?prompt=${encodeURIComponent(insight.prompt)}${insight.accountId ? `&accountId=${insight.accountId}` : ""}&autoRun=1`;
+  const { persona } = usePersona();
+  const href = `/platform/ai-copilot?prompt=${encodeURIComponent(insight.prompt)}${insight.accountId ? `&accountId=${insight.accountId}` : ""}&persona=${persona}&autoRun=1`;
   return (
     <div
       data-testid={`insight-${insight.id}`}

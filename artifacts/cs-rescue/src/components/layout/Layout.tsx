@@ -1,6 +1,6 @@
 import { ReactNode } from "react";
 import { Sidebar } from "./Sidebar";
-import { Header } from "./Header";
+import { Header, BareTopBar } from "./Header";
 
 export function Layout({ children }: { children: ReactNode }) {
   return (
@@ -16,10 +16,11 @@ export function Layout({ children }: { children: ReactNode }) {
   );
 }
 
-/** Bare layout for landing/overview pages — no sidebar/header. */
+/** Bare layout for landing/overview pages — no sidebar, but persona/workspace stay visible. */
 export function BareLayout({ children }: { children: ReactNode }) {
   return (
     <div className="min-h-screen bg-background text-foreground">
+      <BareTopBar />
       {children}
     </div>
   );

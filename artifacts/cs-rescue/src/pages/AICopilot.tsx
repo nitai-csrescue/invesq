@@ -9,7 +9,7 @@ import {
   useListResources,
   getListResourcesQueryKey,
 } from "@workspace/api-client-react";
-import { usePersona } from "@/lib/persona";
+import { usePersona, PERSONAS, type Persona } from "@/lib/persona";
 import { AICopilotInputPanel } from "@/components/ai/AICopilotInputPanel";
 import { AICopilotOutput } from "@/components/ai/AICopilotOutput";
 import { generateBriefing, type Briefing, type Goal, type Scope } from "@/services/ai/generateBriefing";
@@ -97,25 +97,29 @@ export default function AICopilot() {
   }
 
   // Read URL query params for deep-link from Dashboard insight rail:
-  //   ?prompt=...&accountId=...&autoRun=1
+  //   ?prompt=...&accountId=...&persona=...&autoRun=1
   const deepLink = useMemo(() => {
     if (typeof window === "undefined") return null;
     const params = new URLSearchParams(window.location.search);
     const p = params.get("prompt");
     const aId = params.get("accountId");
+    const personaParam = params.get("persona");
     const auto = params.get("autoRun") === "1";
-    if (!p && !aId && !auto) return null;
-    return { prompt: p ?? "", accountId: aId, autoRun: auto };
+    if (!p && !aId && !auto && !personaParam) return null;
+    return { prompt: p ?? "", accountId: aId, persona: personaParam, autoRun: auto };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // Apply deep-link prompt + scope as soon as we mount.
+  // Apply deep-link prompt + scope + persona as soon as we mount.
   useEffect(() => {
     if (!deepLink) return;
     if (deepLink.prompt) setPrompt(deepLink.prompt);
     if (deepLink.accountId) {
       setScope("customer");
       setAccountId(deepLink.accountId);
+    }
+    if (deepLink.persona && PERSONAS.some((p) => p.id === deepLink.persona)) {
+      setPersona(deepLink.persona as Persona);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);

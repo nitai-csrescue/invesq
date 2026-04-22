@@ -94,13 +94,6 @@ export function Sidebar() {
         ))}
       </nav>
 
-      <div className="hidden lg:block p-4 border-t border-white/10">
-        <div className="rounded-lg border border-white/10 bg-white/[0.02] p-3">
-          <p className="text-[10px] uppercase tracking-wider text-slate-500 font-semibold mb-1">Workspace</p>
-          <p className="text-sm font-semibold text-white">Acme Inc.</p>
-          <p className="text-[11px] text-slate-500 mt-0.5">Enterprise plan · 18 accounts</p>
-        </div>
-      </div>
     </aside>
   );
 }

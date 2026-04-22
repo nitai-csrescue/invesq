@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Search } from "lucide-react";
 import { PageHeader } from "@/components/cs/PageHeader";
 import { HealthBadge, healthScoreColor } from "@/components/cs/HealthBadge";
@@ -39,6 +39,15 @@ export default function Accounts() {
   const [segment, setSegment] = useState<AccountSegment | "all">("all");
   const [owner, setOwner] = useState<string>("all");
   const [open, setOpen] = useState<Account | null>(null);
+
+  // Deep-link: /accounts?accountId=... auto-opens the matching drawer.
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const id = new URLSearchParams(window.location.search).get("accountId");
+    if (!id) return;
+    const found = accounts.find((a) => a.id === id);
+    if (found) setOpen(found);
+  }, []);
 
   const filtered = useMemo(() => {
     return accounts.filter((a) =>

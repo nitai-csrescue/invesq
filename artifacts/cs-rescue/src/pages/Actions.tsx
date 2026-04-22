@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { PageHeader } from "@/components/cs/PageHeader";
 import { SourceBadge } from "@/components/cs/SourceBadge";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
@@ -12,7 +12,26 @@ import { actions as seedActions, getAccount, getTeamMember, type ActionItem, typ
 export default function Actions() {
   const [list, setList] = useState<ActionItem[]>(seedActions);
   const [tab, setTab] = useState<ActionStatus>("queued");
+  const [highlightId, setHighlightId] = useState<string | null>(null);
+  const rowRefs = useRef<Record<string, HTMLTableRowElement | null>>({});
   const { toast } = useToast();
+
+  // Deep-link: /actions?actionId=... switches to the action's tab + highlights row.
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const id = new URLSearchParams(window.location.search).get("actionId");
+    if (!id) return;
+    const target = list.find((a) => a.id === id);
+    if (!target) return;
+    setTab(target.status);
+    setHighlightId(id);
+    requestAnimationFrame(() => {
+      rowRefs.current[id]?.scrollIntoView({ block: "center", behavior: "smooth" });
+    });
+    const t = setTimeout(() => setHighlightId(null), 2400);
+    return () => clearTimeout(t);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const counts = useMemo(() => ({
     queued: list.filter((a) => a.status === "queued").length,
@@ -65,7 +84,12 @@ export default function Actions() {
                     const acct = a.accountId ? getAccount(a.accountId) : null;
                     const owner = getTeamMember(a.ownerId);
                     return (
-                      <TableRow key={a.id} className="border-white/5" data-testid={`action-row-${a.id}`}>
+                      <TableRow
+                        key={a.id}
+                        ref={(el) => { rowRefs.current[a.id] = el; }}
+                        className={`border-white/5 transition-colors ${highlightId === a.id ? "bg-cyan-500/10 ring-1 ring-cyan-400/40" : ""}`}
+                        data-testid={`action-row-${a.id}`}
+                      >
                         <TableCell>
                           <div className="text-sm text-white font-medium">{a.title}</div>
                           {a.context && <div className="text-[11px] text-slate-500 mt-0.5">{a.context}</div>}
