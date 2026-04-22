@@ -1,0 +1,281 @@
+Refactor the existing app into a polished, investor-demo-ready MVP for a product called “CS Rescue” — an AI-native post-sales/customer success operating system.
+
+IMPORTANT:
+- This is a refactor of the current app, not a greenfield rebuild.
+- Preserve any useful existing structure, routing, and reusable components where possible.
+- Prioritize clarity, polish, and believable workflow over backend complexity.
+- Do NOT attempt to build real integrations yet.
+- Use seeded/mock data only, but structure the code so real integrations can be added later.
+
+PRODUCT POSITIONING:
+CS Rescue helps SaaS companies turn fragmented customer data into automated retention and expansion actions. The product should feel like a system of action, not just a dashboard. The UI should communicate that it detects churn risk, surfaces expansion opportunities, recommends next-best actions, and operationalizes playbooks.
+
+PRIMARY GOAL:
+Refactor the app into a clean clickable MVP that can be shown to:
+1. early customers/design partners
+2. startup investors (YC-style)
+3. operators evaluating the product concept
+
+DESIGN DIRECTION:
+- Modern B2B SaaS UI
+- Clean, minimal, executive-friendly
+- Enterprise but not boring
+- Visually similar to a polished operating dashboard
+- High readability, low clutter
+- Strong visual hierarchy
+- Use a left-hand nav, top KPI cards, core content panels, and a right-side AI insights rail where appropriate
+- Prefer whitespace, card layouts, subtle borders, and restrained color usage
+- Use Tailwind and reusable component abstractions
+- Make it responsive, but optimize primarily for desktop/laptop demo use
+
+TECH PREFERENCES:
+- Keep or migrate to React/Next.js if the current project supports it cleanly
+- TailwindCSS
+- Reusable UI component system
+- Mock data in JSON/TS objects
+- Clear folder structure
+- Strong componentization
+- Keep code simple and easy to extend
+- Avoid overengineering
+- Add comments only where helpful
+
+INFORMATION ARCHITECTURE / PAGES:
+Refactor the product into these core pages/views:
+
+1. Dashboard
+2. Accounts
+3. Signals
+4. Playbooks
+5. Actions
+6. Reports
+7. Integrations
+8. Settings
+
+Also create:
+9. A simple landing/pitch page for CS Rescue
+10. A lightweight “Investor Demo” or “Overview” page that explains the problem, insight, shift, solution, and how it works
+
+CORE PRODUCT NARRATIVE TO EMBED IN THE UI:
+- Post-sales is where SaaS companies make or lose most of their revenue
+- CS teams operate across fragmented tools and manual workflows
+- Companies are trying to build internal AI tooling for CS, but it is inconsistent and operationally messy
+- CS Rescue is the AI-native system that turns customer data into revenue-generating actions
+- It connects data, detects signals, generates insights, recommends actions, and supports execution
+- It should feel like a “system of action,” not another passive system of record
+
+DASHBOARD REQUIREMENTS:
+Create a flagship dashboard page with:
+- Header greeting (e.g. “Good morning, Alex”)
+- Time/date filter controls
+- KPI cards:
+  - Health Score
+  - At-Risk Accounts
+  - Expansion Opportunities
+  - Time to Value
+  - NRR Impact / Revenue Impact
+- Main panels:
+  - At-Risk Accounts table
+  - Top Expansion Opportunities table
+  - Recommended Actions panel
+  - Active Playbooks section
+- Right-side AI Insight rail with cards such as:
+  - Risk Alert
+  - Expansion Insight
+  - Time-to-Value Insight
+- Make the dashboard feel like the primary command center
+
+ACCOUNTS PAGE:
+- Searchable/filterable list of customer accounts
+- Columns like:
+  - Account Name
+  - Segment
+  - Health
+  - Renewal Date
+  - Expansion Potential
+  - Owner
+  - Status
+- Clicking an account opens an account detail view or drawer with:
+  - summary
+  - usage trend
+  - risk factors
+  - expansion indicators
+  - recent activity
+  - recommended next best actions
+- Include believable mock customer names and ARR/opportunity values
+
+SIGNALS PAGE:
+This page should explain and visualize the system’s intelligence layer.
+Include sections for:
+- Churn Risk Signals
+- Expansion Signals
+- Adoption Signals
+- Renewal Signals
+- Support Escalation Signals
+For each signal type, show:
+- what data it uses
+- what patterns it detects
+- what action it can trigger
+This page should make the product feel smarter and more differentiated.
+
+PLAYBOOKS PAGE:
+Show lifecycle-oriented playbooks such as:
+- Onboarding
+- Adoption
+- Retention
+- Expansion
+- Renewal
+- Custom Playbooks
+Each playbook card should show:
+- objective
+- trigger condition
+- stage
+- owner
+- status
+- outcomes/impact
+Include ability to click into a playbook detail screen or modal.
+
+ACTIONS PAGE:
+This should feel execution-oriented.
+Include:
+- queued actions
+- in-progress actions
+- completed actions
+- action source (AI insight, playbook, manual)
+- owner
+- due date
+- account
+Examples:
+- schedule executive check-in
+- launch adoption campaign
+- assign CSM outreach
+- review renewal risk
+- create expansion plan
+
+REPORTS PAGE:
+Include simple executive-style reporting:
+- retention trends
+- expansion pipeline
+- playbook impact
+- time-to-value trends
+- team capacity / productivity
+Use simple charts and summary cards with mock data.
+Keep it readable and investor-demo friendly.
+
+INTEGRATIONS PAGE:
+Do NOT build real integrations.
+Instead, create a polished integrations screen showing planned/simulated connections such as:
+- Salesforce
+- HubSpot
+- Zendesk
+- Intercom
+- Gainsight
+- Slack
+- Snowflake
+- Segment / Product Analytics
+Each integration card should show:
+- status (connected / mock / planned)
+- what data it contributes
+- why it matters to the CS Rescue workflow
+
+SETTINGS PAGE:
+Basic placeholder settings for:
+- team members
+- workspace preferences
+- scoring thresholds
+- AI insight preferences
+- notifications
+Keep lightweight.
+
+LANDING / PITCH PAGE:
+Create a polished product marketing page that explains:
+- The problem
+- The insight
+- The shift in CS
+- The solution
+- How it works
+- Key benefits/outcomes
+- CTA buttons like “Book a Demo” or “See the Platform”
+This should visually align with the product.
+
+INVESTOR DEMO / OVERVIEW PAGE:
+Build a simple visual narrative page that mirrors a YC-style framework:
+1. Problem
+2. Insight
+3. Shift
+4. Solution
+5. How it works
+6. Why we win
+7. Vision
+Use strong framework language and concise statements.
+This can be one scrollable page with cards/sections.
+
+MOCK DATA REQUIREMENTS:
+Use believable seeded mock data throughout the app:
+- SaaS customer accounts
+- health scores
+- risk drivers
+- expansion potential
+- renewal dates
+- owners
+- recommended actions
+- playbooks
+- signal definitions
+The data should support the story:
+- some accounts are clearly at risk
+- some are ripe for expansion
+- some are healthy but under-monetized
+- some need onboarding/adoption help
+
+EXAMPLE FRAMEWORK LANGUAGE TO INCORPORATE:
+- “From fragmented customer data to automated revenue outcomes”
+- “A system of action, not another dashboard”
+- “Detect churn risk. Surface expansion. Trigger action.”
+- “Customer success is evolving from relationship management to system-driven execution”
+- “Every SaaS company is trying to build its own AI-powered CS tooling — badly”
+- “CS Rescue replaces fragmented workflows with an AI-native post-sales operating system”
+- “Data → Insight → Action → Revenue”
+
+UX REQUIREMENTS:
+- Every major page should have a clear purpose
+- User should be able to click through a believable end-to-end workflow
+- The app should demo well without explanation
+- Avoid empty placeholder screens
+- Avoid overly generic lorem ipsum
+- Use concise product copy
+- Make tables and cards feel realistic
+- Keep interactions simple but polished
+
+REFRACTOR PRIORITIES:
+1. Improve structure and consistency
+2. Unify visual design system
+3. Clean up navigation and page hierarchy
+4. Replace rough/inconsistent UI with polished components
+5. Ensure the dashboard and account workflows are compelling
+6. Make the product narrative legible across the app
+7. Remove or simplify anything noisy, redundant, or unfinished
+
+DELIVERABLES:
+- Refactored app UI
+- Clean navigation and reusable components
+- Seeded data model
+- Clickable flows across all key pages
+- Polished landing page
+- Investor demo/overview page
+- Readme/update summary explaining:
+  - what was refactored
+  - current mock/simulated logic
+  - what would be needed next for a true MVP with live data
+
+DO NOT:
+- Do not build real CRM/support/product integrations yet
+- Do not overcomplicate backend logic
+- Do not add unnecessary auth complexity
+- Do not create generic filler dashboards disconnected from the CS Rescue story
+- Do not make it feel like a clone of a generic analytics app
+
+Please begin by:
+1. auditing the current codebase
+2. identifying what should be kept, removed, or refactored
+3. proposing the updated app structure
+4. then implementing the refactor
+5. and finally summarizing the changes made
