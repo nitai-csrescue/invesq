@@ -1,3 +1,4 @@
+// Archived from primary nav on 2026-04-22. Kept for reuse — not routed.
 import { useState } from "react";
 import { 
   useListConnectors, 

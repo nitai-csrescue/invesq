@@ -1,6 +1,7 @@
 import { useHealthCheck, getHealthCheckQueryKey } from "@workspace/api-client-react";
-import { ChevronDown, UserCircle2 } from "lucide-react";
+import { ChevronDown, UserCircle2, ExternalLink } from "lucide-react";
 import { useState, useRef, useEffect, useCallback } from "react";
+import { Link } from "wouter";
 import { usePersona, PERSONAS, type Persona } from "@/lib/persona";
 import { cn } from "@/lib/utils";
 
@@ -19,7 +20,6 @@ export function Header() {
   const buttonRef = useRef<HTMLButtonElement>(null);
   const optionRefs = useRef<(HTMLButtonElement | null)[]>([]);
 
-  // Initialise active index to current persona when opening
   useEffect(() => {
     if (open) {
       const idx = PERSONAS.findIndex((p) => p.id === persona);
@@ -27,7 +27,6 @@ export function Header() {
     }
   }, [open, persona]);
 
-  // Move DOM focus to the active option whenever it changes (or on open)
   useEffect(() => {
     if (open) optionRefs.current[activeIndex]?.focus();
   }, [open, activeIndex]);
@@ -47,22 +46,12 @@ export function Header() {
 
   const onKeyDown = (e: React.KeyboardEvent<HTMLDivElement>) => {
     if (!open) return;
-    if (e.key === "Escape") {
-      e.preventDefault();
-      closeAndFocusButton();
-    } else if (e.key === "ArrowDown") {
-      e.preventDefault();
-      setActiveIndex((i) => (i + 1) % PERSONAS.length);
-    } else if (e.key === "ArrowUp") {
-      e.preventDefault();
-      setActiveIndex((i) => (i - 1 + PERSONAS.length) % PERSONAS.length);
-    } else if (e.key === "Home") {
-      e.preventDefault();
-      setActiveIndex(0);
-    } else if (e.key === "End") {
-      e.preventDefault();
-      setActiveIndex(PERSONAS.length - 1);
-    } else if (e.key === "Enter" || e.key === " ") {
+    if (e.key === "Escape") { e.preventDefault(); closeAndFocusButton(); }
+    else if (e.key === "ArrowDown") { e.preventDefault(); setActiveIndex((i) => (i + 1) % PERSONAS.length); }
+    else if (e.key === "ArrowUp") { e.preventDefault(); setActiveIndex((i) => (i - 1 + PERSONAS.length) % PERSONAS.length); }
+    else if (e.key === "Home") { e.preventDefault(); setActiveIndex(0); }
+    else if (e.key === "End") { e.preventDefault(); setActiveIndex(PERSONAS.length - 1); }
+    else if (e.key === "Enter" || e.key === " ") {
       e.preventDefault();
       setPersona(PERSONAS[activeIndex].id as Persona);
       closeAndFocusButton();
@@ -70,8 +59,7 @@ export function Header() {
   };
 
   return (
-    <header className="h-16 border-b border-border bg-card/50 backdrop-blur-sm sticky top-0 z-30 flex items-center justify-between px-6">
-      {/* Persona switcher */}
+    <header className="h-16 border-b border-white/10 bg-slate-950/60 backdrop-blur-sm sticky top-0 z-30 flex items-center justify-between px-6">
       <div className="relative" ref={ref} onKeyDown={onKeyDown}>
         <button
           ref={buttonRef}
@@ -102,17 +90,12 @@ export function Header() {
             {PERSONAS.map((p, idx) => (
               <button
                 key={p.id}
-                ref={(el) => {
-                  optionRefs.current[idx] = el;
-                }}
+                ref={(el) => { optionRefs.current[idx] = el; }}
                 role="option"
                 aria-selected={p.id === persona}
                 tabIndex={idx === activeIndex ? 0 : -1}
                 onMouseEnter={() => setActiveIndex(idx)}
-                onClick={() => {
-                  setPersona(p.id as Persona);
-                  closeAndFocusButton();
-                }}
+                onClick={() => { setPersona(p.id as Persona); closeAndFocusButton(); }}
                 className={cn(
                   "w-full text-left px-3 py-2.5 hover:bg-white/5 transition-colors flex items-start gap-3 border-l-2 focus-visible:outline-none focus-visible:bg-white/10",
                   p.id === persona ? "border-cyan-400 bg-cyan-500/5" : "border-transparent",
@@ -131,19 +114,27 @@ export function Header() {
         )}
       </div>
 
-      <div className="flex items-center gap-4">
+      <div className="flex items-center gap-3">
+        <Link
+          href="/overview"
+          className="hidden md:inline-flex items-center gap-1.5 text-xs font-medium text-slate-300 hover:text-white px-3 py-1.5 rounded-lg border border-white/10 bg-white/[0.02] hover:bg-white/5 transition-colors"
+          data-testid="header-view-pitch"
+        >
+          View pitch <ExternalLink className="w-3 h-3" />
+        </Link>
         <div
-          className="flex items-center gap-2 text-sm text-muted-foreground bg-white/5 px-3 py-1.5 rounded-full border border-white/10"
+          className="flex items-center gap-2 text-sm text-slate-300 bg-white/5 px-3 py-1.5 rounded-full border border-white/10"
           data-testid="system-health"
         >
           <div className="relative flex h-2 w-2">
             {isHealthy && (
-              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-primary opacity-75"></span>
+              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
             )}
             <span
-              className={`relative inline-flex rounded-full h-2 w-2 ${
-                isHealthy ? "bg-primary" : "bg-destructive"
-              }`}
+              className={cn(
+                "relative inline-flex rounded-full h-2 w-2",
+                isHealthy ? "bg-emerald-400" : "bg-rose-400",
+              )}
             ></span>
           </div>
           <span>System {isHealthy ? "Healthy" : "Degraded"}</span>

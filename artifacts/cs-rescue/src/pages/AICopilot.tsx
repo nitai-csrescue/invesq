@@ -96,17 +96,44 @@ export default function AICopilot() {
     }
   }
 
-  // Auto-generate the first briefing once data is ready (Company + default persona),
-  // so the user sees value without having to pick anything.
+  // Read URL query params for deep-link from Dashboard insight rail:
+  //   ?prompt=...&accountId=...&autoRun=1
+  const deepLink = useMemo(() => {
+    if (typeof window === "undefined") return null;
+    const params = new URLSearchParams(window.location.search);
+    const p = params.get("prompt");
+    const aId = params.get("accountId");
+    const auto = params.get("autoRun") === "1";
+    if (!p && !aId && !auto) return null;
+    return { prompt: p ?? "", accountId: aId, autoRun: auto };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // Apply deep-link prompt + scope as soon as we mount.
+  useEffect(() => {
+    if (!deepLink) return;
+    if (deepLink.prompt) setPrompt(deepLink.prompt);
+    if (deepLink.accountId) {
+      setScope("customer");
+      setAccountId(deepLink.accountId);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // Auto-generate the first briefing once data is ready, optionally honoring a deep-link.
   const didAutoGenerate = useRef(false);
   useEffect(() => {
     if (didAutoGenerate.current) return;
     if (graphLoading || !graph) return;
     if (deployments.length === 0) return;
+    // If deep-link asked us not to auto-run, skip.
+    if (deepLink && !deepLink.autoRun) return;
+    // For deep-link with a customer-scoped account, wait until accountId resolves.
+    if (deepLink?.accountId && accountId !== deepLink.accountId) return;
     didAutoGenerate.current = true;
     void onGenerate();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [graphLoading, graph, deployments.length]);
+  }, [graphLoading, graph, deployments.length, accountId, deepLink]);
 
   return (
     <div className="h-full flex flex-col lg:flex-row" data-testid="ai-copilot-page">
