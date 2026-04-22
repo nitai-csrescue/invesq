@@ -4,7 +4,7 @@ import { useLocation } from "wouter";
 import { Button } from "@/components/ui/button";
 import { ArrowLeft, ArrowRight, X, CheckCircle2 } from "lucide-react";
 
-const LS_COMPLETED = "cs-rescue.tour.completed";
+export const LS_COMPLETED = "cs-rescue.tour.completed";
 const START_EVENT = "cs-rescue:start-tour";
 
 type Step = {

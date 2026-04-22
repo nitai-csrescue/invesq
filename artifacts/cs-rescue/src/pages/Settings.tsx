@@ -9,6 +9,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
 import { team } from "@/data";
+import { LS_COMPLETED as TOUR_LS_COMPLETED } from "@/components/cs/DemoTour";
 
 export default function Settings() {
   const [risk, setRisk] = useState([50]);
@@ -34,6 +35,29 @@ export default function Settings() {
               <Field label="Workspace name"><Input defaultValue="Acme Inc." /></Field>
               <Field label="Default region"><Input defaultValue="Americas" /></Field>
               <Field label="Plan"><Input defaultValue="Enterprise" disabled /></Field>
+            </Section>
+            <Section title="Demo tour">
+              <div className="flex items-start justify-between gap-4">
+                <div>
+                  <p className="text-sm text-white">Reset demo tour</p>
+                  <p className="text-[11px] text-slate-500 mt-0.5">
+                    Clears the saved completion flag so the guided tour will start fresh on the Dashboard.
+                  </p>
+                </div>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  data-testid="reset-tour-btn"
+                  onClick={() => {
+                    try {
+                      window.localStorage.removeItem(TOUR_LS_COMPLETED);
+                    } catch {}
+                    toast({ title: "Demo tour reset", description: "The guided tour will run again next time you trigger it." });
+                  }}
+                >
+                  Reset demo tour
+                </Button>
+              </div>
             </Section>
             <SaveBar onSave={() => toast({ title: "Workspace saved" })} />
           </TabsContent>
