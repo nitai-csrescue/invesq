@@ -23,9 +23,6 @@ import { Activity, Layers, Heart, Network, GitBranch, Boxes } from "lucide-react
 import { ArchitectureNodeComp, type ArchNodeData } from "@/components/architecture/ArchitectureNode";
 import { Inspector } from "@/components/architecture/Inspector";
 import { BusinessView } from "@/components/architecture/BusinessView";
-import { InsightFeed } from "@/components/architecture/InsightFeed";
-import { InsightDetailPanel } from "@/components/architecture/InsightDetailPanel";
-import { filterArchInsights, type ArchInsight, type ArchInsightScope } from "@/data/architectureInsights";
 import {
   usePersona,
   VIEW_MODES,
@@ -70,31 +67,6 @@ function ArchitectureInner() {
   const [highlightIds, setHighlightIds] = useState<Set<string>>(new Set());
   const [highlightEdgeIds, setHighlightEdgeIds] = useState<Set<string>>(new Set());
   const [aiToast, setAiToast] = useState<string | null>(null);
-  const [scope, setScope] = useState<ArchInsightScope>("company");
-  const [activeInsight, setActiveInsight] = useState<ArchInsight | null>(null);
-
-  // Feed stays stable while an insight is open — selection should not re-filter
-  // the visible list (otherwise sibling insights disappear when you click one).
-  const visibleInsights = useMemo(
-    () => filterArchInsights({ persona, scope, accountId: null }),
-    [persona, scope],
-  );
-
-  const handleSelectInsight = useCallback((ins: ArchInsight | null) => {
-    setActiveInsight(ins);
-    if (!ins) {
-      setHighlightIds(new Set());
-      setHighlightEdgeIds(new Set());
-      setShowDepsForId(null);
-      return;
-    }
-    setHighlightIds(new Set(ins.nodeIds));
-    setHighlightEdgeIds(new Set(ins.edgeIds ?? []));
-    // Drop hard selection so the highlight reads cleanly
-    setSelectedId(null);
-    // Reveal edges around the first related node
-    setShowDepsForId(ins.nodeIds[0] ?? null);
-  }, []);
 
   const allNodes = graph?.nodes ?? [];
   const allEdges = graph?.edges ?? [];
@@ -218,10 +190,7 @@ function ArchitectureInner() {
     setSelectedId(null);
     setHoverId(null);
     setShowDepsForId(null);
-    setActiveInsight(null);
-    setHighlightIds(new Set());
-    setHighlightEdgeIds(new Set());
-  }, [persona, viewMode, scope]);
+  }, [persona, viewMode]);
 
   // Consume "Open recommended view" handoff from AI Copilot.
   // We read the payload once on mount, apply persona + highlight set, and
@@ -371,15 +340,6 @@ function ArchitectureInner() {
         </div>
       </div>
 
-      {/* Insight Feed: insight-first surface, sits above the architecture canvas */}
-      <InsightFeed
-        insights={visibleInsights}
-        selectedId={activeInsight?.id ?? null}
-        scope={scope}
-        onScopeChange={setScope}
-        onSelect={handleSelectInsight}
-      />
-
       {/* AI handoff toast */}
       {aiToast && (
         <div className="absolute top-16 left-1/2 -translate-x-1/2 z-30 px-3 py-2 rounded-lg bg-slate-900/95 border border-purple-400/40 text-xs text-purple-100 shadow-lg backdrop-blur flex items-center gap-2">
@@ -455,16 +415,6 @@ function ArchitectureInner() {
             )}
           </>
         )}
-
-        <InsightDetailPanel
-          insight={activeInsight}
-          nodes={allNodes}
-          onClose={() => handleSelectInsight(null)}
-          onFocusNode={(id) => {
-            setSelectedId(id);
-            setShowDepsForId(id);
-          }}
-        />
 
         <Inspector
           node={selectedNode}

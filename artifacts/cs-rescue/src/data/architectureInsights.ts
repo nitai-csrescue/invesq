@@ -16,6 +16,8 @@ export interface ArchInsight {
   accountId?: string;
   nodeIds: string[];
   edgeIds?: string[];
+  /** Signal/data sources that contributed to this insight, e.g. "Support", "CRM". */
+  sources?: string[];
   cta?: { label: string; href: string };
   copilotPrompt?: string;
 }
@@ -34,6 +36,7 @@ export const archInsights: ArchInsight[] = [
     personas: ["vp", "post-sales", "cs", "engineering"],
     nodeIds: ["node-implementation", "node-csm", "node-deployment-intelligence"],
     edgeIds: ["e-impl-csm"],
+    sources: ["Implementation", "Deployment Intelligence", "CSM"],
     cta: { label: "Activate TTV recovery playbook", href: "/playbooks?playbookId=pb-ttv-recovery" },
     copilotPrompt: "Why is our TTV 17 days over target and what's the fastest fix?",
   },
@@ -48,6 +51,7 @@ export const archInsights: ArchInsight[] = [
     personas: ["vp", "cs", "support", "post-sales"],
     nodeIds: ["node-support", "node-case-management", "node-csm"],
     edgeIds: ["e-csm-support"],
+    sources: ["Support", "Case Management", "Zendesk"],
     cta: { label: "Triage support escalations", href: "/signals?category=support" },
     copilotPrompt: "Map the support backlog to at-risk accounts and prioritize triage.",
   },
@@ -61,6 +65,7 @@ export const archInsights: ArchInsight[] = [
     metric: "+$1.1M ARR",
     personas: ["vp", "sales", "post-sales", "cs"],
     nodeIds: ["node-csm", "node-pre-sales", "node-contract"],
+    sources: ["CSM", "Product Usage", "CRM"],
     cta: { label: "View expansion accounts", href: "/dashboard" },
     copilotPrompt: "Build a 30-day plan to convert the $1.1M expansion pipeline.",
   },
@@ -74,6 +79,7 @@ export const archInsights: ArchInsight[] = [
     metric: "−3 pts accuracy",
     personas: ["engineering", "post-sales", "vp"],
     nodeIds: ["node-decisioning", "node-data-orchestration", "node-deployment-intelligence"],
+    sources: ["Decisioning", "Data Orchestration"],
     cta: { label: "Open Architecture detail", href: "/platform/architecture" },
     copilotPrompt: "Diagnose decisioning model drift root-cause and propose mitigations.",
   },
@@ -87,6 +93,7 @@ export const archInsights: ArchInsight[] = [
     metric: "60% under threshold",
     personas: ["vp", "sales", "post-sales"],
     nodeIds: ["node-partner-hub", "node-csm"],
+    sources: ["Partner Hub", "CSM"],
     cta: { label: "Run partner re-engagement", href: "/playbooks?playbookId=pb-partner-reactivate" },
     copilotPrompt: "Which partners should we re-engage first and why?",
   },
@@ -100,6 +107,7 @@ export const archInsights: ArchInsight[] = [
     metric: "78% / 90% SLA",
     personas: ["engineering", "post-sales", "cs"],
     nodeIds: ["node-crm", "node-data-orchestration", "node-decisioning"],
+    sources: ["CRM", "Salesforce"],
     cta: { label: "Open CRM integration", href: "/integrations" },
     copilotPrompt: "Where is CRM data quality hurting us the most?",
   },
@@ -114,6 +122,7 @@ export const archInsights: ArchInsight[] = [
     metric: "−$480k ARR risk",
     personas: ALL_PERSONAS,
     nodeIds: ["node-csm", "node-support", "node-case-management", "node-deployment-intelligence"],
+    sources: ["CSM", "Support", "Product Usage"],
     cta: { label: "Open Wayne account", href: "/accounts?accountId=a_wayne" },
     copilotPrompt: "Brief me on Wayne Enterprises risk and what to do this week.",
   },
@@ -128,6 +137,7 @@ export const archInsights: ArchInsight[] = [
     metric: "+$240k ARR",
     personas: ALL_PERSONAS,
     nodeIds: ["node-csm", "node-pre-sales", "node-contract"],
+    sources: ["CSM", "Product Usage", "Sales"],
     cta: { label: "Open Stark account", href: "/accounts?accountId=a_stark" },
     copilotPrompt: "Build the expansion plan for Stark Industries.",
   },
@@ -142,6 +152,7 @@ export const archInsights: ArchInsight[] = [
     metric: "3 / 8 milestones",
     personas: ALL_PERSONAS,
     nodeIds: ["node-implementation", "node-lifecycle-playbooks", "node-csm"],
+    sources: ["Implementation", "Playbooks"],
     cta: { label: "Open InGen account", href: "/accounts?accountId=a_ingen" },
     copilotPrompt: "Why is InGen onboarding stalled, and how do we restart it without losing the renewal?",
   },

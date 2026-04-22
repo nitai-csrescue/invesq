@@ -9,6 +9,7 @@ import { KpiCard } from "@/components/cs/KpiCard";
 import { HealthBadge, healthScoreColor } from "@/components/cs/HealthBadge";
 import { SourceBadge } from "@/components/cs/SourceBadge";
 import { InsightRailCard } from "@/components/cs/InsightRailCard";
+import { DashboardInsights } from "@/components/dashboard/DashboardInsights";
 import { Sparkline } from "@/components/cs/Sparkline";
 import { Progress } from "@/components/ui/progress";
 import { Button } from "@/components/ui/button";
@@ -589,6 +590,7 @@ export default function Dashboard() {
       />
 
       <div className="space-y-6">
+        <DashboardInsights />
         {layout.rows.map((row, idx) => (
           <div key={idx} className={rowClass(row)} data-testid={`dashboard-row-${idx}`}>
             {row.map((section) => renderSection(section))}
