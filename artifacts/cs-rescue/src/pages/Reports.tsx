@@ -18,7 +18,7 @@ export default function Reports() {
         subtitle="Quarterly trends across retention, expansion, time-to-value, and playbook impact."
       />
 
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6" data-tour="reports-grid">
         <Card title="Net retention rate" subtitle="12-week trend">
           <div className="flex items-end justify-between mb-2">
             <p className="text-3xl font-bold text-emerald-300">{retentionTrend.at(-1)?.value}%</p>

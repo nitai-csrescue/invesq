@@ -1,5 +1,7 @@
+import { useEffect, useState } from "react";
 import { Link } from "wouter";
-import { ArrowRight, Calendar, Sparkles } from "lucide-react";
+import { ArrowRight, Calendar, Sparkles, PlayCircle, RotateCcw } from "lucide-react";
+import { startDemoTour, isTourCompleted } from "@/components/cs/DemoTour";
 import { PageHeader } from "@/components/cs/PageHeader";
 import { SectionHeader } from "@/components/cs/SectionHeader";
 import { KpiCard } from "@/components/cs/KpiCard";
@@ -32,6 +34,21 @@ export default function Dashboard() {
   const { persona } = usePersona();
   const queued = actions.filter((a) => a.status === "queued").slice(0, 6);
   const activePlaybooks = playbooks.filter((p) => p.status === "active").slice(0, 4);
+  const [tourDone, setTourDone] = useState(false);
+
+  // Reflect localStorage state so the CTA can show "Restart tour" after completion.
+  useEffect(() => {
+    setTourDone(isTourCompleted());
+    const onStorage = () => setTourDone(isTourCompleted());
+    window.addEventListener("storage", onStorage);
+    return () => window.removeEventListener("storage", onStorage);
+  }, []);
+
+  const handleStartTour = () => {
+    startDemoTour();
+    // After a tour run, completion may flip; re-check shortly after.
+    window.setTimeout(() => setTourDone(isTourCompleted()), 200);
+  };
 
   return (
     <div className="p-6 max-w-[1500px] mx-auto" data-testid="dashboard-page">
@@ -41,6 +58,17 @@ export default function Dashboard() {
         subtitle={PERSONA_GREETING[persona] ?? PERSONA_GREETING.vp}
         actions={
           <>
+            <Button
+              variant="outline"
+              size="sm"
+              className="gap-1.5 border-cyan-400/40 text-cyan-200 hover:bg-cyan-500/10 hover:text-cyan-100"
+              onClick={handleStartTour}
+              data-testid="start-tour-btn"
+            >
+              {tourDone
+                ? (<><RotateCcw className="w-3.5 h-3.5" /> Restart tour</>)
+                : (<><PlayCircle className="w-3.5 h-3.5" /> Start tour</>)}
+            </Button>
             <Button variant="outline" size="sm" className="gap-1.5">
               <Calendar className="w-3.5 h-3.5" /> Last 30 days
             </Button>
@@ -62,7 +90,7 @@ export default function Dashboard() {
       <div className="grid grid-cols-1 xl:grid-cols-3 gap-6 mb-8">
         <div className="xl:col-span-2 grid grid-cols-1 lg:grid-cols-2 gap-6">
           {/* At-risk */}
-          <div className="rounded-xl border border-white/10 bg-slate-950/40 p-4">
+          <div className="rounded-xl border border-white/10 bg-slate-950/40 p-4" data-tour="atrisk-table">
             <SectionHeader
               title="At-Risk Accounts"
               subtitle={`${atRiskAccounts().length} accounts under threshold`}
@@ -123,7 +151,7 @@ export default function Dashboard() {
         </div>
 
         {/* Insights rail */}
-        <div className="space-y-3">
+        <div className="space-y-3" data-tour="insight-rail">
           <SectionHeader title="AI Insights" subtitle="Pre-briefed and ready to act on" />
           {insights.map((ins) => <InsightRailCard key={ins.id} insight={ins} />)}
         </div>

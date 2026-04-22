@@ -5,6 +5,7 @@ import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { Layout, BareLayout } from "@/components/layout/Layout";
 import { PersonaProvider } from "@/lib/persona";
+import { DemoTour } from "@/components/cs/DemoTour";
 import NotFound from "@/pages/not-found";
 
 import Landing from "@/pages/Landing";
@@ -72,6 +73,7 @@ function App() {
         <PersonaProvider>
           <WouterRouter base={import.meta.env.BASE_URL.replace(/\/$/, "")}>
             <Router />
+            <DemoTour />
           </WouterRouter>
           <Toaster />
         </PersonaProvider>

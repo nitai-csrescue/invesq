@@ -58,7 +58,7 @@ export default function Actions() {
         subtitle="Every recommended next step — sourced from AI, playbooks, or manual triage."
       />
 
-      <Tabs value={tab} onValueChange={(v) => setTab(v as ActionStatus)}>
+      <Tabs value={tab} onValueChange={(v) => setTab(v as ActionStatus)} data-tour="actions-queue">
         <TabsList className="bg-slate-900/60 mb-4">
           <TabsTrigger value="queued">Queued <Badge variant="outline" className="ml-2 text-[10px]">{counts.queued}</Badge></TabsTrigger>
           <TabsTrigger value="in-progress">In Progress <Badge variant="outline" className="ml-2 text-[10px]">{counts["in-progress"]}</Badge></TabsTrigger>

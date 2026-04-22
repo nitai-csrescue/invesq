@@ -22,7 +22,7 @@ export default function Signals() {
         subtitle="The patterns CS Rescue watches for across your customer data — and what each one triggers."
       />
 
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-3 mb-8">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-3 mb-8" data-tour="signal-categories">
         {SIGNAL_CATEGORIES.map((c) => {
           const count = signalDefinitions.filter((s) => s.category === c.id).length;
           const fired = signalEvents.filter((e) => getSignalDefinition(e.defId)?.category === c.id).length;

@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { PageHeader } from "@/components/cs/PageHeader";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription } from "@/components/ui/sheet";
@@ -12,6 +12,15 @@ import { playbooks, PLAYBOOK_CATEGORIES, getAccount, getTeamMember, type Playboo
 export default function Playbooks() {
   const [open, setOpen] = useState<Playbook | null>(null);
   const { toast } = useToast();
+
+  // Deep-link: /playbooks?playbookId=... auto-opens the matching drawer.
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const id = new URLSearchParams(window.location.search).get("playbookId");
+    if (!id) return;
+    const found = playbooks.find((p) => p.id === id);
+    if (found) setOpen(found);
+  }, []);
 
   return (
     <div className="p-6 max-w-[1500px] mx-auto" data-testid="playbooks-page">
