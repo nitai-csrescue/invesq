@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
+import { Link } from "wouter";
 import { Search } from "lucide-react";
 import { PageHeader } from "@/components/cs/PageHeader";
 import { HealthBadge, healthScoreColor } from "@/components/cs/HealthBadge";
@@ -289,14 +290,19 @@ function AccountDrawer({ account, onClose }: { account: Account | null; onClose:
             {recommended.length === 0
               ? <p className="text-sm text-slate-500 italic">No recommended actions for this account right now.</p>
               : recommended.map((a) => (
-                <div key={a.id} className="rounded-lg border border-white/5 bg-white/[0.02] p-3">
+                <Link
+                  key={a.id}
+                  href={`/actions?actionId=${a.id}`}
+                  className="block rounded-lg border border-white/5 bg-white/[0.02] p-3 hover:border-cyan-400/30 hover:bg-cyan-500/5 transition-colors"
+                  data-testid={`drawer-action-${a.id}`}
+                >
                   <div className="flex items-center gap-2 mb-1">
                     <SourceBadge source={a.source} />
                     <span className="text-[11px] text-slate-500">due {a.dueDate.slice(5)}</span>
                   </div>
                   <p className="text-sm text-white">{a.title}</p>
                   {a.context && <p className="text-[11px] text-slate-400 mt-1">{a.context}</p>}
-                </div>
+                </Link>
               ))}
           </TabsContent>
         </Tabs>
