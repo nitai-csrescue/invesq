@@ -12,6 +12,7 @@ import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription } from "
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { usePersona, PERSONA_CURRENT_USER, type Persona } from "@/lib/persona";
 import {
   accounts,
   type Account,
@@ -34,12 +35,39 @@ const STATUSES: { value: AccountStatus | "all"; label: string }[] = [
 
 const SEGMENTS: (AccountSegment | "all")[] = ["all", "Enterprise", "Mid-Market", "SMB"];
 
+function personaDefaultOwner(persona: Persona): string {
+  return PERSONA_CURRENT_USER[persona] ?? "all";
+}
+
+function personaDefaultStatus(persona: Persona): AccountStatus | "all" {
+  if (persona === "support") return "at-risk";
+  return "all";
+}
+
+function personaSubtitle(persona: Persona): string {
+  switch (persona) {
+    case "cs": return "Filtered to your book of business — clear filters to see the whole portfolio.";
+    case "sales": return "Sorted with expansion-ready accounts at the top.";
+    case "support": return "Focused on at-risk accounts — clear filters to see all 18.";
+    case "customer": return "A single-account, outside-in view (Stark Industries).";
+    default: return "Searchable view of all 18 customers — click any row to open the deep account profile.";
+  }
+}
+
 export default function Accounts() {
+  const { persona } = usePersona();
   const [q, setQ] = useState("");
-  const [status, setStatus] = useState<AccountStatus | "all">("all");
+  const [status, setStatus] = useState<AccountStatus | "all">(() => personaDefaultStatus(persona));
   const [segment, setSegment] = useState<AccountSegment | "all">("all");
-  const [owner, setOwner] = useState<string>("all");
+  const [owner, setOwner] = useState<string>(() => personaDefaultOwner(persona));
   const [open, setOpen] = useState<Account | null>(null);
+
+  // When the global persona changes, reset the persona-driven filters to that
+  // persona's defaults. This is the "switching personas re-shapes the page" UX.
+  useEffect(() => {
+    setOwner(personaDefaultOwner(persona));
+    setStatus(personaDefaultStatus(persona));
+  }, [persona]);
 
   // Deep-link: /accounts?accountId=... auto-opens the matching drawer.
   useEffect(() => {
@@ -50,21 +78,54 @@ export default function Accounts() {
     if (found) setOpen(found);
   }, []);
 
+  // Customer persona is the outside-in lens: pin to a single account.
+  if (persona === "customer") {
+    const customerAcct = accounts.find((a) => a.id === "a_stark") ?? accounts[0];
+    return (
+      <div className="p-6 max-w-[1500px] mx-auto" data-testid="accounts-page" data-persona={persona}>
+        <PageHeader
+          eyebrow="Outside-in"
+          title="Your account"
+          subtitle={personaSubtitle(persona)}
+        />
+        <div className="rounded-xl border border-white/10 bg-slate-950/40 p-4 mb-4">
+          <div className="flex items-start justify-between gap-3">
+            <div>
+              <p className="text-2xl font-bold text-white">{customerAcct.name}</p>
+              <p className="text-sm text-slate-400">{customerAcct.industry} · {customerAcct.segment}</p>
+            </div>
+            <HealthBadge status={customerAcct.status} score={customerAcct.healthScore} />
+          </div>
+        </div>
+        <AccountDrawer account={customerAcct} onClose={() => { /* customer view stays open */ }} forceOpen />
+      </div>
+    );
+  }
+
   const filtered = useMemo(() => {
-    return accounts.filter((a) =>
+    const base = accounts.filter((a) =>
       (q ? a.name.toLowerCase().includes(q.toLowerCase()) : true) &&
       (status === "all" ? true : a.status === status) &&
       (segment === "all" ? true : a.segment === segment) &&
       (owner === "all" ? true : a.ownerId === owner)
     );
-  }, [q, status, segment, owner]);
+    if (persona === "sales") {
+      // AE lens: surface expansion-ready accounts first.
+      return [...base].sort((a, b) => b.expansionPotential - a.expansionPotential);
+    }
+    if (persona === "vp" || persona === "support") {
+      // Risk-weighted: lowest health first.
+      return [...base].sort((a, b) => a.healthScore - b.healthScore);
+    }
+    return base;
+  }, [q, status, segment, owner, persona]);
 
   return (
-    <div className="p-6 max-w-[1500px] mx-auto" data-testid="accounts-page">
+    <div className="p-6 max-w-[1500px] mx-auto" data-testid="accounts-page" data-persona={persona}>
       <PageHeader
         eyebrow="Book of business"
         title="Accounts"
-        subtitle="Searchable view of all 18 customers — click any row to open the deep account profile."
+        subtitle={personaSubtitle(persona)}
       />
 
       <div className="rounded-xl border border-white/10 bg-slate-950/40 p-4 mb-4 flex flex-col md:flex-row gap-3">
@@ -179,14 +240,15 @@ export default function Accounts() {
   );
 }
 
-function AccountDrawer({ account, onClose }: { account: Account | null; onClose: () => void }) {
+function AccountDrawer({ account, onClose, forceOpen = false }: { account: Account | null; onClose: () => void; forceOpen?: boolean }) {
   if (!account) return null;
+  const isOpen = forceOpen || !!account;
   const ownerMember = getTeamMember(account.ownerId);
   const accountSignals = signalEvents.filter((e) => e.accountId === account.id);
   const recommended = actions.filter((a) => account.recommendedActionIds.includes(a.id));
 
   return (
-    <Sheet open={!!account} onOpenChange={(v) => !v && onClose()}>
+    <Sheet open={isOpen} onOpenChange={(v) => { if (!forceOpen && !v) onClose(); }}>
       <SheetContent side="right" className="w-full sm:max-w-2xl bg-slate-950 border-l border-white/10 overflow-y-auto" data-testid="account-drawer">
         <SheetHeader className="text-left">
           <div className="flex items-center justify-between mb-2">

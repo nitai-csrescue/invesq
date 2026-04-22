@@ -29,6 +29,15 @@ The Architecture page (a true interactive React Flow graph) and AI Copilot still
 - `pnpm --filter @workspace/api-server run dev` — run backend
 - `pnpm --filter @workspace/cs-rescue run dev` — run frontend
 
+## Persona switcher
+
+The global persona switcher (`PersonaSwitcher`) reshapes several pages:
+
+- **Persisted** to `localStorage` under `cs-rescue:persona`; survives reload + cross-tab.
+- **Dashboard** (`src/pages/Dashboard.tsx`) renders a per-persona layout config (`PERSONA_LAYOUTS`) that controls KPI subset, section order, action queue filter, insight filter, and which playbooks/accounts surface. Customer persona collapses to a single-account "outside-in" snapshot.
+- **Accounts** (`src/pages/Accounts.tsx`) defaults the owner filter to that persona's "current user" (`PERSONA_CURRENT_USER` in `src/lib/persona.tsx`), defaults status to `at-risk` for support, sorts by expansion potential for sales, and pins to a single account drawer for customer.
+- **Reports** (`src/pages/Reports.tsx`) reorders the four trend cards and hides team capacity for customer.
+
 ## Information Architecture (post 2026-04-22 refactor)
 
 **Bare layout (no shell):**
