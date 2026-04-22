@@ -20,7 +20,7 @@ const PersonaContext = createContext<PersonaContextValue | null>(null);
 export function PersonaProvider({ children }: { children: ReactNode }) {
   const [persona, setPersona] = useState<Persona>("vp");
   const [viewMode, setViewMode] = useState<ViewMode>("business");
-  const [simplify, setSimplify] = useState(false);
+  const [simplify, setSimplify] = useState(true);
   const [clusterByRelevance, setClusterByRelevance] = useState(true);
 
   const value = useMemo(
