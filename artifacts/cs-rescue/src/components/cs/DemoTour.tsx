@@ -177,6 +177,11 @@ export function DemoTour() {
   }, []);
 
   const skip = useCallback(() => {
+    try {
+      window.localStorage.setItem(LS_COMPLETED, "true");
+    } catch {
+      /* ignore */
+    }
     setActive(false);
   }, []);
 

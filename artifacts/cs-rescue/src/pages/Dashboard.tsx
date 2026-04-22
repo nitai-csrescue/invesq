@@ -1,7 +1,8 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Link } from "wouter";
 import { ArrowRight, Calendar, Sparkles, PlayCircle, RotateCcw } from "lucide-react";
 import { startDemoTour, isTourCompleted } from "@/components/cs/DemoTour";
+import { useToast } from "@/hooks/use-toast";
 import { PageHeader } from "@/components/cs/PageHeader";
 import { SectionHeader } from "@/components/cs/SectionHeader";
 import { KpiCard } from "@/components/cs/KpiCard";
@@ -196,6 +197,8 @@ export default function Dashboard() {
   const { persona } = usePersona();
   const layout = PERSONA_LAYOUTS[persona] ?? PERSONA_LAYOUTS.vp;
   const [tourDone, setTourDone] = useState(false);
+  const { toast } = useToast();
+  const autoLaunchedRef = useRef(false);
 
   // Reflect localStorage state so the CTA can show "Restart tour" after completion.
   useEffect(() => {
@@ -204,6 +207,24 @@ export default function Dashboard() {
     window.addEventListener("storage", onStorage);
     return () => window.removeEventListener("storage", onStorage);
   }, []);
+
+  // Auto-launch the guided tour for first-time visitors. Once the tour has
+  // been skipped or finished, the completion flag in localStorage prevents
+  // it from ever auto-starting again.
+  useEffect(() => {
+    if (autoLaunchedRef.current) return;
+    if (isTourCompleted()) return;
+    autoLaunchedRef.current = true;
+    const startTimer = window.setTimeout(() => {
+      if (isTourCompleted()) return;
+      startDemoTour();
+      toast({
+        title: "Welcome — taking you on a quick tour",
+        description: 'You can replay it anytime from the "Start tour" button.',
+      });
+    }, 900);
+    return () => window.clearTimeout(startTimer);
+  }, [toast]);
 
   const handleStartTour = () => {
     startDemoTour();
