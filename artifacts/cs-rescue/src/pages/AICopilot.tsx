@@ -8,11 +8,44 @@ import {
   getListDeploymentsQueryKey,
   useListResources,
   getListResourcesQueryKey,
+  type Account as ApiAccount,
 } from "@workspace/api-client-react";
 import { usePersona, PERSONAS, type Persona } from "@/lib/persona";
 import { AICopilotInputPanel } from "@/components/ai/AICopilotInputPanel";
 import { AICopilotOutput } from "@/components/ai/AICopilotOutput";
 import { generateBriefing, type Briefing, type Goal, type Scope } from "@/services/ai/generateBriefing";
+import { accounts as demoAccounts, type Account as DemoAccount } from "@/data/accounts";
+
+// Map the cohesive demo-universe accounts (src/data/accounts.ts) onto the
+// API Account shape that the briefing pipeline expects. This lets Copilot's
+// pickers and deep-links use the same 18 named accounts as the rest of the
+// product (Dashboard, Accounts, Signals).
+function toApiAccount(a: DemoAccount): ApiAccount {
+  const segment =
+    a.segment === "Enterprise"
+      ? "enterprise"
+      : a.segment === "Mid-Market"
+        ? "mid_market"
+        : "smb";
+  const status =
+    a.status === "at-risk" || a.status === "churning" ? "at_risk" : "active";
+  // Demo accounts are all live customers in active CSM motion. Pick a
+  // lifecycleStage that drives meaningful signal phrasing.
+  const lifecycleStage = "csm";
+  return {
+    id: a.id,
+    name: a.name,
+    segment,
+    lifecycleStage,
+    deploymentIds: [],
+    owner: a.ownerId,
+    status,
+    industry: a.industry,
+    arr: a.arr,
+  };
+}
+
+const DEMO_API_ACCOUNTS: ApiAccount[] = demoAccounts.map(toApiAccount);
 
 export default function AICopilot() {
   const { persona, setPersona } = usePersona();
@@ -20,9 +53,13 @@ export default function AICopilot() {
   const { data: graph, isLoading: graphLoading } = useGetGraph({
     query: { queryKey: getGetGraphQueryKey() },
   });
-  const { data: accounts = [] } = useListAccounts({
+  const { data: apiAccounts = [] } = useListAccounts({
     query: { queryKey: getListAccountsQueryKey() },
   });
+  // Picker and selected-account lookup use the cohesive demo universe
+  // (Wayne Enterprises, Stark Industries, …) so deep-links from Dashboard /
+  // Signals / Accounts resolve to a real named account.
+  const accounts = DEMO_API_ACCOUNTS;
   const { data: deployments = [] } = useListDeployments(undefined, {
     query: { queryKey: getListDeploymentsQueryKey() },
   });
@@ -87,7 +124,10 @@ export default function AICopilot() {
         nodes: graph.nodes,
         edges: graph.edges,
         resources,
-        accounts,
+        // Company-scope aggregation walks deployments and looks up their
+        // parent account by API id, so pass the API account list here (not
+        // the demo-universe accounts that drive the picker).
+        accounts: apiAccounts,
         deployments,
       });
       setBriefing(result);
