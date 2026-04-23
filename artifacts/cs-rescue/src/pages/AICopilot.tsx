@@ -2,10 +2,6 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import {
   useGetGraph,
   getGetGraphQueryKey,
-  useListAccounts,
-  getListAccountsQueryKey,
-  useListDeployments,
-  getListDeploymentsQueryKey,
   useListResources,
   getListResourcesQueryKey,
   type Account as ApiAccount,
@@ -15,6 +11,7 @@ import { AICopilotInputPanel } from "@/components/ai/AICopilotInputPanel";
 import { AICopilotOutput } from "@/components/ai/AICopilotOutput";
 import { generateBriefing, type Briefing, type Goal, type Scope } from "@/services/ai/generateBriefing";
 import { accounts as demoAccounts, type Account as DemoAccount } from "@/data/accounts";
+import { demoDeployments } from "@/data/deployments";
 
 // Map the cohesive demo-universe accounts (src/data/accounts.ts) onto the
 // API Account shape that the briefing pipeline expects. This lets Copilot's
@@ -53,16 +50,15 @@ export default function AICopilot() {
   const { data: graph, isLoading: graphLoading } = useGetGraph({
     query: { queryKey: getGetGraphQueryKey() },
   });
-  const { data: apiAccounts = [] } = useListAccounts({
-    query: { queryKey: getListAccountsQueryKey() },
-  });
   // Picker and selected-account lookup use the cohesive demo universe
   // (Wayne Enterprises, Stark Industries, …) so deep-links from Dashboard /
   // Signals / Accounts resolve to a real named account.
   const accounts = DEMO_API_ACCOUNTS;
-  const { data: deployments = [] } = useListDeployments(undefined, {
-    query: { queryKey: getListDeploymentsQueryKey() },
-  });
+  // Deployments come from the same demo universe — each demo account has one
+  // or more named rollouts (e.g. Wayne Enterprises → "Wayne Auth Modernization").
+  // This keeps the Deployment dropdown and the briefing pipeline end-to-end
+  // consistent with the account picker.
+  const deployments = demoDeployments;
   const { data: resources = [] } = useListResources(undefined, {
     query: { queryKey: getListResourcesQueryKey() },
   });
@@ -125,9 +121,9 @@ export default function AICopilot() {
         edges: graph.edges,
         resources,
         // Company-scope aggregation walks deployments and looks up their
-        // parent account by API id, so pass the API account list here (not
-        // the demo-universe accounts that drive the picker).
-        accounts: apiAccounts,
+        // parent account by id. Both lists now come from the demo universe
+        // so the rollup matches what the picker exposes.
+        accounts,
         deployments,
       });
       setBriefing(result);
