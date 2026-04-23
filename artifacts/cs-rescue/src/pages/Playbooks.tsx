@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { PageHeader } from "@/components/cs/PageHeader";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription } from "@/components/ui/sheet";
@@ -7,44 +7,110 @@ import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
 import { useToast } from "@/hooks/use-toast";
 import { Play, CheckCircle2, Circle } from "lucide-react";
-import { playbooks, PLAYBOOK_CATEGORIES, getAccount, getTeamMember, type Playbook } from "@/data";
+import { playbooks, PLAYBOOK_CATEGORIES, getAccount, getTeamMember, type Playbook, type PlaybookCategory } from "@/data";
+import { usePersona, type Persona } from "@/lib/persona";
+
+const DEMO_CUSTOMER_ACCOUNT_ID = "a_stark";
+
+/**
+ * Per-persona category ordering for the tab strip. The first entry becomes the
+ * default selected tab so each persona lands on the most relevant lane.
+ * Categories not listed are appended in their original order.
+ */
+const PERSONA_CATEGORY_ORDER: Partial<Record<Persona, PlaybookCategory[]>> = {
+  sales: ["Expansion", "Renewal", "Retention", "Adoption", "Onboarding", "Custom"],
+  "post-sales": ["Onboarding", "Adoption", "Retention", "Renewal", "Expansion", "Custom"],
+  cs: ["Adoption", "Retention", "Expansion", "Renewal", "Onboarding", "Custom"],
+  support: ["Retention", "Adoption", "Onboarding", "Expansion", "Renewal", "Custom"],
+};
+
+const PERSONA_SUBTITLE: Partial<Record<Persona, string>> = {
+  sales: "Growth-first lens: expansion and renewal lanes lead.",
+  "post-sales": "Onboarding-led lens: time-to-value and adoption lanes lead.",
+  cs: "Retention lens: adoption, retention, and expansion lanes lead.",
+  support: "Escalation lens: retention plays lead the library.",
+  customer: "Outside-in lens: only the playbooks running on your account.",
+};
+
+function orderedCategories(persona: Persona): PlaybookCategory[] {
+  const preferred = PERSONA_CATEGORY_ORDER[persona];
+  if (!preferred) return PLAYBOOK_CATEGORIES;
+  const seen = new Set(preferred);
+  return [...preferred, ...PLAYBOOK_CATEGORIES.filter((c) => !seen.has(c))];
+}
 
 export default function Playbooks() {
+  const { persona } = usePersona();
   const [open, setOpen] = useState<Playbook | null>(null);
   const { toast } = useToast();
 
+  const visiblePlaybooks = useMemo(() => {
+    if (persona === "customer") {
+      return playbooks.filter((p) => p.activeAccounts.includes(DEMO_CUSTOMER_ACCOUNT_ID));
+    }
+    return playbooks;
+  }, [persona]);
+
+  const categories = useMemo(() => orderedCategories(persona), [persona]);
+
+  // Personas with an explicit ordering jump straight to their top lane;
+  // generic personas (vp / engineering) keep the original "All" default.
+  const defaultTabFor = (p: Persona): string => {
+    if (p === "customer") return "all";
+    return PERSONA_CATEGORY_ORDER[p]?.[0] ?? "all";
+  };
+  const [tab, setTab] = useState<string>(() => defaultTabFor(persona));
+
+  // Reset selected tab whenever the persona changes so the default lane reflects the new lens.
+  useEffect(() => {
+    setTab(defaultTabFor(persona));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [persona]);
+
   // Deep-link: /playbooks?playbookId=... auto-opens the matching drawer.
+  // For the customer persona we restrict to the scoped set so the drawer can't
+  // surface a playbook that doesn't apply to their account.
   useEffect(() => {
     if (typeof window === "undefined") return;
     const id = new URLSearchParams(window.location.search).get("playbookId");
     if (!id) return;
-    const found = playbooks.find((p) => p.id === id);
+    const pool = persona === "customer" ? visiblePlaybooks : playbooks;
+    const found = pool.find((p) => p.id === id);
     if (found) setOpen(found);
-  }, []);
+  }, [persona, visiblePlaybooks]);
+
+  const subtitle = persona === "customer"
+    ? `${visiblePlaybooks.length} playbook${visiblePlaybooks.length === 1 ? "" : "s"} active on Stark Industries.`
+    : `${visiblePlaybooks.length} playbooks across ${PLAYBOOK_CATEGORIES.length} categories — ${PERSONA_SUBTITLE[persona] ?? "from onboarding to renewal."}`;
 
   return (
     <div className="p-6 max-w-[1500px] mx-auto" data-testid="playbooks-page">
       <PageHeader
         eyebrow="Lifecycle library"
         title="Playbooks"
-        subtitle={`${playbooks.length} playbooks across ${PLAYBOOK_CATEGORIES.length} categories — from onboarding to renewal.`}
+        subtitle={subtitle}
       />
 
-      <Tabs defaultValue="all">
-        <TabsList className="bg-slate-900/60 mb-4 flex-wrap h-auto">
-          <TabsTrigger value="all">All</TabsTrigger>
-          {PLAYBOOK_CATEGORIES.map((c) => <TabsTrigger key={c} value={c}>{c}</TabsTrigger>)}
-        </TabsList>
+      {persona === "customer" ? (
+        // Customer persona collapses to a single scoped grid — no category tabs.
+        <Grid items={visiblePlaybooks} onOpen={setOpen} />
+      ) : (
+        <Tabs value={tab} onValueChange={setTab}>
+          <TabsList className="bg-slate-900/60 mb-4 flex-wrap h-auto">
+            <TabsTrigger value="all">All</TabsTrigger>
+            {categories.map((c) => <TabsTrigger key={c} value={c}>{c}</TabsTrigger>)}
+          </TabsList>
 
-        <TabsContent value="all">
-          <Grid items={playbooks} onOpen={setOpen} />
-        </TabsContent>
-        {PLAYBOOK_CATEGORIES.map((cat) => (
-          <TabsContent key={cat} value={cat}>
-            <Grid items={playbooks.filter((p) => p.category === cat)} onOpen={setOpen} />
+          <TabsContent value="all">
+            <Grid items={visiblePlaybooks} onOpen={setOpen} />
           </TabsContent>
-        ))}
-      </Tabs>
+          {categories.map((cat) => (
+            <TabsContent key={cat} value={cat}>
+              <Grid items={visiblePlaybooks.filter((p) => p.category === cat)} onOpen={setOpen} />
+            </TabsContent>
+          ))}
+        </Tabs>
+      )}
 
       <Sheet open={!!open} onOpenChange={(v) => !v && setOpen(null)}>
         <SheetContent side="right" className="w-full sm:max-w-2xl bg-slate-950 border-l border-white/10 overflow-y-auto" data-testid="playbook-drawer">
@@ -119,6 +185,13 @@ export default function Playbooks() {
 }
 
 function Grid({ items, onOpen }: { items: Playbook[]; onOpen: (p: Playbook) => void }) {
+  if (items.length === 0) {
+    return (
+      <div className="rounded-xl border border-white/10 bg-slate-950/40 py-12 text-center text-sm text-slate-500">
+        No playbooks in this lane.
+      </div>
+    );
+  }
   return (
     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
       {items.map((pb) => {

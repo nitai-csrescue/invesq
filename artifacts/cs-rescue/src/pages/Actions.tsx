@@ -6,17 +6,114 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
-import { CheckCircle2, Play } from "lucide-react";
-import { actions as seedActions, getAccount, getTeamMember, type ActionItem, type ActionStatus } from "@/data";
+import { CheckCircle2, Play, X } from "lucide-react";
+import {
+  actions as seedActions,
+  getAccount,
+  getTeamMember,
+  playbooks,
+  type ActionItem,
+  type ActionStatus,
+} from "@/data";
+import { usePersona, PERSONA_CURRENT_USER, type Persona } from "@/lib/persona";
+
+const DEMO_CUSTOMER_ACCOUNT_ID = "a_stark";
+
+interface PersonaScope {
+  /** True if this persona filters the queue at all. */
+  active: boolean;
+  /** Filter applied to the action list. */
+  filter: (a: ActionItem) => boolean;
+  /** Short label shown in the "scoped to …" pill. */
+  label: string;
+  /** Subtitle override for the page header. */
+  subtitle?: string;
+}
+
+function getPersonaScope(persona: Persona): PersonaScope {
+  switch (persona) {
+    case "cs": {
+      const me = PERSONA_CURRENT_USER.cs;
+      return {
+        active: true,
+        filter: (a) => a.ownerId === me,
+        label: "Your queue",
+        subtitle: "Actions assigned to you. Switch off the filter to see the full team queue.",
+      };
+    }
+    case "post-sales":
+      return {
+        active: true,
+        filter: (a) => {
+          const pb = a.playbookId ? playbooks.find((p) => p.id === a.playbookId) : null;
+          if (pb?.category === "Onboarding" || pb?.category === "Adoption") return true;
+          return a.ownerId === PERSONA_CURRENT_USER["post-sales"];
+        },
+        label: "Onboarding & adoption",
+        subtitle: "Actions tied to onboarding or adoption playbooks — driving accounts to first value.",
+      };
+    case "sales":
+      return {
+        active: true,
+        filter: (a) => {
+          const acct = a.accountId ? getAccount(a.accountId) : null;
+          if (acct && acct.expansionPotential > 0) return true;
+          const pb = a.playbookId ? playbooks.find((p) => p.id === a.playbookId) : null;
+          return pb?.category === "Expansion" || pb?.category === "Renewal";
+        },
+        label: "Expansion & renewal",
+        subtitle: "Actions tied to growth and renewal — where retention meets new ARR.",
+      };
+    case "support":
+      return {
+        active: true,
+        filter: (a) => {
+          const acct = a.accountId ? getAccount(a.accountId) : null;
+          return acct ? acct.status === "at-risk" || acct.status === "churning" || acct.status === "watch" : false;
+        },
+        label: "Escalation queue",
+        subtitle: "Actions tied to at-risk and churning accounts.",
+      };
+    case "customer":
+      return {
+        active: true,
+        filter: (a) => a.accountId === DEMO_CUSTOMER_ACCOUNT_ID,
+        label: "Stark Industries",
+        subtitle: "Outside-in view: only the actions touching your account.",
+      };
+    case "vp":
+    case "engineering":
+    default:
+      return {
+        active: false,
+        filter: () => true,
+        label: "All actions",
+      };
+  }
+}
 
 export default function Actions() {
+  const { persona } = usePersona();
   const [list, setList] = useState<ActionItem[]>(seedActions);
   const [tab, setTab] = useState<ActionStatus>("queued");
   const [highlightId, setHighlightId] = useState<string | null>(null);
+  const [showAll, setShowAll] = useState(false);
   const rowRefs = useRef<Record<string, HTMLTableRowElement | null>>({});
   const { toast } = useToast();
 
+  const scope = useMemo(() => getPersonaScope(persona), [persona]);
+
+  // When switching personas, reset the manual override so the new scope takes effect.
+  useEffect(() => {
+    setShowAll(false);
+  }, [persona]);
+
+  // Customer persona is locked to its single account — no override.
+  const filterActive = scope.active && (persona === "customer" || !showAll);
+
   // Deep-link: /actions?actionId=... switches to the action's tab + highlights row.
+  // If the deep-linked action is hidden by the active persona filter, fall back
+  // to the unfiltered view so the user always lands on something visible.
   useEffect(() => {
     if (typeof window === "undefined") return;
     const id = new URLSearchParams(window.location.search).get("actionId");
@@ -25,6 +122,9 @@ export default function Actions() {
     if (!target) return;
     setTab(target.status);
     setHighlightId(id);
+    if (scope.active && persona !== "customer" && !scope.filter(target)) {
+      setShowAll(true);
+    }
     requestAnimationFrame(() => {
       rowRefs.current[id]?.scrollIntoView({ block: "center", behavior: "smooth" });
     });
@@ -33,13 +133,18 @@ export default function Actions() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  const counts = useMemo(() => ({
-    queued: list.filter((a) => a.status === "queued").length,
-    "in-progress": list.filter((a) => a.status === "in-progress").length,
-    completed: list.filter((a) => a.status === "completed").length,
-  }), [list]);
+  const visible = useMemo(
+    () => (filterActive ? list.filter(scope.filter) : list),
+    [list, filterActive, scope],
+  );
 
-  const filtered = list.filter((a) => a.status === tab);
+  const counts = useMemo(() => ({
+    queued: visible.filter((a) => a.status === "queued").length,
+    "in-progress": visible.filter((a) => a.status === "in-progress").length,
+    completed: visible.filter((a) => a.status === "completed").length,
+  }), [visible]);
+
+  const filtered = visible.filter((a) => a.status === tab);
 
   function setStatus(id: string, status: ActionStatus) {
     setList((prev) => prev.map((a) => (a.id === id ? { ...a, status } : a)));
@@ -55,8 +160,50 @@ export default function Actions() {
       <PageHeader
         eyebrow="Execution"
         title="Actions"
-        subtitle="Every recommended next step — sourced from AI, playbooks, or manual triage."
+        subtitle={
+          filterActive
+            ? scope.subtitle ?? "Every recommended next step — sourced from AI, playbooks, or manual triage."
+            : "Every recommended next step — sourced from AI, playbooks, or manual triage."
+        }
       />
+
+      {scope.active && (
+        <div className="flex items-center gap-2 mb-4" data-testid="actions-persona-scope">
+          {filterActive ? (
+            <>
+              <Badge variant="outline" className="border-cyan-400/30 text-cyan-200 bg-cyan-500/10">
+                Scoped to: {scope.label}
+              </Badge>
+              {persona !== "customer" && (
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  className="h-7 text-xs text-slate-400 hover:text-white"
+                  onClick={() => setShowAll(true)}
+                  data-testid="actions-show-all"
+                >
+                  <X className="w-3 h-3 mr-1" /> Show all actions
+                </Button>
+              )}
+            </>
+          ) : (
+            <>
+              <Badge variant="outline" className="border-slate-500/40 text-slate-300">
+                Showing all actions
+              </Badge>
+              <Button
+                size="sm"
+                variant="ghost"
+                className="h-7 text-xs text-slate-400 hover:text-white"
+                onClick={() => setShowAll(false)}
+                data-testid="actions-rescope"
+              >
+                Re-apply {scope.label.toLowerCase()} filter
+              </Button>
+            </>
+          )}
+        </div>
+      )}
 
       <Tabs value={tab} onValueChange={(v) => setTab(v as ActionStatus)} data-tour="actions-queue">
         <TabsList className="bg-slate-900/60 mb-4">
