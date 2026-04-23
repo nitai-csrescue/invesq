@@ -1,0 +1,158 @@
+We are doing a UX + product polish pass. Do NOT redesign the app — just make it instantly usable and more human-readable.
+
+GOAL:
+User lands on Dashboard and understands “what matters” in <3 seconds, can ask questions, and see what’s already been learned.
+
+---
+
+1. DASHBOARD = PRIMARY INTERFACE
+
+Make Dashboard the default “AI layer” of the product.
+
+Top structure:
+
+[ Persona ] [ Scope: Company | Customer ]
+
+🧠 What matters right now (Insight Feed)
+📚 Recent Findings (NEW)
+🔎 Ask about your system (AI search)
+[ KPIs below ]
+
+---
+
+2. INSIGHT FEED (top priority)
+
+- Show 3–4 cards max (not 5+)
+- Types: Pain, Risk, Opportunity, Action
+- Each card:
+  - short insight-first headline (not metric-first)
+  - supporting metric below
+  - 1-line summary
+  - 1–2 source chips (node / deployment / edge)
+  - small “affected scope” (e.g. “Affects 3 accounts”)
+  - CTA: “See why →”
+
+- Clicking card:
+  - highlights relevant nodes in Architecture
+  - shows toast: “Highlighting related systems”
+
+- Visual polish:
+  - add left border color per type:
+    - red = pain
+    - yellow = risk
+    - green = opportunity
+    - blue = action
+  - add simple icons per type
+
+- Replace header text:
+  “Top insights…” → “What needs your attention right now”
+
+---
+
+3. SCOPE CONTROL (important)
+
+- Add clear label: “Scope: Company | Customer”
+- Default = Company
+- If Customer selected:
+  - show account/deployment dropdown
+
+- Insight Feed updates based on scope:
+  - Company = aggregated insights
+  - Customer = specific deployment insights
+
+---
+
+4. AI SEARCH (lightweight, no chatbot)
+
+Add under Insight Feed:
+
+Input:
+“Ask about your system…”
+
+Add suggestion chips:
+- “Where are customers experiencing friction?”
+- “What is the biggest risk right now?”
+- “Which accounts need attention?”
+
+On submit:
+- return 2–4 structured insights (same format as feed)
+- NOT a chat thread
+- include source chips + “See why →”
+
+DO NOT:
+- build full chat UI
+- store long conversations
+
+---
+
+5. RECENT FINDINGS (NEW — documentation layer)
+
+Add section under Insight Feed:
+
+“📚 Recent Findings”
+
+- Show 5–7 items max
+- Each item:
+  - 1–2 line insight
+  - timestamp (e.g. “2h ago”)
+  - optional source chips
+
+Example tone:
+- “Noticed recently…”
+- “Seeing a pattern…”
+- “Flagging this…”
+
+Populate findings from:
+- AI Copilot outputs (save key insights)
+- AI search results (save insight, not full query)
+- system signals (blockers, degraded edges, metric changes)
+
+Interaction:
+- clicking a finding → highlights nodes in Architecture
+
+DO NOT:
+- build chat history UI
+- create threads or messaging
+- store full conversations
+
+---
+
+6. SIMPLIFY ARCHITECTURE (no redesign)
+
+- Remove persistent connector lines (only show on hover/selection)
+- Reduce node density in default view
+- Keep labels short (no paragraphs)
+- Architecture is for drill-down, not discovery
+
+---
+
+7. DEFAULT BEHAVIOR
+
+- Auto-load insights (no button click)
+- Default:
+  - Persona = last used (or VP)
+  - Scope = Company
+- No required setup
+
+---
+
+SUCCESS CRITERIA:
+
+- User lands → sees 3–4 clear insights immediately
+- No clicks needed to understand risks/opportunities
+- Can optionally ask a question → gets structured answer
+- Can see “what we’ve already learned” via Findings
+- Architecture is used for drill-down, not initial understanding
+- UI feels clean, fast, and easy to scan
+
+---
+
+IMPORTANT:
+
+Do NOT:
+- redesign layout
+- add complex features
+- introduce heavy animations
+- overcomplicate anything
+
+This is a clarity + usability pass only.

@@ -14,6 +14,8 @@ import {
   type ArchInsightScope,
 } from "@/data/architectureInsights";
 import { searchInsights, SEARCH_SUGGESTIONS } from "@/lib/insightSearch";
+import { addFinding } from "@/lib/findings";
+import { RecentFindings } from "@/components/dashboard/RecentFindings";
 
 const DEFAULT_VISIBLE = 4;
 
@@ -56,7 +58,7 @@ function handoffToArchitecture(insight: ArchInsight, persona: string, navigate: 
 }
 
 export function DashboardInsights() {
-  const { persona } = usePersona();
+  const { persona, customerAccountId } = usePersona();
   const [, navigate] = useLocation();
   const { toast } = useToast();
   const [scope, setScope] = useState<ArchInsightScope>("company");
@@ -65,8 +67,12 @@ export function DashboardInsights() {
   const [submittedQuery, setSubmittedQuery] = useState<string | null>(null);
 
   const allFeedInsights = useMemo(
-    () => filterArchInsights({ persona, scope, accountId: null }),
-    [persona, scope],
+    () => filterArchInsights({
+      persona,
+      scope,
+      accountId: scope === "customer" ? customerAccountId : null,
+    }),
+    [persona, scope, customerAccountId],
   );
 
   const visibleInsights = showAll ? allFeedInsights : allFeedInsights.slice(0, DEFAULT_VISIBLE);
@@ -90,6 +96,18 @@ export function DashboardInsights() {
     const q = query.trim();
     if (!q) return;
     setSubmittedQuery(q);
+    // Append the top result to the Findings ledger so the user has a record
+    // of what they asked about. We deliberately do NOT store the question
+    // itself as a chat turn — only the structured insight that came back.
+    const top = searchInsights(q, persona).insights[0];
+    if (top) {
+      addFinding({
+        kind: top.kind,
+        text: `Surfaced from your question: ${top.headline ?? top.title}.`,
+        sources: top.sources?.slice(0, 2),
+        nodeIds: top.nodeIds,
+      });
+    }
   };
 
   const onClear = () => {
@@ -157,6 +175,9 @@ export function DashboardInsights() {
           )}
         </>
       )}
+
+      {/* Recent Findings — short documentation layer (NOT a chat history) */}
+      <RecentFindings />
 
       {/* AI search */}
       <div className="mt-5 pt-4 border-t border-white/10" data-tour="ai-search">
