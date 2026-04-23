@@ -44,18 +44,18 @@ function personaDefaultStatus(persona: Persona): AccountStatus | "all" {
   return "all";
 }
 
-function personaSubtitle(persona: Persona): string {
+function personaSubtitle(persona: Persona, customerAccountName?: string): string {
   switch (persona) {
     case "cs": return "Filtered to your book of business — clear filters to see the whole portfolio.";
     case "sales": return "Sorted with expansion-ready accounts at the top.";
     case "support": return "Focused on at-risk accounts — clear filters to see all 18.";
-    case "customer": return "A single-account, outside-in view (Stark Industries).";
+    case "customer": return `A single-account, outside-in view (${customerAccountName ?? "your account"}).`;
     default: return "Searchable view of all 18 customers — click any row to open the deep account profile.";
   }
 }
 
 export default function Accounts() {
-  const { persona } = usePersona();
+  const { persona, customerAccountId } = usePersona();
   const [q, setQ] = useState("");
   const [status, setStatus] = useState<AccountStatus | "all">(() => personaDefaultStatus(persona));
   const [segment, setSegment] = useState<AccountSegment | "all">("all");
@@ -78,30 +78,6 @@ export default function Accounts() {
     if (found) setOpen(found);
   }, []);
 
-  // Customer persona is the outside-in lens: pin to a single account.
-  if (persona === "customer") {
-    const customerAcct = accounts.find((a) => a.id === "a_stark") ?? accounts[0];
-    return (
-      <div className="p-6 max-w-[1500px] mx-auto" data-testid="accounts-page" data-persona={persona}>
-        <PageHeader
-          eyebrow="Outside-in"
-          title="Your account"
-          subtitle={personaSubtitle(persona)}
-        />
-        <div className="rounded-xl border border-white/10 bg-slate-950/40 p-4 mb-4">
-          <div className="flex items-start justify-between gap-3">
-            <div>
-              <p className="text-2xl font-bold text-white">{customerAcct.name}</p>
-              <p className="text-sm text-slate-400">{customerAcct.industry} · {customerAcct.segment}</p>
-            </div>
-            <HealthBadge status={customerAcct.status} score={customerAcct.healthScore} />
-          </div>
-        </div>
-        <AccountDrawer account={customerAcct} onClose={() => { /* customer view stays open */ }} forceOpen />
-      </div>
-    );
-  }
-
   const filtered = useMemo(() => {
     const base = accounts.filter((a) =>
       (q ? a.name.toLowerCase().includes(q.toLowerCase()) : true) &&
@@ -119,6 +95,30 @@ export default function Accounts() {
     }
     return base;
   }, [q, status, segment, owner, persona]);
+
+  // Customer persona is the outside-in lens: pin to a single account.
+  if (persona === "customer") {
+    const customerAcct = accounts.find((a) => a.id === customerAccountId) ?? accounts[0];
+    return (
+      <div className="p-6 max-w-[1500px] mx-auto" data-testid="accounts-page" data-persona={persona}>
+        <PageHeader
+          eyebrow="Outside-in"
+          title="Your account"
+          subtitle={personaSubtitle(persona, customerAcct.name)}
+        />
+        <div className="rounded-xl border border-white/10 bg-slate-950/40 p-4 mb-4">
+          <div className="flex items-start justify-between gap-3">
+            <div>
+              <p className="text-2xl font-bold text-white">{customerAcct.name}</p>
+              <p className="text-sm text-slate-400">{customerAcct.industry} · {customerAcct.segment}</p>
+            </div>
+            <HealthBadge status={customerAcct.status} score={customerAcct.healthScore} />
+          </div>
+        </div>
+        <AccountDrawer account={customerAcct} onClose={() => { /* customer view stays open */ }} forceOpen />
+      </div>
+    );
+  }
 
   return (
     <div className="p-6 max-w-[1500px] mx-auto" data-testid="accounts-page" data-persona={persona}>

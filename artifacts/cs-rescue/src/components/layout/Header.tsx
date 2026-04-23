@@ -3,6 +3,7 @@ import { ExternalLink } from "lucide-react";
 import { Link } from "wouter";
 import { cn } from "@/lib/utils";
 import { PersonaSwitcher, WorkspaceLabel } from "./PersonaSwitcher";
+import { CustomerAccountPicker } from "./CustomerAccountPicker";
 
 export function Header() {
   const { data: health } = useHealthCheck({
@@ -16,6 +17,7 @@ export function Header() {
       <div className="flex items-center gap-2">
         <PersonaSwitcher />
         <WorkspaceLabel />
+        <CustomerAccountPicker />
       </div>
 
       <div className="flex items-center gap-3">
@@ -56,6 +58,7 @@ export function BareTopBar() {
         <div className="flex items-center gap-2">
           <PersonaSwitcher compact />
           <WorkspaceLabel />
+          <CustomerAccountPicker />
         </div>
         <Link
           href="/dashboard"

@@ -187,15 +187,13 @@ const PERSONA_LAYOUTS: Record<Persona, PersonaLayout> = {
       ["customerSnapshot"],
     ],
     labels: {
-      customerSnapshot: { title: "Stark Industries — your account", subtitle: "What your CS team sees about you" },
+      customerSnapshot: { subtitle: "What your CS team sees about you" },
     },
   },
 };
 
-const DEFAULT_DEMO_CUSTOMER_ID = "a_stark";
-
 export default function Dashboard() {
-  const { persona } = usePersona();
+  const { persona, customerAccountId } = usePersona();
   const layout = PERSONA_LAYOUTS[persona] ?? PERSONA_LAYOUTS.vp;
   const [tourDone, setTourDone] = useState(false);
   const { toast } = useToast();
@@ -489,11 +487,12 @@ export default function Dashboard() {
       }
 
       case "customerSnapshot": {
-        const acct = accounts.find((a) => a.id === DEFAULT_DEMO_CUSTOMER_ID) ?? accounts[0];
+        const acct = accounts.find((a) => a.id === customerAccountId) ?? accounts[0];
         const owner = getTeamMember(acct.ownerId);
+        const sectionTitle = overrides?.title ?? `${acct.name} — your account`;
         return (
           <Panel key="customerSnapshot" testId="dashboard-customer-snapshot">
-            <SectionHeader title={title} subtitle={subtitle} />
+            <SectionHeader title={sectionTitle} subtitle={subtitle} />
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
               <Stat label="Health" value={`${acct.healthScore}`} tone={healthScoreColor(acct.healthScore)} />
               <Stat label="Active users" value={`${acct.weeklyActiveUsers}`} />
