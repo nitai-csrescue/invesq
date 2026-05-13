@@ -280,7 +280,7 @@ function ArchitectureInner() {
           </div>
           <div>
             <p className="text-[10px] uppercase text-slate-500 leading-none">Architecture</p>
-            <p className="text-sm font-bold text-white leading-tight">CS Rescue Map</p>
+            <p className="text-sm font-bold text-white leading-tight">INVESQ System Map</p>
           </div>
         </div>
 

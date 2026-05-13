@@ -57,7 +57,7 @@ export function Sidebar() {
         <div className="w-9 h-9 rounded-lg bg-gradient-to-br from-cyan-500 to-indigo-500 flex items-center justify-center shadow-lg shadow-cyan-500/20">
           <LifeBuoy className="h-5 w-5 text-white" />
         </div>
-        <span className="hidden lg:block ml-3 font-bold text-lg tracking-tight text-white">CS Rescue</span>
+        <span className="hidden lg:block ml-3 font-bold text-lg tracking-tight text-white">INVESQ</span>
       </Link>
 
       <nav className="flex-1 py-5 px-3 overflow-y-auto">

@@ -82,7 +82,7 @@ export function AICopilotOutput({ briefing, isGenerating, nodes, resources }: Pr
   function copySummary() {
     if (!briefing) return;
     const lines = [
-      `CS Rescue briefing — ${personaLabel} · ${briefing.goal}`,
+      `INVESQ briefing — ${personaLabel} · ${briefing.goal}`,
       "",
       `Summary: ${briefing.summary}`,
       "",

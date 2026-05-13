@@ -34,7 +34,7 @@ const SECTIONS = [
   {
     id: "solution",
     eyebrow: "04 · Solution",
-    headline: "CS Rescue: an intelligence layer that runs on top of your stack.",
+    headline: "INVESQ: a Ground Truth layer that runs on top of the portfolio company's stack.",
     body: "We unify product, CRM, support, comms, and warehouse data. Our signal catalog detects 30+ patterns. Playbooks turn those signals into actions in your team's queue.",
     bullets: ["10+ pre-built integrations", "30+ signal patterns out of the box", "Human-in-the-loop playbook execution"],
     bigNumber: "13d",
@@ -84,7 +84,7 @@ export default function Overview() {
       <main className="max-w-5xl mx-auto">
         <div className="text-center mb-16">
           <Badge variant="outline" className="text-cyan-300 border-cyan-400/30 mb-4">Investor overview</Badge>
-          <h1 className="text-4xl md:text-5xl font-bold text-white tracking-tight">CS Rescue</h1>
+          <h1 className="text-4xl md:text-5xl font-bold text-white tracking-tight">INVESQ</h1>
           <p className="text-slate-400 mt-3 max-w-xl mx-auto">A 7-section narrative of the problem, the shift, and where we're headed.</p>
         </div>
 
@@ -124,7 +124,7 @@ export default function Overview() {
         </section>
 
         <footer className="text-center text-xs text-slate-600 pt-12 pb-4">
-          © 2026 CS Rescue · Investor overview
+          © 2026 INVESQ · Investor overview
         </footer>
       </main>
     </div>

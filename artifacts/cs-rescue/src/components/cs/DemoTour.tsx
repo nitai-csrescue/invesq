@@ -46,7 +46,7 @@ const STEPS: Step[] = [
     selector: '[data-tour="signal-categories"]',
     title: "Signal categories",
     body:
-      "The taxonomy CS Rescue watches across product, support, finance, and CRM data. Each pattern triggers an action.",
+      "The taxonomy INVESQ watches across product, support, finance, and CRM data. Each pattern triggers an action.",
   },
   {
     id: "playbook",

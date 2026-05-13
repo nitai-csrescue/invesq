@@ -1,8 +1,12 @@
-# CS Rescue
+# INVESQ (project dir: cs-rescue)
 
 ## Overview
 
-CS Rescue is an investor-demo MVP for an AI-driven Customer Success platform. The product is positioned as a **system of action** — not just a dashboard — with a primary IA built around the daily CS workflow: see what's at risk, get the next best action, run the playbook, report on impact.
+INVESQ is an investor-demo MVP for an automated **Operational Due Diligence** platform serving Private Equity and Venture Capital firms. It provides a "Ground Truth" layer that reconstructs the real customer journey across fragmented enterprise systems, surfacing operational risk before capital is committed.
+
+The product was previously branded "CS Rescue" (an AI-driven Customer Success platform); the artifact slug and directory still use that name, but all user-visible chrome (Landing, Overview, Sidebar, page subtitles, AI Copilot output, Architecture map title, browser title) now says **INVESQ**. Underlying mock data (accounts, signals, playbooks) is still CS-flavored — it represents a sample portfolio company being assessed.
+
+The Landing page (`/`) is the **Executive Brief** — Executive Summary, Market Problem, Proposed Solution with a Data → AI Analysis → Risk Output diagram, Core Pillars, Target ICP segments (Lean Growth Funds $100M–$500M, Scaling Mid-Market $500M–$2B), Founding Team (Jay Fox, Nitai Vinitzky), and Strategic Discussion Points.
 
 The Architecture page (a true interactive React Flow graph) and AI Copilot still exist as a deeper "Platform" surface for technical buyers, but the primary entry points are now Landing → Overview → Dashboard.
 

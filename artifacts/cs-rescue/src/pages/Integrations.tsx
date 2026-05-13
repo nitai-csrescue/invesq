@@ -25,7 +25,7 @@ export default function Integrations() {
       <PageHeader
         eyebrow="Connected systems"
         title="Integrations"
-        subtitle="Every integration that powers signals, playbooks, and actions in CS Rescue."
+        subtitle="Every integration that powers signals, playbooks, and actions in INVESQ."
       />
 
       <Tabs value={tab} onValueChange={setTab}>

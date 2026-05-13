@@ -19,7 +19,7 @@ export default function Signals() {
       <PageHeader
         eyebrow="Intelligence layer"
         title="Signals"
-        subtitle="The patterns CS Rescue watches for across your customer data — and what each one triggers."
+        subtitle="The patterns INVESQ watches for across customer data — and what each one triggers."
       />
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-3 mb-8" data-tour="signal-categories">
