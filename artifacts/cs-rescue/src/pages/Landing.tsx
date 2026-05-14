@@ -13,7 +13,7 @@ import {
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import logoFull from "@/assets/invesq_logo_v2_no_bg.png";
+import logoFull from "@/assets/invesq_logo_v2_trim.png";
 import jayFoxPhoto from "@assets/Jay_Fox_1778727567891.jpeg";
 import nitaiVinitzkyPhoto from "@/assets/nitai_no_bg.png";
 
@@ -110,10 +110,10 @@ export default function Landing() {
           <img
             src={logoFull}
             alt="INVESQ — Operational Due Diligence"
-            className="h-20 md:h-24 w-auto select-none"
+            className="h-32 md:h-40 w-auto select-none"
             style={{
               filter:
-                "brightness(0) invert(1) drop-shadow(0 0 18px rgba(34, 211, 238, 0.35))",
+                "brightness(0) invert(1) drop-shadow(0 0 24px rgba(34, 211, 238, 0.4))",
             }}
             draggable={false}
           />
