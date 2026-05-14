@@ -58,6 +58,52 @@ export default function Settings() {
                   Reset demo tour
                 </Button>
               </div>
+              <div className="flex items-start justify-between gap-4 pt-3 border-t border-white/5">
+                <div>
+                  <p className="text-sm text-white">Reset all demo state</p>
+                  <p className="text-[11px] text-slate-500 mt-0.5">
+                    Wipes every <code className="text-slate-400">cs-rescue</code> key from local and session storage (persona, customer account, tour, highlights, etc.) and reloads to a true first-run state.
+                  </p>
+                </div>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  data-testid="reset-all-demo-btn"
+                  onClick={() => {
+                    let cleared = 0;
+                    const matches = (k: string) => k.startsWith("cs-rescue.") || k.startsWith("cs-rescue:") || k.startsWith("cs-rescue-");
+                    try {
+                      const ls = window.localStorage;
+                      const keys: string[] = [];
+                      for (let i = 0; i < ls.length; i++) {
+                        const k = ls.key(i);
+                        if (k && matches(k)) keys.push(k);
+                      }
+                      keys.forEach((k) => ls.removeItem(k));
+                      cleared += keys.length;
+                    } catch {}
+                    try {
+                      const ss = window.sessionStorage;
+                      const keys: string[] = [];
+                      for (let i = 0; i < ss.length; i++) {
+                        const k = ss.key(i);
+                        if (k && matches(k)) keys.push(k);
+                      }
+                      keys.forEach((k) => ss.removeItem(k));
+                      cleared += keys.length;
+                    } catch {}
+                    toast({
+                      title: "Demo state reset",
+                      description: `Cleared ${cleared} key${cleared === 1 ? "" : "s"}. Reloading…`,
+                    });
+                    window.setTimeout(() => {
+                      try { window.location.reload(); } catch {}
+                    }, 600);
+                  }}
+                >
+                  Reset all demo state
+                </Button>
+              </div>
             </Section>
             <SaveBar onSave={() => toast({ title: "Workspace saved" })} />
           </TabsContent>
