@@ -13,7 +13,7 @@ import {
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import logoFull from "@/assets/invesq_logo_full_no_bg.png";
+import logoFull from "@/assets/invesq_logo_v2_no_bg.png";
 import jayFoxPhoto from "@assets/Jay_Fox_1778727567891.jpeg";
 import nitaiVinitzkyPhoto from "@/assets/nitai_no_bg.png";
 

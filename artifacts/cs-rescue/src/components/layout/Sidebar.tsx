@@ -12,7 +12,7 @@ import {
   Sparkles,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
-import logoMark from "@assets/image_1778727564735.png";
+import logoMark from "@assets/INVESQ_Favicon_Selected_Version_1778728139835.png";
 
 interface NavItem { href: string; icon: typeof LayoutDashboard; label: string; testId: string; }
 interface NavGroup { label: string; items: NavItem[]; }
