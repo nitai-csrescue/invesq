@@ -16,7 +16,7 @@ import {
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import logoFull from "@/assets/invesq_logo_v2_trim.png";
+import logoFull from "@/assets/invesq_logo_horizontal_trim.png";
 import jayFoxPhoto from "@assets/Jay_Fox_1778727567891.jpeg";
 import nitaiVinitzkyPhoto from "@/assets/nitai_no_bg.png";
 
@@ -116,15 +116,15 @@ export default function Landing() {
             reads as a branded "card" rather than a stamped-on graphic.
           */}
           <div
-            className="rounded-2xl bg-white px-6 py-4 md:px-8 md:py-5 shadow-2xl shadow-cyan-500/20 ring-1 ring-white/15"
+            className="rounded-2xl bg-white px-7 py-5 md:px-10 md:py-6 shadow-2xl shadow-cyan-500/20 ring-1 ring-white/15"
             style={{
               filter: "drop-shadow(0 0 24px rgba(34, 211, 238, 0.25))",
             }}
           >
             <img
               src={logoFull}
-              alt="INVESQ — Operational Due Diligence"
-              className="h-36 md:h-44 w-auto select-none block"
+              alt="INVESQ"
+              className="h-14 md:h-20 w-auto select-none block"
               draggable={false}
             />
           </div>
