@@ -10,9 +10,9 @@ import {
   Settings,
   Network,
   Sparkles,
-  LifeBuoy,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import logoMark from "@assets/image_1778727564735.png";
 
 interface NavItem { href: string; icon: typeof LayoutDashboard; label: string; testId: string; }
 interface NavGroup { label: string; items: NavItem[]; }
@@ -54,9 +54,12 @@ export function Sidebar() {
         href="/dashboard"
         className="h-16 flex items-center justify-center lg:justify-start lg:px-6 border-b border-white/10 group"
       >
-        <div className="w-9 h-9 rounded-lg bg-gradient-to-br from-cyan-500 to-indigo-500 flex items-center justify-center shadow-lg shadow-cyan-500/20">
-          <LifeBuoy className="h-5 w-5 text-white" />
-        </div>
+        <img
+          src={logoMark}
+          alt="INVESQ"
+          className="w-9 h-9 rounded-lg shadow-lg shadow-cyan-500/20 select-none"
+          draggable={false}
+        />
         <span className="hidden lg:block ml-3 font-bold text-lg tracking-tight text-white">INVESQ</span>
       </Link>
 

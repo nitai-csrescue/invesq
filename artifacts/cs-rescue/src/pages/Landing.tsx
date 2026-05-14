@@ -9,12 +9,14 @@ import {
   TrendingUp,
   Activity,
   Building2,
-  Users,
-  Eye,
   ArrowDown,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import logoFull from "@assets/image_1778727462005.png";
+import logoMark from "@assets/image_1778727564735.png";
+import jayFoxPhoto from "@assets/Jay_Fox_1778727567891.jpeg";
+import nitaiVinitzkyPhoto from "@assets/Nitai_Vinitzky_1778727569959.jpeg";
 
 const PROBLEMS = [
   "Lower mid-market and growth equity firms lack the operational infrastructure to independently validate management-reported metrics.",
@@ -57,11 +59,13 @@ const TEAM = [
   {
     name: "Jay Fox",
     role: "Co-Founder",
+    photo: jayFoxPhoto,
     body: "20+ years building GTM organizations at PE- and VC-backed technology companies. Previously led a 30+ person global Client Success org at TRG Screen prior to its acquisition by Vista Equity Partners.",
   },
   {
     name: "Nitai Vinitzky",
     role: "Co-Founder",
+    photo: nitaiVinitzkyPhoto,
     body: "10+ years leading enterprise SaaS implementations, integrations, and deployment strategy across fintech and compliance organizations including Nova Credit, Hearsay Systems, and iCIMS.",
   },
 ];
@@ -95,12 +99,14 @@ export default function Landing() {
   return (
     <div className="min-h-screen px-6 py-8" data-testid="landing-page">
       <header className="max-w-6xl mx-auto flex items-center justify-between mb-10">
-        <div className="flex items-center gap-2.5">
-          <div className="w-9 h-9 rounded-lg bg-gradient-to-br from-cyan-500 to-indigo-500 flex items-center justify-center shadow-lg shadow-cyan-500/20">
-            <Eye className="w-5 h-5 text-white" />
-          </div>
-          <p className="font-bold text-lg text-white tracking-tight">INVESQ</p>
-        </div>
+        <Link href="/" className="flex items-center gap-3" data-testid="brand-logo">
+          <img
+            src={logoFull}
+            alt="INVESQ — Operational Due Diligence"
+            className="h-12 w-auto select-none"
+            draggable={false}
+          />
+        </Link>
         <nav className="flex items-center gap-2">
           <Button asChild variant="ghost" size="sm" className="text-slate-300 hover:text-white">
             <Link href="/overview">Investor pitch</Link>
@@ -283,9 +289,12 @@ export default function Landing() {
                 key={m.name}
                 className="rounded-xl border border-white/10 bg-slate-950/40 p-6 flex items-start gap-4"
               >
-                <div className="w-11 h-11 rounded-full bg-gradient-to-br from-cyan-500 to-indigo-500 flex items-center justify-center shrink-0 shadow-lg shadow-cyan-500/20">
-                  <Users className="w-5 h-5 text-white" />
-                </div>
+                <img
+                  src={m.photo}
+                  alt={m.name}
+                  className="w-16 h-16 rounded-full object-cover shrink-0 ring-2 ring-cyan-400/30 shadow-lg shadow-cyan-500/10"
+                  loading="lazy"
+                />
                 <div className="min-w-0">
                   <p className="text-base font-semibold text-white">{m.name}</p>
                   <p className="text-xs text-cyan-300 mt-0.5">{m.role}</p>
