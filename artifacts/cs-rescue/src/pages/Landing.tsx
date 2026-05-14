@@ -13,10 +13,9 @@ import {
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import logoFull from "@assets/image_1778727462005.png";
-import logoMark from "@assets/image_1778727564735.png";
+import logoFull from "@/assets/invesq_logo_full_no_bg.png";
 import jayFoxPhoto from "@assets/Jay_Fox_1778727567891.jpeg";
-import nitaiVinitzkyPhoto from "@assets/Nitai_Vinitzky_1778727569959.jpeg";
+import nitaiVinitzkyPhoto from "@/assets/nitai_no_bg.png";
 
 const PROBLEMS = [
   "Lower mid-market and growth equity firms lack the operational infrastructure to independently validate management-reported metrics.",
@@ -66,6 +65,7 @@ const TEAM = [
     name: "Nitai Vinitzky",
     role: "Co-Founder",
     photo: nitaiVinitzkyPhoto,
+    transparentPhoto: true,
     body: "10+ years leading enterprise SaaS implementations, integrations, and deployment strategy across fintech and compliance organizations including Nova Credit, Hearsay Systems, and iCIMS.",
   },
 ];
@@ -100,10 +100,21 @@ export default function Landing() {
     <div className="min-h-screen px-6 py-8" data-testid="landing-page">
       <header className="max-w-6xl mx-auto flex items-center justify-between mb-10">
         <Link href="/" className="flex items-center gap-3" data-testid="brand-logo">
+          {/*
+            The source logo is dark navy on transparent bg. We use a filter
+            stack to recolor it: brightness(0) makes every visible pixel
+            black; invert(1) flips it to pure white; the drop-shadow gives
+            a subtle cyan glow so it reads as part of the brand gradient
+            rather than a stamped-on PNG.
+          */}
           <img
             src={logoFull}
             alt="INVESQ — Operational Due Diligence"
-            className="h-12 w-auto select-none"
+            className="h-20 md:h-24 w-auto select-none"
+            style={{
+              filter:
+                "brightness(0) invert(1) drop-shadow(0 0 18px rgba(34, 211, 238, 0.35))",
+            }}
             draggable={false}
           />
         </Link>
@@ -289,12 +300,29 @@ export default function Landing() {
                 key={m.name}
                 className="rounded-xl border border-white/10 bg-slate-950/40 p-6 flex items-start gap-4"
               >
-                <img
-                  src={m.photo}
-                  alt={m.name}
-                  className="w-16 h-16 rounded-full object-cover shrink-0 ring-2 ring-cyan-400/30 shadow-lg shadow-cyan-500/10"
-                  loading="lazy"
-                />
+                {/*
+                  Nitai's photo had its background removed and is layered on
+                  a soft light backdrop to match the bright outdoor feel of
+                  Jay's original photo. Jay's keeps its original background.
+                */}
+                <div
+                  className="w-16 h-16 rounded-full shrink-0 ring-2 ring-cyan-400/30 shadow-lg shadow-cyan-500/10 overflow-hidden"
+                  style={
+                    m.transparentPhoto
+                      ? {
+                          background:
+                            "linear-gradient(160deg, #f3f4d6 0%, #d8e3b8 60%, #b9c984 100%)",
+                        }
+                      : undefined
+                  }
+                >
+                  <img
+                    src={m.photo}
+                    alt={m.name}
+                    className="w-full h-full object-cover"
+                    loading="lazy"
+                  />
+                </div>
                 <div className="min-w-0">
                   <p className="text-base font-semibold text-white">{m.name}</p>
                   <p className="text-xs text-cyan-300 mt-0.5">{m.role}</p>
