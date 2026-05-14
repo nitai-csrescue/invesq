@@ -99,24 +99,26 @@ export default function Landing() {
   return (
     <div className="min-h-screen px-6 py-8" data-testid="landing-page">
       <header className="max-w-6xl mx-auto flex items-center justify-between mb-10">
-        <Link href="/" className="flex items-center gap-3" data-testid="brand-logo">
+        <Link href="/" className="block" data-testid="brand-logo">
           {/*
-            The source logo is dark navy on transparent bg. We use a filter
-            stack to recolor it: brightness(0) makes every visible pixel
-            black; invert(1) flips it to pure white; the drop-shadow gives
-            a subtle cyan glow so it reads as part of the brand gradient
-            rather than a stamped-on PNG.
+            Render the logo at full color on a white panel — preserves the
+            dark-navy Q and INVESQ wordmark exactly as the source artwork.
+            The panel sits on the dark page with a soft cyan glow so it
+            reads as a branded "card" rather than a stamped-on graphic.
           */}
-          <img
-            src={logoFull}
-            alt="INVESQ — Operational Due Diligence"
-            className="h-32 md:h-40 w-auto select-none"
+          <div
+            className="rounded-2xl bg-white px-6 py-4 md:px-8 md:py-5 shadow-2xl shadow-cyan-500/20 ring-1 ring-white/15"
             style={{
-              filter:
-                "brightness(0) invert(1) drop-shadow(0 0 24px rgba(34, 211, 238, 0.4))",
+              filter: "drop-shadow(0 0 24px rgba(34, 211, 238, 0.25))",
             }}
-            draggable={false}
-          />
+          >
+            <img
+              src={logoFull}
+              alt="INVESQ — Operational Due Diligence"
+              className="h-36 md:h-44 w-auto select-none block"
+              draggable={false}
+            />
+          </div>
         </Link>
         <nav className="flex items-center gap-2">
           <Button asChild variant="ghost" size="sm" className="text-slate-300 hover:text-white">
