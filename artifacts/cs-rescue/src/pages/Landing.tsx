@@ -106,8 +106,9 @@ const PIPELINE = [
 export default function Landing() {
   return (
     <div className="min-h-screen px-6 py-8" data-testid="landing-page">
-      <header className="max-w-6xl mx-auto flex items-center justify-between mb-10">
-        <Link href="/" className="block" data-testid="brand-logo">
+      <header className="max-w-6xl mx-auto grid grid-cols-3 items-center mb-10">
+        <div aria-hidden />
+        <Link href="/" className="block justify-self-center" data-testid="brand-logo">
           {/*
             Render the logo at full color on a white panel — preserves the
             dark-navy Q and INVESQ wordmark exactly as the source artwork.
@@ -128,7 +129,7 @@ export default function Landing() {
             />
           </div>
         </Link>
-        <nav className="flex items-center gap-2">
+        <nav className="flex items-center gap-2 justify-self-end">
           <Button asChild variant="ghost" size="sm" className="text-slate-300 hover:text-white">
             <Link href="/overview">Investor pitch</Link>
           </Button>
