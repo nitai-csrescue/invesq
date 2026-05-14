@@ -10,6 +10,9 @@ import {
   Activity,
   Building2,
   ArrowDown,
+  GitBranch,
+  Gauge,
+  Sparkles,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -25,19 +28,24 @@ const PROBLEMS = [
 
 const PILLARS = [
   {
-    Icon: AlertTriangle,
-    title: "Automated Risk Discovery",
-    body: "Detect hidden churn, founder dependency, and operational fragility from real system activity — not curated reporting.",
+    Icon: Brain,
+    title: "Operational Intelligence Engine",
+    body: "A proprietary analysis layer that ingests structured and unstructured signals from across the customer-facing stack and reconstructs what is actually happening inside the business.",
   },
   {
-    Icon: Workflow,
-    title: "Actionable Insights",
-    body: "Translate operational findings into value-creation plans that can be operationalized immediately post-close.",
+    Icon: GitBranch,
+    title: "Customer Journey Reconstruction",
+    body: "Stitches CRM, support, communication, BI, and product-usage data into a single end-to-end view of every account — exposing the gaps between reported metrics and lived experience.",
   },
   {
-    Icon: Activity,
-    title: "Continuous Integrity Monitoring",
-    body: "Maintain an audit trail of customer health and operational performance across the full investment lifecycle.",
+    Icon: ShieldCheck,
+    title: "System-Level Validation",
+    body: "Independent, system-of-record validation of management narratives — replacing curated VDRs and management decks with primary-source operational evidence.",
+  },
+  {
+    Icon: Gauge,
+    title: "Operational Risk Scoring",
+    body: "An executive-grade risk score per account and per portfolio company, continuously refreshed from live systems and benchmarked against the rest of the book.",
   },
 ];
 
@@ -132,30 +140,23 @@ export default function Landing() {
         </nav>
       </header>
 
-      <main className="max-w-5xl mx-auto space-y-12">
+      <main className="max-w-5xl mx-auto space-y-20">
         {/* Hero / Executive Summary */}
         <section className="text-center pt-2">
-          <Badge variant="outline" className="text-cyan-300 border-cyan-400/30 mb-4">
+          <Badge variant="outline" className="text-cyan-300 border-cyan-400/30 mb-5">
             Executive Brief
           </Badge>
-          <h1 className="text-4xl md:text-5xl font-bold text-white tracking-tight leading-tight">
-            Reimagining{" "}
+          <h1 className="text-4xl md:text-6xl font-bold text-white tracking-tight leading-[1.05] max-w-4xl mx-auto">
+            Operational Due Diligence for{" "}
             <span className="bg-gradient-to-r from-cyan-300 to-indigo-300 bg-clip-text text-transparent">
-              Operational Due Diligence
+              Modern Investment Firms
             </span>
           </h1>
-          <p className="text-base md:text-lg text-slate-300 mt-5 max-w-3xl mx-auto leading-relaxed">
-            INVESQ provides Private Equity and Venture Capital firms with an automated{" "}
-            <span className="text-white font-semibold">Ground Truth</span> layer that reconstructs the real
-            customer journey across fragmented enterprise systems — uncovering operational risk before capital
-            is committed.
+          <p className="text-lg md:text-xl text-slate-300 mt-6 max-w-2xl mx-auto leading-relaxed">
+            INVESQ helps PE and VC firms uncover hidden customer journey, adoption, and operational
+            risks before capital is committed.
           </p>
-          <p className="text-sm text-slate-400 mt-3 max-w-3xl mx-auto leading-relaxed">
-            Validate management narratives with system-level evidence. Identify hidden churn risk, founder
-            dependency, operational bottlenecks, customer adoption gaps, and scalability constraints that are
-            typically invisible during traditional diligence.
-          </p>
-          <div className="flex flex-wrap justify-center items-center gap-3 mt-7">
+          <div className="flex flex-wrap justify-center items-center gap-3 mt-8">
             <Button asChild size="lg" className="bg-cyan-500 hover:bg-cyan-400 text-slate-950 gap-2">
               <Link href="/dashboard">Explore a sample assessment <ArrowRight className="w-4 h-4" /></Link>
             </Button>
@@ -163,20 +164,51 @@ export default function Landing() {
               <Link href="/overview">Read the long-form pitch</Link>
             </Button>
           </div>
+
+          {/* Sample insight — concrete, dashboard-style "this is what the product does" card */}
+          <div className="mt-12 max-w-2xl mx-auto text-left">
+            <div className="rounded-2xl border border-cyan-400/20 bg-slate-950/60 backdrop-blur p-6 md:p-7 shadow-2xl shadow-cyan-500/10">
+              <div className="flex items-center gap-2 mb-3">
+                <span className="w-2 h-2 rounded-full bg-cyan-400 animate-pulse" />
+                <p className="text-[11px] tracking-[0.2em] text-cyan-300 font-semibold">
+                  SAMPLE OPERATIONAL SIGNAL
+                </p>
+              </div>
+              <div className="flex items-start gap-3">
+                <div className="w-9 h-9 rounded-lg bg-rose-500/15 border border-rose-400/30 flex items-center justify-center shrink-0">
+                  <AlertTriangle className="w-4 h-4 text-rose-300" />
+                </div>
+                <div className="min-w-0">
+                  <p className="text-base md:text-lg text-white font-semibold leading-snug">
+                    Detected: 38% support escalation increase among top ARR accounts
+                    despite reported NRR growth.
+                  </p>
+                  <div className="flex flex-wrap items-center gap-x-4 gap-y-1 mt-3 text-xs text-slate-400">
+                    <span className="flex items-center gap-1.5">
+                      <Sparkles className="w-3 h-3 text-cyan-300" />
+                      Source: Zendesk · Salesforce · Gainsight
+                    </span>
+                    <span>·</span>
+                    <span>Risk score: <span className="text-rose-300 font-semibold">7.4 / 10</span></span>
+                    <span>·</span>
+                    <span>Confidence: 92%</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
         </section>
 
         {/* Market Problem */}
         <section
-          className="rounded-2xl border border-white/10 bg-slate-950/40 p-7 md:p-9"
+          className="rounded-2xl border border-white/10 bg-slate-950/40 p-8 md:p-10"
           data-testid="brief-market-problem"
         >
-          <p className="text-[11px] uppercase tracking-[0.2em] text-cyan-300 font-semibold mb-2">
-            Market Problem
-          </p>
-          <h2 className="text-2xl md:text-3xl font-bold text-white mb-5 leading-tight">
+          <p className="text-sm text-cyan-300 font-semibold mb-3">The market problem</p>
+          <h2 className="text-3xl md:text-4xl font-extrabold text-white mb-6 leading-tight tracking-tight max-w-3xl">
             Diligence still depends on what management chooses to show.
           </h2>
-          <ul className="space-y-3">
+          <ul className="space-y-3.5 max-w-3xl">
             {PROBLEMS.map((p) => (
               <li key={p} className="flex items-start gap-3 text-slate-300 leading-relaxed">
                 <span className="w-1.5 h-1.5 rounded-full bg-cyan-400 mt-2.5 shrink-0" />
@@ -188,16 +220,14 @@ export default function Landing() {
 
         {/* Proposed Solution + Pipeline diagram */}
         <section
-          className="rounded-2xl border border-white/10 bg-slate-950/40 p-7 md:p-9"
+          className="rounded-2xl border border-white/10 bg-slate-950/40 p-8 md:p-10"
           data-testid="brief-solution"
         >
-          <p className="text-[11px] uppercase tracking-[0.2em] text-cyan-300 font-semibold mb-2">
-            Proposed Solution
-          </p>
-          <h2 className="text-2xl md:text-3xl font-bold text-white mb-5 leading-tight">
+          <p className="text-sm text-cyan-300 font-semibold mb-3">Our proposed solution</p>
+          <h2 className="text-3xl md:text-4xl font-extrabold text-white mb-6 leading-tight tracking-tight max-w-3xl">
             One operational risk profile, built from real system activity.
           </h2>
-          <p className="text-slate-300 leading-relaxed">
+          <p className="text-slate-300 leading-relaxed max-w-3xl">
             INVESQ ingests structured and unstructured data from CRMs, support systems, communication
             platforms, BI tools, and customer success platforms — building a unified operational risk profile.
             AI-assisted analysis identifies discrepancies between reported metrics and operational reality,
@@ -237,24 +267,26 @@ export default function Landing() {
           </div>
         </section>
 
-        {/* Core Product Pillars */}
+        {/* Core Product Pillars — proprietary methodology */}
         <section data-testid="brief-pillars">
-          <p className="text-[11px] uppercase tracking-[0.2em] text-cyan-300 font-semibold mb-2 text-center">
-            Core Product Pillars
-          </p>
-          <h2 className="text-2xl md:text-3xl font-bold text-white text-center mb-6 leading-tight">
-            What INVESQ delivers.
+          <p className="text-sm text-cyan-300 font-semibold mb-3 text-center">Our methodology</p>
+          <h2 className="text-3xl md:text-4xl font-extrabold text-white text-center mb-3 leading-tight tracking-tight">
+            The INVESQ Operational Intelligence Stack.
           </h2>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <p className="text-slate-400 text-center max-w-2xl mx-auto mb-8 leading-relaxed">
+            Four proprietary capabilities that together replace narrative-driven diligence with
+            evidence-driven operational truth.
+          </p>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             {PILLARS.map((p) => (
               <div
                 key={p.title}
-                className="rounded-xl border border-white/10 bg-slate-950/40 p-6 hover:border-cyan-400/30 transition-colors"
+                className="rounded-xl border border-white/10 bg-slate-950/40 p-7 hover:border-cyan-400/30 transition-colors"
               >
                 <div className="w-10 h-10 rounded-lg bg-cyan-500/15 border border-cyan-400/30 flex items-center justify-center mb-3">
                   <p.Icon className="w-5 h-5 text-cyan-300" />
                 </div>
-                <p className="text-base font-semibold text-white">{p.title}</p>
+                <p className="text-lg font-semibold text-white">{p.title}</p>
                 <p className="text-sm text-slate-400 mt-2 leading-relaxed">{p.body}</p>
               </div>
             ))}
@@ -263,11 +295,9 @@ export default function Landing() {
 
         {/* Target ICP */}
         <section data-testid="brief-icp">
-          <p className="text-[11px] uppercase tracking-[0.2em] text-cyan-300 font-semibold mb-2 text-center">
-            Target ICP Segments
-          </p>
-          <h2 className="text-2xl md:text-3xl font-bold text-white text-center mb-6 leading-tight">
-            Who we serve.
+          <p className="text-sm text-cyan-300 font-semibold mb-3 text-center">Who we serve</p>
+          <h2 className="text-3xl md:text-4xl font-extrabold text-white text-center mb-8 leading-tight tracking-tight">
+            Built for the firms doing the most operational work.
           </h2>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             {ICP.map((seg) => (
@@ -290,10 +320,8 @@ export default function Landing() {
 
         {/* Founding Team */}
         <section data-testid="brief-team">
-          <p className="text-[11px] uppercase tracking-[0.2em] text-cyan-300 font-semibold mb-2 text-center">
-            Founding Team
-          </p>
-          <h2 className="text-2xl md:text-3xl font-bold text-white text-center mb-6 leading-tight">
+          <p className="text-sm text-cyan-300 font-semibold mb-3 text-center">Founding team</p>
+          <h2 className="text-3xl md:text-4xl font-extrabold text-white text-center mb-8 leading-tight tracking-tight">
             Operators who've lived this problem.
           </h2>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -337,16 +365,14 @@ export default function Landing() {
 
         {/* Strategic Discussion Points */}
         <section
-          className="rounded-2xl border border-white/10 bg-slate-950/40 p-7 md:p-9"
+          className="rounded-2xl border border-white/10 bg-slate-950/40 p-8 md:p-10"
           data-testid="brief-discussion"
         >
-          <p className="text-[11px] uppercase tracking-[0.2em] text-cyan-300 font-semibold mb-2">
-            Strategic Discussion Points
-          </p>
-          <h2 className="text-2xl md:text-3xl font-bold text-white mb-5 leading-tight">
+          <p className="text-sm text-cyan-300 font-semibold mb-3">Strategic discussion points</p>
+          <h2 className="text-3xl md:text-4xl font-extrabold text-white mb-6 leading-tight tracking-tight max-w-3xl">
             Open questions for our partners.
           </h2>
-          <ul className="space-y-3">
+          <ul className="space-y-3 max-w-3xl">
             {DISCUSSION.map((q, i) => (
               <li
                 key={q}

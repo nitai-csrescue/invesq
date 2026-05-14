@@ -1,0 +1,82 @@
+Updated feedback after reviewing the latest branding changes:
+
+The new INVESQ logo and favicon direction are much stronger and feel substantially more institutional and product-oriented. The analytical “Q” concept is working well and communicates operational intelligence clearly.
+
+A few refinement recommendations:
+
+1. Increase favicon prominence in the navbar
+   The favicon/icon itself is strong, but it currently feels visually small relative to the rest of the header. Increase size slightly and tighten alignment with the INVESQ wordmark.
+
+2. Reduce visual competition in the hero
+   The logo is now sophisticated enough to act as a primary visual anchor. Avoid overly busy supporting graphics or excessive gradients around it.
+
+3. Improve typography hierarchy
+   The logo feels enterprise-grade now, but some of the surrounding site typography still feels startup-template oriented.
+   Suggestions:
+
+* slightly heavier headers
+* more spacing between sections
+* fewer all-caps labels
+* tighter max-width on paragraph text
+
+4. Tighten hero copy further
+   The design now feels more institutional than the current messaging.
+   Suggested refinement:
+
+Headline:
+“Operational Due Diligence for Modern Investment Firms”
+
+Subheadline:
+“INVESQ helps PE and VC firms uncover hidden customer journey, adoption, and operational risks before capital is committed.”
+
+5. Add more “financial systems intelligence” feel
+   The logo implies analytical rigor and operational visibility. The rest of the site should reinforce that visually:
+
+* cleaner charts
+* structured cards
+* dashboard-like confidence
+* less generic AI imagery
+* more operational workflow visuals
+
+6. Improve the workflow visualization
+   The current workflow/process section still feels slightly linear and generic.
+   Would recommend:
+
+* cleaner node-based architecture
+* enterprise systems icons
+* CRM / support / BI / communications inputs
+* executive risk output cards
+
+7. Make the product feel more proprietary
+   The branding is now strong enough that the site should imply:
+   “This is a category-defining diligence product.”
+
+Ways to reinforce this:
+
+* proprietary methodology language
+* “Operational Intelligence Engine”
+* “Customer Journey Reconstruction”
+* “System-Level Validation”
+* “Operational Risk Scoring”
+
+8. Add one concrete sample insight
+   Right now the site is still somewhat conceptual.
+   Add a mock insight example such as:
+   “Detected: 38% support escalation increase among top ARR accounts despite reported NRR growth.”
+
+This immediately makes the product feel real.
+
+9. Reduce consulting-firm tone
+   The site should feel more like:
+   Bloomberg + Palantir + PE operating diligence
+
+Less like:
+traditional advisory services or RevOps consulting.
+
+10. Mobile responsiveness
+    The new favicon/logo system will likely look excellent on mobile if:
+
+* logo scales slightly larger
+* hero padding reduced
+* CTA stays above fold
+* workflow stacks vertically cleanly

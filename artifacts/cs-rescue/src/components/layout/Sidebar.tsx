@@ -57,10 +57,10 @@ export function Sidebar() {
         <img
           src={logoMark}
           alt="INVESQ"
-          className="w-9 h-9 rounded-lg shadow-lg shadow-cyan-500/20 select-none"
+          className="w-11 h-11 rounded-xl shadow-lg shadow-cyan-500/20 select-none"
           draggable={false}
         />
-        <span className="hidden lg:block ml-3 font-bold text-lg tracking-tight text-white">INVESQ</span>
+        <span className="hidden lg:block ml-2.5 font-bold text-lg tracking-tight text-white">INVESQ</span>
       </Link>
 
       <nav className="flex-1 py-5 px-3 overflow-y-auto">
