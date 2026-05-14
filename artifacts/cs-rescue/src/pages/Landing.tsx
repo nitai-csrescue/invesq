@@ -122,7 +122,7 @@ export default function Landing() {
             reads as a branded "card" rather than a stamped-on graphic.
           */}
           <div
-            className="rounded-2xl bg-white px-7 py-5 md:px-10 md:py-6 shadow-2xl shadow-cyan-500/20 ring-1 ring-white/15"
+            className="rounded-2xl bg-white shadow-2xl shadow-cyan-500/20 ring-1 ring-white/15 px-[clamp(1rem,2.5vw,2.75rem)] py-[clamp(0.625rem,1.4vw,1.5rem)]"
             style={{
               filter: "drop-shadow(0 0 24px rgba(34, 211, 238, 0.25))",
             }}
@@ -130,7 +130,7 @@ export default function Landing() {
             <img
               src={logoFull}
               alt="INVESQ"
-              className="h-14 md:h-20 w-auto select-none block"
+              className="w-auto select-none block h-[clamp(2.25rem,4.2vw,5rem)]"
               draggable={false}
             />
           </div>
