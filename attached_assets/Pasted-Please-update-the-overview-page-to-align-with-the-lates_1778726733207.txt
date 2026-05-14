@@ -1,0 +1,58 @@
+Please update the `/overview` page to align with the latest INVESQ executive brief positioning.
+
+Primary positioning:
+INVESQ is an operational diligence platform for PE/VC investors that reconstructs the operational reality behind the customer journey, helping firms uncover hidden customer, churn, adoption, and scalability risks before close.
+
+Requested updates:
+
+1. Tighten the hero copy
+
+* Make the headline more specific to operational due diligence.
+* Avoid broad “AI analytics” language.
+* Suggested headline: “Operational Due Diligence for the Customer Journey”
+* Suggested subheadline: “INVESQ helps PE and VC firms validate management narratives by analyzing real customer, support, CRM, and communication signals before capital is committed.”
+
+2. Replace “Ground Truth Layer” with clearer external language
+
+* Use “Operational Intelligence Layer” or “Customer Journey Intelligence Engine.”
+* “Ground Truth” can still appear once as supporting language, but it should not be the main label.
+
+3. Add a simple workflow section
+   Use this flow:
+   Enterprise Systems → Data Ingestion → AI Risk Analysis → Human Validation → Executive Risk Report → 100-Day Value Creation Plan
+
+4. Update product pillars
+   Use these three:
+
+* Automated Risk Discovery: Detect hidden churn indicators, operational fragility, and founder dependency using real system activity.
+* Actionable Value Creation: Translate diligence findings into post-close execution priorities.
+* Continuous Integrity Monitoring: Track customer and operational health from diligence through exit readiness.
+
+5. Clarify target customers
+   Add or tighten ICP cards:
+
+* Lean Growth Funds: $100M–$500M AUM, small teams, limited ops resources, need lightweight diligence.
+* Scaling Mid-Market Funds: $500M–$2B AUM, growing portfolio complexity, need post-close planning and operational visibility.
+
+6. Make the page feel more investor-grade
+
+* Reduce buzzwords.
+* Use fewer long paragraphs.
+* Prioritize short sections, clear cards, and a simple visual flow.
+* Add one CTA: “Request a diligence walkthrough” or “Preview sample risk report.”
+
+7. Rename any generic “Overview” language
+   Use stronger section names:
+
+* “The Operational Diligence Gap”
+* “How INVESQ Works”
+* “What We Detect”
+* “Who We Serve”
+* “From Risk Detection to Value Creation”
+
+8. Add strategic framing near the bottom
+   Include 3 investor questions:
+
+* Where does management-reported data diverge from operational reality?
+* What hidden customer journey risks could affect retention, growth, or exit multiple?
+* What should the fund prioritize in the first 100 days post-close?
