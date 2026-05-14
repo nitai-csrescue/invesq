@@ -19,6 +19,8 @@ import { Badge } from "@/components/ui/badge";
 import logoFull from "@/assets/invesq_logo_horizontal_trim.png";
 import jayFoxPhoto from "@assets/Jay_Fox_1778727567891.jpeg";
 import nitaiVinitzkyPhoto from "@/assets/nitai_no_bg.png";
+import linkedinIcon from "@assets/clipart2670965_1778735741711.png";
+import emailIcon from "@assets/green-gradient-home-solid-circle-icon-free-png_1778735744487.webp";
 
 const PROBLEMS = [
   "Lower mid-market and growth equity firms lack the operational infrastructure to independently validate management-reported metrics.",
@@ -68,6 +70,8 @@ const TEAM = [
     role: "Co-Founder",
     photo: jayFoxPhoto,
     body: "20+ years building GTM organizations at PE- and VC-backed technology companies. Previously led a 30+ person global Client Success org at TRG Screen prior to its acquisition by Vista Equity Partners.",
+    email: "jay@csrescue.com",
+    linkedin: "https://www.linkedin.com/in/jayelliotfox/",
   },
   {
     name: "Nitai Vinitzky",
@@ -75,6 +79,8 @@ const TEAM = [
     photo: nitaiVinitzkyPhoto,
     transparentPhoto: true,
     body: "10+ years leading enterprise SaaS implementations, integrations, and deployment strategy across fintech and compliance organizations including Nova Credit, Hearsay Systems, and iCIMS.",
+    email: "nitai@csrescue.com",
+    linkedin: "https://www.linkedin.com/in/nitai-vinitzky/",
   },
 ];
 
@@ -357,6 +363,27 @@ export default function Landing() {
                 <div className="min-w-0">
                   <p className="text-base font-semibold text-white">{m.name}</p>
                   <p className="text-xs text-cyan-300 mt-0.5">{m.role}</p>
+                  <div className="flex items-center gap-2 mt-2">
+                    <a
+                      href={`mailto:${m.email}`}
+                      aria-label={`Email ${m.name}`}
+                      title={m.email}
+                      className="inline-flex hover:opacity-80 transition-opacity"
+                      data-testid={`team-email-${m.name.split(" ")[0].toLowerCase()}`}
+                    >
+                      <img src={emailIcon} alt="" className="w-6 h-6 rounded-full" />
+                    </a>
+                    <a
+                      href={m.linkedin}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      aria-label={`${m.name} on LinkedIn`}
+                      className="inline-flex hover:opacity-80 transition-opacity"
+                      data-testid={`team-linkedin-${m.name.split(" ")[0].toLowerCase()}`}
+                    >
+                      <img src={linkedinIcon} alt="" className="w-6 h-6 rounded-full" />
+                    </a>
+                  </div>
                   <p className="text-sm text-slate-400 mt-2 leading-relaxed">{m.body}</p>
                 </div>
               </div>
