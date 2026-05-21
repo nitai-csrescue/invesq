@@ -76,22 +76,6 @@ export default function VideoTemplate({
     >
       {/* Persistent Background Layer */}
       <div className="absolute inset-0 pointer-events-none">
-        <motion.img
-          src={`${import.meta.env.BASE_URL}images/bg-abstract.png`}
-          className="absolute inset-0 w-full h-full object-cover opacity-50 mix-blend-screen"
-          animate={{ scale: [1, 1.05, 1], rotate: [0, 1, 0] }}
-          transition={{ duration: 20, repeat: Infinity, ease: 'linear' }}
-        />
-        <motion.img
-          src={`${import.meta.env.BASE_URL}images/data-mesh.png`}
-          className="absolute inset-0 w-full h-full object-cover opacity-30 mix-blend-overlay"
-          animate={{
-            opacity: [0.2, 0.4, 0.2],
-            scale: [1.1, 1, 1.1],
-          }}
-          transition={{ duration: 15, repeat: Infinity, ease: 'easeInOut' }}
-        />
-
         {/* Persistent animated shapes */}
         <motion.div
           className="absolute w-[800px] h-[800px] rounded-full opacity-20 blur-[100px]"
