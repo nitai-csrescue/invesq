@@ -1,6 +1,6 @@
 import { useHealthCheck, getHealthCheckQueryKey } from "@workspace/api-client-react";
 import { ExternalLink } from "lucide-react";
-import { Link } from "wouter";
+import { Link, useLocation } from "wouter";
 import { cn } from "@/lib/utils";
 import { PersonaSwitcher, WorkspaceLabel } from "./PersonaSwitcher";
 import { CustomerAccountPicker } from "./CustomerAccountPicker";
@@ -52,6 +52,9 @@ export function Header() {
 
 /** Slim global strip used on Landing/Overview (BareLayout) so the persona switcher and workspace stay visible everywhere. */
 export function BareTopBar() {
+  const [location] = useLocation();
+  // Demo page is its own presentation surface — keep its top bar clean
+  const hideLaunchCta = location === "/launch-demo";
   return (
     <div className="border-b border-white/5 bg-slate-950/40 backdrop-blur-sm" data-testid="bare-top-bar">
       <div className="max-w-7xl mx-auto px-6 h-12 flex items-center justify-between">
@@ -60,13 +63,15 @@ export function BareTopBar() {
           <WorkspaceLabel />
           <CustomerAccountPicker />
         </div>
-        <Link
-          href="/dashboard"
-          className="text-xs font-medium text-slate-300 hover:text-white"
-          data-testid="bare-top-launch"
-        >
-          Launch product →
-        </Link>
+        {!hideLaunchCta && (
+          <Link
+            href="/dashboard"
+            className="text-xs font-medium text-slate-300 hover:text-white"
+            data-testid="bare-top-launch"
+          >
+            Launch product →
+          </Link>
+        )}
       </div>
     </div>
   );
