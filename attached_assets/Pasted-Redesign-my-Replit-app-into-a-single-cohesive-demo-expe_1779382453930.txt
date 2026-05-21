@@ -1,0 +1,241 @@
+Redesign my Replit app into a single cohesive demo experience for CS Rescue / InvesQ.
+
+IMPORTANT:
+The current platform feels fragmented and disconnected.
+Consolidate the experience into ONE guided operational due diligence workflow that is easy to present live in 5–7 minutes.
+
+The product should feel like:
+- a premium enterprise AI operating platform
+- built for private equity firms
+- focused on operational revenue risk and value creation
+
+NOT:
+- a generic SaaS dashboard
+- a collection of disconnected tools
+- a consulting website
+
+OVERALL DESIGN STYLE:
+- Dark enterprise AI aesthetic
+- Deep navy / charcoal backgrounds
+- Purple + electric blue accents
+- Minimalist and premium
+- Inspired by Palantir, Scale AI, Vercel Enterprise
+- Soft glow effects
+- Thin borders
+- Clean dashboard cards
+- Strong typography hierarchy
+- Minimal navigation
+
+PRIMARY GOAL:
+Create a single “Launch Demo” experience that becomes the main showcase flow.
+
+Create:
+- /launch-demo
+OR
+- make the homepage itself the guided walkthrough
+
+The entire experience should feel linear, intentional, and presentation-ready.
+
+====================================
+DEMO WALKTHROUGH STRUCTURE
+====================================
+
+Create a single-page guided workflow with 5 sequential sections.
+
+Use sticky navigation or step progress indicators:
+1. Deal Context
+2. Connected Systems
+3. Risk Signals
+4. Customer Journey
+5. AI Playbook
+
+Allow:
+- Next Step
+- Previous Step
+- Smooth scroll transitions
+- Presenter-friendly navigation
+
+====================================
+STEP 1 — DEAL CONTEXT
+====================================
+
+Show a PE diligence scenario:
+
+Target Company:
+- B2B SaaS
+- $18M ARR
+- NRR: 91%
+- Gross churn: 16%
+- Onboarding time: 74 days
+
+PE buyer evaluating pre-close operational risk.
+
+Visuals:
+- Company overview card
+- Revenue metrics
+- Customer health summary
+- Risk score indicator
+
+Headline:
+“The Third Pillar of Due Diligence”
+
+Subheadline:
+“Operational revenue risk identified before close.”
+
+====================================
+STEP 2 — CONNECTED SYSTEMS
+====================================
+
+Show connected systems:
+- Salesforce
+- HubSpot
+- Zendesk
+- Gong
+- Slack
+- Email
+- Zoom AI
+
+Display:
+- Systems connected
+- Records analyzed
+- Activity indexed
+- AI ingestion status
+
+Example:
+- 24,800 records analyzed
+- 14 days of activity reviewed
+- 6 systems connected
+
+Visual:
+Modern enterprise integration architecture.
+
+====================================
+STEP 3 — RISK SIGNALS
+====================================
+
+Show operational revenue risk cards.
+
+Examples:
+1. Onboarding Friction
+2. Founder Dependency
+3. Expansion Leakage
+4. Support Escalation Risk
+
+Each card should include:
+- Severity level
+- Evidence detected
+- Revenue impact
+- Suggested action
+
+Example metrics:
+- TTV drag: 42 days
+- Expansion ARR at risk: $1.8M
+- Founder-owned relationships: 63%
+- Escalation clusters detected: 14
+
+This should feel like:
+AI-powered operational diligence.
+
+====================================
+STEP 4 — CUSTOMER JOURNEY MAP
+====================================
+
+Create a visual customer lifecycle map:
+
+Sales
+→ Handoff
+→ Implementation
+→ Adoption
+→ Expansion
+→ Renewal
+
+Highlight friction points:
+- Sales-to-CS handoff gaps
+- Delayed implementation milestones
+- Low adoption in first 60 days
+- Expansion opportunities not routed
+
+Visual:
+Interactive journey intelligence layer.
+
+This section should clearly communicate:
+“Customer Lifecycle DD”
+
+====================================
+STEP 5 — AI PLAYBOOK / 100-DAY PLAN
+====================================
+
+Show AI-generated operational recommendations.
+
+Examples:
+- Redesign onboarding milestones
+- Fix handoff process
+- Create escalation workflows
+- Route expansion signals automatically
+- Weekly risk review cadence
+
+Each action should include:
+- Priority
+- Owner
+- Timeline
+- Expected revenue impact
+
+Show:
+“100-Day Value Creation Plan Generated”
+
+This section should feel execution-oriented, not analytical.
+
+====================================
+FINAL SUMMARY PANEL
+====================================
+
+Headline:
+“Fix the journey. Protect the multiple.”
+
+Summary metrics:
+- 14 friction points identified
+- $1.8M expansion ARR at risk
+- 42-day TTV drag
+- 7 recommended actions
+- AI-generated 100-day plan
+
+CTA buttons:
+- Restart Demo
+- Request Walkthrough
+
+====================================
+IMPORTANT PRODUCT POSITIONING
+====================================
+
+The site should communicate:
+“Operational intelligence platform for PE value creation.”
+
+NOT:
+“Customer success consulting.”
+
+Focus on:
+- operational revenue risk
+- customer lifecycle diligence
+- NRR protection
+- value creation
+- AI-generated operational playbooks
+
+====================================
+SIMPLIFICATION INSTRUCTIONS
+====================================
+
+Remove or de-emphasize:
+- disconnected tools
+- unnecessary pages
+- duplicate dashboards
+- overly complex navigation
+- placeholder SaaS functionality
+
+Prioritize:
+- narrative clarity
+- demo flow
+- visual sophistication
+- investor-ready presentation quality
+
+Use realistic static data instead of requiring live integrations.
+Optimize for live walkthroughs and executive presentations.
