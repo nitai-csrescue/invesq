@@ -1,8 +1,25 @@
 uploads = []
-generated = []
+
+[[generated]]
+id = "IstcViRwysP1Q9WVibUkN"
+uri = "file://artifacts/invesq-video/public/images/bg-abstract.png"
+type = "image"
+title = "Dark tech background"
+
+[[generated]]
+id = "q4HuIWvivzS-S6YjaQMSR"
+uri = "file://artifacts/invesq-video/public/images/data-mesh.png"
+type = "image"
+title = "Data mesh pattern"
 
 [[outputs]]
 id = "TyN0NGofSWU4SFfkvKKtF"
 uri = "file://CS_Rescue_Demo_Guide.md"
 type = "text"
 title = "CS Rescue — Product Overview & Demo Guide"
+
+[[outputs]]
+id = "9rzGh9VUqy9JqQwpSpN_U"
+uri = "file://artifacts/invesq-video/public/audio/bg_music.mp3"
+type = "audio"
+title = "background music"

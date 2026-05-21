@@ -1,0 +1,31 @@
+kind = "video"
+previewPath = "/invesq-video/"
+title = "INVESQ Product Demo Video"
+version = "1.0.0"
+id = "artifacts/invesq-video"
+router = "path"
+
+[[integratedSkills]]
+name = "video-js"
+version = "1.0.0"
+
+[[services]]
+name = "web"
+paths = [ "/invesq-video/" ]
+localPort = 19450
+
+[services.development]
+run = "pnpm --filter @workspace/invesq-video run dev"
+
+[services.production]
+build = [ "pnpm", "--filter", "@workspace/invesq-video", "run", "build" ]
+publicDir = "artifacts/invesq-video/dist/public"
+serve = "static"
+
+[[services.production.rewrites]]
+from = "/*"
+to = "/index.html"
+
+[services.env]
+PORT = "19450"
+BASE_PATH = "/invesq-video/"
