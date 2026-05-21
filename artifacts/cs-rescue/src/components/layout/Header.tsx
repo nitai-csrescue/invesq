@@ -59,7 +59,7 @@ export function BareTopBar() {
     <div className="border-b border-white/5 bg-slate-950/40 backdrop-blur-sm" data-testid="bare-top-bar">
       <div className="max-w-7xl mx-auto px-6 h-12 flex items-center justify-between">
         <div className="flex items-center gap-2">
-          <PersonaSwitcher compact />
+          {!hideLaunchCta && <PersonaSwitcher compact />}
           <WorkspaceLabel />
           <CustomerAccountPicker />
         </div>
