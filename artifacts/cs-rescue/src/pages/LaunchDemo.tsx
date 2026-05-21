@@ -508,10 +508,44 @@ export default function LaunchDemo() {
             {/* Hub diagram */}
             <Card className="lg:col-span-3 relative overflow-hidden">
               <Eyebrow icon={Network}>Ingestion architecture</Eyebrow>
-              <div className="relative h-80 mt-4">
-                {/* center node */}
-                <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 z-10">
-                  <div className="w-28 h-28 rounded-2xl bg-gradient-to-br from-violet-500 to-cyan-500 flex items-center justify-center shadow-2xl shadow-violet-500/30 ring-1 ring-white/20">
+              <div className="flex justify-center mt-4">
+                <div
+                  className="relative"
+                  style={{ width: 360, height: 360 }}
+                >
+                  {/* concentric orbit rings, perfectly centered */}
+                  <div
+                    aria-hidden
+                    className="absolute rounded-full border border-violet-500/25"
+                    style={{
+                      width: 260,
+                      height: 260,
+                      left: "50%",
+                      top: "50%",
+                      transform: "translate(-50%, -50%)",
+                    }}
+                  />
+                  <div
+                    aria-hidden
+                    className="absolute rounded-full border border-cyan-500/15"
+                    style={{
+                      width: 320,
+                      height: 320,
+                      left: "50%",
+                      top: "50%",
+                      transform: "translate(-50%, -50%)",
+                    }}
+                  />
+
+                  {/* center INVESQ hub */}
+                  <div
+                    className="absolute w-28 h-28 rounded-2xl bg-gradient-to-br from-violet-500 to-cyan-500 flex items-center justify-center shadow-2xl shadow-violet-500/30 ring-1 ring-white/20 z-10"
+                    style={{
+                      left: "50%",
+                      top: "50%",
+                      transform: "translate(-50%, -50%)",
+                    }}
+                  >
                     <div className="text-center">
                       <Brain className="w-6 h-6 text-white mx-auto" />
                       <div className="text-[10px] font-bold text-white mt-1 tracking-wider">
@@ -520,35 +554,29 @@ export default function LaunchDemo() {
                       <div className="text-[8px] text-white/70">Engine</div>
                     </div>
                   </div>
-                </div>
-                {/* orbit lines */}
-                <div className="absolute inset-0 flex items-center justify-center">
-                  <div className="w-64 h-64 rounded-full border border-violet-500/20" />
-                </div>
-                <div className="absolute inset-0 flex items-center justify-center">
-                  <div className="w-80 h-80 rounded-full border border-cyan-500/10" />
-                </div>
-                {/* system nodes */}
-                {SYSTEMS.map((sys, i) => {
-                  const angle = (i / SYSTEMS.length) * Math.PI * 2 - Math.PI / 2;
-                  const r = 130;
-                  const x = Math.cos(angle) * r;
-                  const y = Math.sin(angle) * r;
-                  return (
-                    <div
-                      key={sys.name}
-                      className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2"
-                      style={{ transform: `translate(calc(-50% + ${x}px), calc(-50% + ${y}px))` }}
-                    >
+
+                  {/* system nodes orbiting the same center */}
+                  {SYSTEMS.map((sys, i) => {
+                    const angle = (i / SYSTEMS.length) * Math.PI * 2 - Math.PI / 2;
+                    const r = 140;
+                    const x = Math.cos(angle) * r;
+                    const y = Math.sin(angle) * r;
+                    return (
                       <div
-                        className="w-16 h-16 rounded-xl bg-slate-900/90 border border-white/10 flex items-center justify-center text-[10px] font-bold text-white text-center px-1 shadow-lg"
-                        style={{ boxShadow: `0 0 24px ${sys.color}33` }}
+                        key={sys.name}
+                        className="absolute w-16 h-16 rounded-xl bg-slate-900/90 border border-white/10 flex items-center justify-center text-[10px] font-bold text-white text-center px-1 shadow-lg"
+                        style={{
+                          left: "50%",
+                          top: "50%",
+                          transform: `translate(calc(-50% + ${x}px), calc(-50% + ${y}px))`,
+                          boxShadow: `0 0 24px ${sys.color}33`,
+                        }}
                       >
                         {sys.name}
                       </div>
-                    </div>
-                  );
-                })}
+                    );
+                  })}
+                </div>
               </div>
             </Card>
 
