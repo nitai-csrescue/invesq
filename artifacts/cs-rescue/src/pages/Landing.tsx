@@ -139,9 +139,16 @@ export default function Landing() {
           <Button asChild variant="ghost" size="sm" className="text-slate-300 hover:text-white">
             <Link href="/overview">Investor pitch</Link>
           </Button>
-          <Button asChild size="sm" className="bg-cyan-500 hover:bg-cyan-400 text-slate-950 gap-1.5">
-            <Link href="/dashboard" data-testid="cta-launch-app">
-              See the platform <ArrowRight className="w-3.5 h-3.5" />
+          <Button asChild variant="ghost" size="sm" className="text-slate-300 hover:text-white">
+            <Link href="/dashboard" data-testid="cta-launch-app">Platform</Link>
+          </Button>
+          <Button
+            asChild
+            size="sm"
+            className="bg-gradient-to-r from-violet-500 to-cyan-500 hover:from-violet-400 hover:to-cyan-400 text-white gap-1.5"
+          >
+            <Link href="/launch-demo" data-testid="cta-launch-demo">
+              Launch demo <ArrowRight className="w-3.5 h-3.5" />
             </Link>
           </Button>
         </nav>

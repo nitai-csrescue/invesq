@@ -10,6 +10,7 @@ import NotFound from "@/pages/not-found";
 
 import Landing from "@/pages/Landing";
 import Overview from "@/pages/Overview";
+import LaunchDemo from "@/pages/LaunchDemo";
 import Dashboard from "@/pages/Dashboard";
 import Accounts from "@/pages/Accounts";
 import Signals from "@/pages/Signals";
@@ -24,7 +25,7 @@ import AICopilot from "@/pages/AICopilot";
 const queryClient = new QueryClient();
 
 // Bare = no sidebar/header (landing & investor pages)
-const BARE_PATHS = new Set<string>(["/", "/overview"]);
+const BARE_PATHS = new Set<string>(["/", "/overview", "/launch-demo"]);
 
 function Shell({ children }: { children: ReactNode }) {
   const [location] = useLocation();
@@ -40,6 +41,7 @@ function Router() {
       <Switch>
         <Route path="/" component={Landing} />
         <Route path="/overview" component={Overview} />
+        <Route path="/launch-demo" component={LaunchDemo} />
         <Route path="/dashboard" component={Dashboard} />
         <Route path="/accounts" component={Accounts} />
         <Route path="/signals" component={Signals} />
