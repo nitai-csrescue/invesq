@@ -1,0 +1,131 @@
+Build a polished CS Rescue demo mockup page called “Customer Lifecycle Intelligence Funnel.”
+
+Goal:
+Create an interactive product mockup showing how CS Rescue grades customer health and operational risk across the full customer lifecycle.
+
+Use a clean modern B2B SaaS design with navy, teal, white, and light gray. Make it investor-demo ready.
+
+Core visualization:
+Create a horizontal bar-style funnel showing these lifecycle stages:
+
+1. Sales
+2. Implementation
+3. Customer Success
+4. Customer Support
+5. Upsell / Expansion
+
+Each stage should show:
+
+* Lifecycle grade: A, B, C, D, or F
+* Risk level: Low, Medium, High
+* Key metric summary
+* Number of analyzed data signals
+* Revenue exposure estimate
+* Confidence score
+
+Example stage data:
+Sales:
+Grade B+
+Risk: Medium
+Signals analyzed: 42
+Key metric: ICP fit strong, handoff risk moderate
+Revenue exposure: $420K
+Confidence: 84%
+
+Implementation:
+Grade C
+Risk: High
+Signals analyzed: 61
+Key metric: Time-to-value delayed by 23 days
+Revenue exposure: $1.2M
+Confidence: 91%
+
+Customer Success:
+Grade B-
+Risk: Medium
+Signals analyzed: 55
+Key metric: QBR coverage inconsistent
+Revenue exposure: $680K
+Confidence: 87%
+
+Customer Support:
+Grade C+
+Risk: Medium-High
+Signals analyzed: 74
+Key metric: Escalation rate above benchmark
+Revenue exposure: $890K
+Confidence: 89%
+
+Upsell / Expansion:
+Grade A-
+Risk: Low
+Signals analyzed: 38
+Key metric: Expansion readiness strong
+Revenue exposure: $1.5M opportunity
+Confidence: 82%
+
+Interaction:
+When a user clicks a lifecycle stage, open a right-side detail panel.
+
+The detail panel should include:
+
+* Stage name
+* Current grade
+* Plain-English explanation of why the grade was assigned
+* Top 3 contributing signals
+* Systems analyzed
+* Audit trail / traceability links
+* Recommended action
+* Suggested owner
+* Estimated business impact
+
+Keep the audit trail high-level, not too granular.
+
+Example audit links:
+
+* Salesforce: Opportunity handoff completeness
+* Gong: Sales call expectation alignment
+* Jira: Implementation ticket delays
+* Zendesk: Support escalation volume
+* Slack: Customer escalation mentions
+* Product Analytics: Feature adoption trend
+* Data Warehouse: NRR and cohort benchmarks
+
+Include a small “Traceability” section that says:
+“Each lifecycle grade is generated from analyzed signals across source systems. Users can inspect the contributing evidence without exposing raw implementation complexity.”
+
+Add display options above the funnel:
+
+* Funnel View
+* Bar Chart View
+* Lifecycle Timeline
+* Risk Heatmap
+* Executive Summary
+
+Only Funnel View needs to be functional for now. The other options can be inactive tabs or placeholder toggles.
+
+Below the funnel, include a section called “What CS Rescue Detected” with 3 insight cards:
+
+1. Implementation drag is creating downstream churn risk.
+2. Support escalation volume is suppressing expansion readiness.
+3. Sales-to-CS handoff quality is a leading indicator of time-to-value.
+
+Add a bottom section called “Recommended Playbooks” with 3 cards:
+
+1. Implementation Acceleration Plan
+2. Executive Sponsor Re-Engagement
+3. Expansion Readiness Review
+
+Technical expectations:
+
+* Build as a single React page.
+* Use mock/static data only.
+* Use responsive layout.
+* Make the funnel clickable.
+* Use clean component structure.
+* Add subtle hover states and selected-state styling.
+* Do not overbuild authentication, backend, database, or real integrations.
+* The purpose is to create a convincing clickable demo for investors/design partners.
+
+Important product framing:
+CS Rescue is not replacing CRM, CSP, or BI tools. It is an Operational Intelligence Layer that sits above fragmented customer systems and turns lifecycle data into grades, risk signals, recommendations, and auditable evidence.

@@ -17,6 +17,7 @@ import Signals from "@/pages/Signals";
 import Playbooks from "@/pages/Playbooks";
 import Actions from "@/pages/Actions";
 import Reports from "@/pages/Reports";
+import LifecycleFunnel from "@/pages/LifecycleFunnel";
 import Integrations from "@/pages/Integrations";
 import Settings from "@/pages/Settings";
 import Architecture from "@/pages/Architecture";
@@ -48,6 +49,7 @@ function Router() {
         <Route path="/playbooks" component={Playbooks} />
         <Route path="/actions" component={Actions} />
         <Route path="/reports" component={Reports} />
+        <Route path="/lifecycle-funnel" component={LifecycleFunnel} />
         <Route path="/integrations" component={Integrations} />
         <Route path="/settings" component={Settings} />
         <Route path="/platform/architecture" component={Architecture} />

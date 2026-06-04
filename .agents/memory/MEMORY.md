@@ -1,0 +1,1 @@
+- [cs-rescue INVESQ branding](cs-rescue-branding.md) — user-visible copy must say INVESQ, not the legacy "CS Rescue", even when a spec says otherwise.

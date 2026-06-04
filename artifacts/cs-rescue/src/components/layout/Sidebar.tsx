@@ -6,6 +6,7 @@ import {
   Workflow,
   CheckSquare,
   BarChart3,
+  Filter,
   Plug,
   Settings,
   Network,
@@ -27,6 +28,7 @@ const groups: NavGroup[] = [
       { href: "/playbooks", icon: Workflow, label: "Playbooks", testId: "nav-playbooks" },
       { href: "/actions", icon: CheckSquare, label: "Actions", testId: "nav-actions" },
       { href: "/reports", icon: BarChart3, label: "Reports", testId: "nav-reports" },
+      { href: "/lifecycle-funnel", icon: Filter, label: "Lifecycle Funnel", testId: "nav-lifecycle-funnel" },
     ],
   },
   {
