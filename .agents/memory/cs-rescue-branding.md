@@ -13,3 +13,11 @@ user-facing copy. This violates the project convention documented in replit.md.
 **How to apply:** When adding pages/sections, write product references as "INVESQ"
 in headings, subtitles, copilot output, and titles — even if a user-supplied spec
 says "CS Rescue". Underlying mock data (account names, signals) may stay as-is.
+
+## Exception: CEATI client deliverable (/ceati)
+The `/ceati` page ("CS Rescue · CEATI Operating Review") intentionally KEEPS the
+"CS Rescue" branding, not INVESQ. **Why:** it is a separate client-facing demo
+deliverable whose source spec/PDF is pervasively branded "CS Rescue · CEATI" and
+references "BackEngine + AI reasoning"; the user supplied that exact title verbatim.
+The INVESQ rule applies to the main investor-pitch chrome, not this standalone
+customer demo. Do not "correct" /ceati to INVESQ without asking.

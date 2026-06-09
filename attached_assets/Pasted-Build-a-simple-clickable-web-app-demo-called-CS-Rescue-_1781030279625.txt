@@ -1,0 +1,180 @@
+Build a simple clickable web app demo called “CS Rescue for CEATI” that showcases how CEATI could view membership intelligence in a clean, executive-friendly operating workspace.
+
+Goal:
+Show a theoretical but realistic way CEATI could use CS Rescue to turn HubSpot, Mixpanel, Webex, Teams, Research Portal, and Event Platform data into simple weekly actions.
+
+Style:
+Modern, clean, minimal. More like Linear, Attio, Notion, or Vanta — not a traditional BI dashboard. Avoid cluttered charts. Use cards, clear hierarchy, soft borders, concise copy, and an executive command-center feel.
+
+App Structure:
+Create 5 main tabs/pages:
+
+1. Overview
+2. Risk
+3. Growth
+4. Account Brief
+5. Actions
+
+Global Header:
+Title: CS Rescue · CEATI Operating Review
+Subtitle: Weekly membership intelligence powered by BackEngine + AI reasoning
+Date: Week of June 8, 2026
+Badge: Illustrative demo data
+
+Page 1 — Overview:
+Show four main metric cards:
+- Member Health Score: 72/100, +3 vs last week
+- Value Realization: 68%, +2 pts MoM
+- Expansion Opportunities: 23, 8 high confidence
+- Utilities Needing Attention: 11, 3 critical
+
+Below the cards, show an AI Executive Summary:
+“Portfolio health improved this week, but risk is concentrated in 11 utilities. Cascade Power and Meridian Grid show sponsor-change plus declining research engagement, while Northshore Hydro is the strongest cross-program expansion opportunity.”
+
+Add a small “Data Sources” row:
+HubSpot, Mixpanel, Webex, Teams, Research Portal, Event Platform.
+
+Page 2 — Risk:
+Show a prioritized list of at-risk utilities.
+
+Each risk card should include:
+- Utility name
+- Health score
+- Trend
+- Primary risk signals
+- Source evidence
+- Recommended next action
+
+Use these sample utilities:
+1. Cascade Power Authority — Health 41, down 14
+Signals: sponsor changed, event attendance down 58%, portal logins down 71%, program participation 2 → 1
+Action: Schedule executive re-engagement this week
+
+2. Meridian Grid Services — Health 48, down 9
+Signals: research portal use down 62%, no touchpoints in 30 days, active in only 2 of 5 enrolled programs
+Action: Send value recap and book QBR
+
+3. Lakeshore Energy — Health 52, down 6
+Signals: no QBR in 9 months, skipped Generation Summit, no new report access in 60 days
+Action: Trigger renewal check-in
+
+Make every insight traceable with labels like HubSpot, Webex, Research Portal, Event Platform.
+
+Page 3 — Growth:
+Show top expansion opportunities in a clean table/card layout.
+
+Columns:
+- Utility
+- Recommended Program
+- Readiness Score
+- Why Now
+- Suggested Action
+
+Use:
+- Northshore Hydro → Asset Management, 92, attended 6 of 7 T&D events and downloaded asset lifecycle benchmark twice, Action: introduce Asset Management program
+- Summit Energy Co-op → Cyber Security, 88, OT/IT initiative signals and QBR upcoming, Action: include Cyber Security in QBR
+- Cascade Power Authority → Power Quality, 84, reliability questions in portal, Action: send Power Quality case study
+- Pinecrest Utilities → Distribution Engineering, 81, peer cohort attending, Action: invite to next working group
+
+Add a simple insight card:
+“Utilities engaging across multiple CEATI programs are more likely to renew and expand. CS Rescue flags adjacent program interest before it becomes an explicit sales conversation.”
+
+Page 4 — Account Brief:
+Create a detailed account briefing for Cascade Power Authority.
+
+Header:
+Cascade Power Authority
+Pacific Northwest · Member since 2017 · Enrolled in 4 programs
+Health: 41 / At Risk
+Next touchpoint: Thu 10:00 AM
+Callout: “30–60 minutes of prep reduced to a 90-second briefing.”
+
+Sections:
+- Stakeholders
+  - Maria Chen, VP Engineering, new champion, strong T&D engagement
+  - David Park, Director of Operations, quiet for 47 days
+  - VP Operations, vacant since April 2026
+
+- Recent Activity
+  - 3 missed events
+  - 2 research portal logins
+  - 1 unanswered Teams thread
+  - renewal in 4 months
+
+- Risks
+  - sponsor vacuum
+  - withdrew from T&D working group
+  - decision committee not identified
+
+- Opportunities
+  - Power Quality program fit: readiness 84
+  - Asset lifecycle benchmarking aligns with 2027 capital plan
+  - peer cohort referral opportunity
+
+- Suggested Talking Points
+  - acknowledge leadership transition
+  - offer to brief new VP Operations
+  - lead with reliability data
+  - avoid renewal pricing until sponsor is identified
+
+- Recommended Next Actions
+  - schedule exec intro with Maria Chen
+  - send PNW reliability case study
+  - invite David Park to Power Quality clinic
+  - build renewal stakeholder map
+
+Page 5 — Actions:
+Create a weekly action board titled “What Matters This Week.”
+
+Show 5 action cards with:
+- Priority number
+- Action
+- Why
+- Owner
+- Due date
+- Impact level
+- Status
+
+Use:
+1. Re-engage Cascade Power Authority
+Why: health score dropped 14 points and sponsor changed
+Owner: Patricia
+Due: This week
+Impact: High
+
+2. Introduce Asset Management to Northshore Hydro
+Why: strongest expansion signal in portfolio
+Owner: Hailey
+Due: 7 days
+Impact: High
+
+3. Prepare Summit Energy QBR
+Why: Cyber Security readiness at 88
+Owner: Patricia
+Due: Jun 16
+Impact: Medium
+
+4. Investigate declining T&D attendance
+Why: attendance down across 6 utilities
+Owner: Hailey + Program Lead
+Due: 14 days
+Impact: Medium
+
+5. Validate 4 borderline health scores
+Why: human review recommended before automated outreach
+Owner: Patricia
+Due: Friday
+Impact: Low
+
+Interactivity:
+- Tabs should navigate between pages.
+- Risk cards should expand/collapse to show source evidence.
+- Action cards should have status pills: Not Started, In Progress, Done.
+- Account Brief should have a button labeled “Generate Briefing” that visually refreshes or highlights the briefing.
+- Add a simple “Sync to HubSpot Task” button on action cards, but it does not need real integration.
+
+Important Positioning:
+This is not a replacement for HubSpot, Mixpanel, Webex, Teams, or existing workflows.
+Show CS Rescue as a read-only intelligence layer powered by BackEngine integrations and AI reasoning.
+
+Use only illustrative demo data. Make the UI polished enough to show in a CEATI follow-up call.
