@@ -23,3 +23,33 @@ id = "9rzGh9VUqy9JqQwpSpN_U"
 uri = "file://artifacts/invesq-video/public/audio/bg_music.mp3"
 type = "audio"
 title = "background music"
+
+[[outputs]]
+id = "vXpEXA7Ey2AHJetKcRQgI"
+uri = "file://screenshots/ceati-1-overview.jpg"
+type = "image"
+title = "Tab 1 — Overview"
+
+[[outputs]]
+id = "U82oTzR3muhiA4VdXkqdO"
+uri = "file://screenshots/ceati-2-risk.jpg"
+type = "image"
+title = "Tab 2 — Risk"
+
+[[outputs]]
+id = "KH2dbibUgW1QCEphD0-iK"
+uri = "file://screenshots/ceati-3-growth.jpg"
+type = "image"
+title = "Tab 3 — Growth"
+
+[[outputs]]
+id = "B-1N1UfIdik2f3lpGSUJm"
+uri = "file://screenshots/ceati-4-account-brief.jpg"
+type = "image"
+title = "Tab 4 — Account Brief"
+
+[[outputs]]
+id = "Dsbdh7tOmLPMcCOU3aAxP"
+uri = "file://screenshots/ceati-5-actions.jpg"
+type = "image"
+title = "Tab 5 — Actions"

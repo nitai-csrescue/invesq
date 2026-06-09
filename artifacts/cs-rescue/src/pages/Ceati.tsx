@@ -35,6 +35,23 @@ const DATA_SOURCES = [
 const TABS = ["Overview", "Risk", "Growth", "Account Brief", "Actions"] as const;
 type Tab = (typeof TABS)[number];
 
+const TAB_SLUGS: Record<Tab, string> = {
+  Overview: "overview",
+  Risk: "risk",
+  Growth: "growth",
+  "Account Brief": "account-brief",
+  Actions: "actions",
+};
+const SLUG_TO_TAB = Object.fromEntries(
+  Object.entries(TAB_SLUGS).map(([tab, slug]) => [slug, tab as Tab]),
+) as Record<string, Tab>;
+
+function initialTab(): Tab {
+  if (typeof window === "undefined") return "Overview";
+  const slug = new URLSearchParams(window.location.search).get("tab");
+  return (slug && SLUG_TO_TAB[slug]) || "Overview";
+}
+
 /* -------------------------- shared atoms -------------------------- */
 
 function SourceTag({ label }: { label: string }) {
@@ -677,7 +694,16 @@ function ActionsTab() {
 /* ------------------------------- Page ------------------------------- */
 
 export default function Ceati() {
-  const [tab, setTab] = useState<Tab>("Overview");
+  const [tab, setTab] = useState<Tab>(initialTab);
+
+  const selectTab = (t: Tab) => {
+    setTab(t);
+    if (typeof window !== "undefined") {
+      const url = new URL(window.location.href);
+      url.searchParams.set("tab", TAB_SLUGS[t]);
+      window.history.replaceState({}, "", url);
+    }
+  };
 
   return (
     <div className="min-h-screen bg-[#070912] text-slate-200">
@@ -708,7 +734,7 @@ export default function Ceati() {
               return (
                 <button
                   key={t}
-                  onClick={() => setTab(t)}
+                  onClick={() => selectTab(t)}
                   data-testid={`tab-${t.toLowerCase().replace(/[^a-z]+/g, "-")}`}
                   className={[
                     "px-3.5 py-1.5 rounded-lg text-sm font-medium transition-colors",
