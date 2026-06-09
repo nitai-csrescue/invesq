@@ -1,0 +1,82 @@
+Refine the CS Rescue CEATI demo to improve credibility, explainability, and executive clarity.
+
+1. Make "Actions" the default landing page and primary navigation focus. This is the core value proposition.
+
+2. Add a persistent banner beneath the page title on every screen:
+
+"CS Rescue transforms activity across HubSpot, Teams, Webex, Research Portal, and CEATI systems into prioritized actions and executive briefings. Powered by BackEngine integrations and AI reasoning."
+
+3. Replace all references to:
+
+* "churn"
+  with
+* "non-renewal"
+  or
+* "member disengagement"
+
+4. Remove unsupported claims such as:
+
+* "67% historical recovery rate"
+* any benchmark percentages that imply actual CEATI historical analysis.
+
+Instead use:
+"Based on benchmark patterns and illustrative demo data."
+
+5. Add explainability everywhere a score appears.
+
+For Health Scores:
+Tooltip:
+"Composite score based on participation, event attendance, research engagement, stakeholder activity, and program breadth."
+
+For Expansion Readiness:
+Add expandable "Why this score?" sections showing the underlying signals and evidence.
+
+Example:
+
+* Attended 6 of last 7 T&D events
+* Downloaded Asset Lifecycle benchmark twice
+* Viewed Asset Management content
+* Similar utilities expanded into this program
+
+6. Add a "What Changed This Week?" card to Overview:
+
+* Northshore expansion readiness increased
+* Summit Cyber Security interest detected
+
+- Cascade sponsor departed
+- Meridian engagement declined
+
+7. Improve the Growth page by adding a summary card:
+
+"8 utilities are actively engaging with content outside their enrolled programs. These members demonstrate stronger participation breadth and higher expansion potential."
+
+8. Rename:
+   "Generate Briefing"
+   to
+   "Refresh Briefing"
+
+9. Add stakeholder role badges on the Account Brief page:
+
+* Executive Sponsor
+* Champion
+* Influencer
+* Decision Maker
+
+10. Standardize terminology across all pages:
+    Use:
+    "Priority Utilities"
+    instead of mixing:
+
+* At-Risk Utilities
+* Utilities Needing Attention
+* Recovery Accounts
+
+11. Keep the interface action-oriented rather than dashboard-oriented.
+
+Every screen should clearly answer:
+
+* What happened?
+* Why does it matter?
+* What should I do next?
+
+The goal is for Patricia and Hailey to immediately understand how CS Rescue helps prioritize member engagement, renewal risk, expansion opportunities, and executive preparation without replacing any existing systems.

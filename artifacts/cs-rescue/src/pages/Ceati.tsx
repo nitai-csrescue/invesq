@@ -6,6 +6,7 @@ import {
   ChevronDown,
   Sparkles,
   TrendingUp,
+  TrendingDown,
   Users,
   Target,
   CheckCircle2,
@@ -15,6 +16,8 @@ import {
   Send,
   Calendar,
   AlertCircle,
+  Info,
+  type LucideIcon,
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 
@@ -32,8 +35,17 @@ const DATA_SOURCES = [
   "Event Platform",
 ];
 
-const TABS = ["Overview", "Risk", "Growth", "Account Brief", "Actions"] as const;
+const TABS = ["Actions", "Overview", "Risk", "Growth", "Account Brief"] as const;
 type Tab = (typeof TABS)[number];
+
+const PRODUCT_BANNER =
+  "CS Rescue transforms activity across HubSpot, Teams, Webex, Research Portal, and CEATI systems into prioritized actions and executive briefings. Powered by BackEngine integrations and AI reasoning.";
+
+const HEALTH_TOOLTIP =
+  "Composite score based on participation, event attendance, research engagement, stakeholder activity, and program breadth.";
+
+const READINESS_TOOLTIP =
+  "Readiness score based on cross-program engagement, benchmark consumption, initiative signals, and peer-pattern similarity.";
 
 const TAB_SLUGS: Record<Tab, string> = {
   Overview: "overview",
@@ -47,9 +59,9 @@ const SLUG_TO_TAB = Object.fromEntries(
 ) as Record<string, Tab>;
 
 function initialTab(): Tab {
-  if (typeof window === "undefined") return "Overview";
+  if (typeof window === "undefined") return "Actions";
   const slug = new URLSearchParams(window.location.search).get("tab");
-  return (slug && SLUG_TO_TAB[slug]) || "Overview";
+  return (slug && SLUG_TO_TAB[slug]) || "Actions";
 }
 
 /* -------------------------- shared atoms -------------------------- */
@@ -70,15 +82,28 @@ function HealthPill({ score }: { score: number }) {
         ? "text-amber-300 bg-amber-500/10 border-amber-400/30"
         : "text-rose-300 bg-rose-500/10 border-rose-400/30";
   return (
-    <span className={`rounded-md border px-2 py-0.5 text-xs font-semibold ${tone}`}>
+    <span
+      title={HEALTH_TOOLTIP}
+      className={`inline-flex items-center gap-1 rounded-md border px-2 py-0.5 text-xs font-semibold cursor-help ${tone}`}
+    >
       {score}
+      <Info className="w-3 h-3 opacity-60" />
     </span>
   );
 }
 
 /* ----------------------------- Overview ----------------------------- */
 
-const METRICS = [
+const METRICS: {
+  label: string;
+  value: string;
+  unit: string;
+  delta: string;
+  deltaTone: string;
+  icon: LucideIcon;
+  sub: string;
+  tip?: string;
+}[] = [
   {
     label: "Member Health Score",
     value: "72",
@@ -87,6 +112,7 @@ const METRICS = [
     deltaTone: "text-emerald-300",
     icon: Activity,
     sub: "Portfolio average across 157 utilities",
+    tip: HEALTH_TOOLTIP,
   },
   {
     label: "Value Realization",
@@ -107,7 +133,7 @@ const METRICS = [
     sub: "Cross-program signals detected",
   },
   {
-    label: "Utilities Needing Attention",
+    label: "Priority Utilities",
     value: "11",
     unit: "",
     delta: "3 critical · 8 watch",
@@ -115,6 +141,13 @@ const METRICS = [
     icon: AlertTriangle,
     sub: "Health score below threshold",
   },
+];
+
+const WHAT_CHANGED: { text: string; dir: "up" | "down" }[] = [
+  { text: "Northshore expansion readiness increased", dir: "up" },
+  { text: "Summit Cyber Security interest detected", dir: "up" },
+  { text: "Cascade sponsor departed", dir: "down" },
+  { text: "Meridian engagement declined", dir: "down" },
 ];
 
 function OverviewTab() {
@@ -129,7 +162,14 @@ function OverviewTab() {
               className="rounded-xl border border-white/10 bg-slate-950/40 p-5"
             >
               <div className="flex items-center justify-between mb-4">
-                <p className="text-xs font-medium text-slate-400">{m.label}</p>
+                <p className="text-xs font-medium text-slate-400 inline-flex items-center gap-1">
+                  {m.label}
+                  {m.tip && (
+                    <span title={m.tip} className="inline-flex cursor-help">
+                      <Info className="w-3 h-3 text-slate-500" />
+                    </span>
+                  )}
+                </p>
                 <Icon className="w-4 h-4 text-slate-500" />
               </div>
               <div className="flex items-baseline gap-1">
@@ -141,6 +181,30 @@ function OverviewTab() {
             </div>
           );
         })}
+      </div>
+
+      {/* What Changed This Week */}
+      <div className="rounded-xl border border-white/10 bg-slate-950/40 p-5">
+        <h3 className="text-xs uppercase tracking-[0.16em] text-slate-400 font-semibold mb-4">
+          What Changed This Week?
+        </h3>
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          {WHAT_CHANGED.map((c) => {
+            const up = c.dir === "up";
+            const Icon = up ? TrendingUp : TrendingDown;
+            return (
+              <div
+                key={c.text}
+                className="flex items-center gap-2.5 rounded-lg border border-white/5 bg-slate-900/40 px-3 py-2.5"
+              >
+                <Icon
+                  className={`w-4 h-4 shrink-0 ${up ? "text-emerald-300" : "text-rose-300"}`}
+                />
+                <span className="text-sm text-slate-200">{c.text}</span>
+              </div>
+            );
+          })}
+        </div>
       </div>
 
       {/* AI Executive Summary */}
@@ -228,13 +292,20 @@ function RiskTab() {
 
   return (
     <div className="space-y-4">
+      <div className="flex items-center justify-between gap-3">
+        <h2 className="text-base font-semibold text-white tracking-tight">
+          Priority Utilities
+        </h2>
+        <span className="text-xs text-slate-500">Ranked by non-renewal risk</span>
+      </div>
+
       <div className="rounded-xl border border-rose-400/20 bg-rose-500/5 p-4 flex items-start gap-3">
         <AlertCircle className="w-5 h-5 text-rose-300 shrink-0 mt-0.5" />
         <p className="text-sm text-slate-200">
           <span className="font-semibold text-white">AI risk pattern:</span> Cascade
-          and Meridian share the highest-confidence churn pattern — sponsor change
-          followed by a ≥60% drop in research portal use within 90 days. Historical
-          recovery rate is 67% when contact occurs within 14 days.
+          and Meridian share the highest-confidence non-renewal pattern — sponsor
+          change followed by a ≥60% drop in research portal use within 90 days. Based
+          on benchmark patterns and illustrative demo data.
         </p>
       </div>
 
@@ -300,13 +371,26 @@ function RiskTab() {
 
 /* ------------------------------ Growth ------------------------------ */
 
-const GROWTH = [
+const GROWTH: {
+  utility: string;
+  program: string;
+  score: number;
+  why: string;
+  action: string;
+  evidence: string[];
+}[] = [
   {
     utility: "Northshore Hydro",
     program: "Asset Management",
     score: 92,
     why: "Attended 6 of 7 T&D events and downloaded the asset lifecycle benchmark twice",
     action: "Introduce Asset Management program",
+    evidence: [
+      "Attended 6 of last 7 T&D events",
+      "Downloaded Asset Lifecycle benchmark twice",
+      "Viewed Asset Management content",
+      "Similar utilities expanded into this program",
+    ],
   },
   {
     utility: "Summit Energy Co-op",
@@ -314,6 +398,12 @@ const GROWTH = [
     score: 88,
     why: "OT/IT initiative signals and QBR upcoming",
     action: "Include Cyber Security in QBR",
+    evidence: [
+      "OT/IT modernization initiative announced",
+      "Attended 2 Cyber Security webinars",
+      "QBR scheduled within 30 days",
+      "Peer utilities in cohort enrolled in Cyber Security",
+    ],
   },
   {
     utility: "Cascade Power Authority",
@@ -321,6 +411,12 @@ const GROWTH = [
     score: 84,
     why: "Reliability questions surfacing in research portal",
     action: "Send Power Quality case study",
+    evidence: [
+      "Reliability questions raised in research portal",
+      "Downloaded Power Quality benchmark twice",
+      "Searched outage-reduction content",
+      "Peer PNW utilities active in Power Quality",
+    ],
   },
   {
     utility: "Pinecrest Utilities",
@@ -328,12 +424,30 @@ const GROWTH = [
     score: 81,
     why: "Peer cohort actively attending working groups",
     action: "Invite to next working group",
+    evidence: [
+      "Peer cohort actively attending working groups",
+      "Viewed Distribution Engineering content 3×",
+      "Asked about working group eligibility",
+      "Enrolled peers expanded into this program",
+    ],
   },
 ];
 
 function GrowthTab() {
+  const [open, setOpen] = useState<string | null>(null);
+
   return (
     <div className="space-y-4">
+      {/* Summary */}
+      <div className="rounded-xl border border-emerald-400/20 bg-emerald-500/5 p-5 flex items-start gap-3">
+        <Target className="w-4 h-4 text-emerald-300 shrink-0 mt-0.5" />
+        <p className="text-sm text-slate-200 leading-relaxed max-w-3xl">
+          <span className="font-semibold text-white">8 utilities</span> are actively
+          engaging with content outside their enrolled programs. These members
+          demonstrate stronger participation breadth and higher expansion potential.
+        </p>
+      </div>
+
       <div className="rounded-xl border border-white/10 bg-slate-950/40 overflow-hidden">
         <div className="hidden md:grid grid-cols-[1.3fr_1.2fr_0.6fr_2fr_1.4fr] gap-4 px-5 py-3 border-b border-white/10 text-[11px] uppercase tracking-wider text-slate-500 font-semibold">
           <span>Utility</span>
@@ -343,25 +457,60 @@ function GrowthTab() {
           <span>Suggested Action</span>
         </div>
         <div className="divide-y divide-white/5">
-          {GROWTH.map((g) => (
-            <div
-              key={g.utility}
-              className="grid grid-cols-1 md:grid-cols-[1.3fr_1.2fr_0.6fr_2fr_1.4fr] gap-2 md:gap-4 px-5 py-4 hover:bg-white/[0.02] transition-colors"
-            >
-              <div className="text-sm font-semibold text-white">{g.utility}</div>
-              <div className="text-sm text-cyan-300">{g.program}</div>
-              <div>
-                <span className="inline-flex items-center rounded-md border border-emerald-400/30 bg-emerald-500/10 px-2 py-0.5 text-xs font-semibold text-emerald-300">
-                  {g.score}
-                </span>
+          {GROWTH.map((g) => {
+            const expanded = open === g.utility;
+            return (
+              <div key={g.utility}>
+                <div className="grid grid-cols-1 md:grid-cols-[1.3fr_1.2fr_0.6fr_2fr_1.4fr] gap-2 md:gap-4 px-5 py-4 hover:bg-white/[0.02] transition-colors">
+                  <div className="text-sm font-semibold text-white">{g.utility}</div>
+                  <div className="text-sm text-cyan-300">{g.program}</div>
+                  <div>
+                    <span
+                      title={READINESS_TOOLTIP}
+                      className="inline-flex items-center gap-1 rounded-md border border-emerald-400/30 bg-emerald-500/10 px-2 py-0.5 text-xs font-semibold text-emerald-300 cursor-help"
+                    >
+                      {g.score}
+                      <Info className="w-3 h-3 opacity-60" />
+                    </span>
+                  </div>
+                  <div className="text-xs text-slate-400 leading-relaxed">{g.why}</div>
+                  <div className="flex flex-col gap-1.5">
+                    <div className="text-xs font-medium text-slate-200 inline-flex items-start gap-1">
+                      <ArrowUpRight className="w-3.5 h-3.5 text-cyan-400 shrink-0 mt-0.5" />
+                      {g.action}
+                    </div>
+                    <button
+                      onClick={() => setOpen(expanded ? null : g.utility)}
+                      data-testid={`why-score-${g.utility.toLowerCase().replace(/[^a-z]+/g, "-")}`}
+                      className="inline-flex items-center gap-1 text-[11px] font-medium text-cyan-300 hover:text-cyan-200 transition-colors w-fit"
+                    >
+                      Why this score?
+                      <ChevronDown
+                        className={`w-3 h-3 transition-transform ${expanded ? "rotate-180" : ""}`}
+                      />
+                    </button>
+                  </div>
+                </div>
+                {expanded && (
+                  <div className="px-5 pb-4">
+                    <div className="rounded-lg border border-white/5 bg-slate-900/40 p-4">
+                      <p className="text-[11px] uppercase tracking-[0.16em] text-slate-500 font-semibold mb-2.5">
+                        Why this score
+                      </p>
+                      <ul className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                        {g.evidence.map((e, i) => (
+                          <li key={i} className="text-xs text-slate-300 flex gap-2">
+                            <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400/70 shrink-0 mt-px" />
+                            <span>{e}</span>
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+                  </div>
+                )}
               </div>
-              <div className="text-xs text-slate-400 leading-relaxed">{g.why}</div>
-              <div className="text-xs font-medium text-slate-200 inline-flex items-start gap-1">
-                <ArrowUpRight className="w-3.5 h-3.5 text-cyan-400 shrink-0 mt-0.5" />
-                {g.action}
-              </div>
-            </div>
-          ))}
+            );
+          })}
         </div>
       </div>
 
@@ -380,9 +529,10 @@ function GrowthTab() {
 /* --------------------------- Account Brief --------------------------- */
 
 const STAKEHOLDERS = [
-  { name: "Maria Chen", role: "VP Engineering", note: "New champion · strong T&D engagement, attended 3 of last 4 events", tone: "emerald" },
-  { name: "David Park", role: "Director, Operations", note: "Quiet for 47 days — primary risk signal", tone: "amber" },
-  { name: "(vacant)", role: "VP Operations", note: "Former exec sponsor departed Apr 2026", tone: "rose" },
+  { name: "Maria Chen", role: "VP Engineering", note: "Strong T&D engagement, attended 3 of last 4 events", tone: "emerald", badge: "Champion" },
+  { name: "David Park", role: "Director, Operations", note: "Quiet for 47 days — primary risk signal", tone: "amber", badge: "Decision Maker" },
+  { name: "Andre Silva", role: "Manager, Grid Reliability", note: "Active in Power Quality clinic discussions", tone: "emerald", badge: "Influencer" },
+  { name: "(vacant)", role: "VP Operations", note: "Former exec sponsor departed Apr 2026", tone: "rose", badge: "Executive Sponsor" },
 ];
 
 const ACTIVITY = [
@@ -394,7 +544,7 @@ const ACTIVITY = [
 
 const BRIEF_RISKS = [
   "Sponsor vacuum at exec level — VP Operations unfilled since April",
-  "Withdrew from T&D working group — historically a leading churn signal",
+  "Withdrew from T&D working group — historically a leading non-renewal signal",
   "Decision committee not identified ahead of renewal",
 ];
 
@@ -406,7 +556,7 @@ const BRIEF_OPPS = [
 
 const TALKING_POINTS = [
   "Acknowledge the leadership transition; offer to brief a new VP of Operations",
-  "Lead with reliability data — 3 PNW peers achieved 18% outage reduction via Power Quality",
+  "Lead with reliability data — peer PNW utilities have reduced outages through Power Quality programs",
   "Frame Asset Management as support for their 2027 capital plan, not an upsell",
   "Avoid renewal pricing — sponsor isn't identified yet",
 ];
@@ -422,6 +572,13 @@ const toneRing: Record<string, string> = {
   emerald: "border-emerald-400/30",
   amber: "border-amber-400/30",
   rose: "border-rose-400/30",
+};
+
+const badgeStyles: Record<string, string> = {
+  "Executive Sponsor": "text-violet-300 bg-violet-500/10 border-violet-400/30",
+  Champion: "text-emerald-300 bg-emerald-500/10 border-emerald-400/30",
+  Influencer: "text-cyan-300 bg-cyan-500/10 border-cyan-400/30",
+  "Decision Maker": "text-amber-300 bg-amber-500/10 border-amber-400/30",
 };
 
 function BriefColumn({
@@ -457,7 +614,7 @@ function AccountBriefTab() {
   const handleGenerate = () => {
     setGenerated(true);
     toast({
-      title: "Briefing generated",
+      title: "Briefing refreshed",
       description: "Cascade Power Authority — 90-second briefing refreshed.",
     });
     window.setTimeout(() => setGenerated(false), 1600);
@@ -475,8 +632,12 @@ function AccountBriefTab() {
           <div>
             <div className="flex items-center gap-3 flex-wrap">
               <h2 className="text-xl font-bold text-white">Cascade Power Authority</h2>
-              <span className="rounded-md border border-rose-400/30 bg-rose-500/10 px-2 py-0.5 text-xs font-semibold text-rose-300">
+              <span
+                title={HEALTH_TOOLTIP}
+                className="inline-flex items-center gap-1 rounded-md border border-rose-400/30 bg-rose-500/10 px-2 py-0.5 text-xs font-semibold text-rose-300 cursor-help"
+              >
                 Health 41 · At Risk
+                <Info className="w-3 h-3 opacity-60" />
               </span>
             </div>
             <p className="text-sm text-slate-400 mt-1.5">
@@ -486,11 +647,11 @@ function AccountBriefTab() {
           </div>
           <button
             onClick={handleGenerate}
-            data-testid="generate-briefing"
+            data-testid="refresh-briefing"
             className="inline-flex items-center gap-2 rounded-lg border border-cyan-400/40 bg-cyan-500/15 px-4 py-2 text-sm font-medium text-cyan-200 hover:bg-cyan-500/25 transition-colors shrink-0"
           >
             <RefreshCw className={`w-4 h-4 ${generated ? "animate-spin" : ""}`} />
-            Generate Briefing
+            Refresh Briefing
           </button>
         </div>
         <div className="mt-4 rounded-lg border border-cyan-400/20 bg-cyan-500/5 px-4 py-3">
@@ -512,10 +673,15 @@ function AccountBriefTab() {
                 key={s.name}
                 className={`rounded-lg border bg-slate-900/40 p-3 ${toneRing[s.tone]}`}
               >
-                <div className="flex items-center gap-2">
+                <div className="flex items-center gap-2 flex-wrap">
                   <Users className="w-3.5 h-3.5 text-slate-500" />
                   <span className="text-sm font-semibold text-white">{s.name}</span>
                   <span className="text-xs text-slate-500">· {s.role}</span>
+                  <span
+                    className={`rounded-md border px-1.5 py-0.5 text-[10px] font-medium ${badgeStyles[s.badge]}`}
+                  >
+                    {s.badge}
+                  </span>
                 </div>
                 <p className="text-xs text-slate-400 mt-1">{s.note}</p>
               </div>
@@ -725,6 +891,11 @@ export default function Ceati() {
               </p>
             </div>
             <div className="text-xs text-slate-500 shrink-0">Week of June 8, 2026</div>
+          </div>
+
+          {/* Persistent product banner */}
+          <div className="mt-4 rounded-lg border border-cyan-400/15 bg-cyan-500/[0.04] px-4 py-2.5">
+            <p className="text-xs text-slate-300 leading-relaxed">{PRODUCT_BANNER}</p>
           </div>
 
           {/* Tabs */}
