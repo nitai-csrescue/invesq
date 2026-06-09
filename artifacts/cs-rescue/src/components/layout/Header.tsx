@@ -55,15 +55,17 @@ export function BareTopBar() {
   const [location] = useLocation();
   // Demo page is its own presentation surface — keep its top bar clean
   const hideLaunchCta = location === "/launch-demo";
+  // CEATI demo is a standalone client surface — strip all global chrome
+  const isCeati = location === "/ceati";
   return (
     <div className="border-b border-white/5 bg-slate-950/40 backdrop-blur-sm" data-testid="bare-top-bar">
       <div className="max-w-7xl mx-auto px-6 h-12 flex items-center justify-between">
         <div className="flex items-center gap-2">
-          {!hideLaunchCta && <PersonaSwitcher compact />}
-          <WorkspaceLabel />
-          <CustomerAccountPicker />
+          {!hideLaunchCta && !isCeati && <PersonaSwitcher compact />}
+          {!isCeati && <WorkspaceLabel />}
+          {!isCeati && <CustomerAccountPicker />}
         </div>
-        {!hideLaunchCta && (
+        {!hideLaunchCta && !isCeati && (
           <Link
             href="/dashboard"
             className="text-xs font-medium text-slate-300 hover:text-white"
