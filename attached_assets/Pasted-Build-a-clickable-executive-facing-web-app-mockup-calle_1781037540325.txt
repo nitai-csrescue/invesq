@@ -1,0 +1,87 @@
+Build a clickable executive-facing web app mockup called “CS Rescue Health Scorecard.”
+
+Purpose:
+Show how CS Rescue turns a PE-backed B2B SaaS customer success diagnostic into a simple operating workspace for PE operating partners and portfolio company leaders.
+
+Use the uploaded CS Health Scorecard framework as the source structure. The scorecard evaluates 5 scored pillars plus 1 qualitative leadership assessment, with scored pillars rated 1–4 and combined into a 5–20 composite score mapped to recommended engagement tiers.
+
+Design style:
+Modern, clean, executive-grade. Similar to Linear, Attio, Vanta, or Notion. Avoid dense tables. Use cards, score pills, evidence drawers, and clear action recommendations.
+
+Core pages/tabs:
+
+1. Executive Summary
+Show:
+- Composite CS Health Score: 11 / 20
+- Recommended Tier: Structured Build
+- Engagement Recommendation: 90-day build program
+- Highest-risk pillars
+- Top 5 recommended actions
+
+Add a visual score bar:
+5–8 Immediate Intervention
+9–12 Structured Build
+13–16 Optimization
+17–20 Scale & Exit Readiness
+
+2. Pillar Scores
+Show six cards:
+- CS Organizational Design: Level 2 Developing
+- Customer Data & Signal Infrastructure: Level 1 Critical
+- Customer Journey Architecture: Level 2 Developing
+- Revenue Retention & Expansion Performance: Level 3 Functional
+- CS-to-GTM Alignment: Level 2 Developing
+- Leadership & Talent Readiness: Augment
+
+Each card should include:
+- Score/status
+- What this measures
+- Key evidence
+- Recommended intervention
+
+3. Evidence Review
+Create expandable sections by pillar.
+
+Example:
+Customer Data & Signal Infrastructure
+Evidence:
+- Health score exists but is manually maintained
+- Customer risk identified through escalations and gut feel
+- No systematic product usage data feeding account management
+- Leadership cannot see real-time retention risk without manual reporting
+
+Recommended Fix:
+Implement automated health scoring, trigger-based risk alerts, and weekly customer risk review.
+
+4. Engagement Plan
+Show recommended CS Rescue engagement model.
+
+For score 11 / 20:
+Tier: Structured Build
+Duration: 90 days
+Cadence: weekly operating rhythm
+Focus Areas:
+- Health scoring
+- Onboarding journey
+- Pre-renewal motion
+- CSQL / expansion process
+- CS-to-GTM feedback loop
+
+5. Board-Ready Output
+Show the final executive narrative:
+“This company has a basic CS function but lacks scalable signal infrastructure and repeatable journey architecture. Retention performance is currently functional, but risk may be underreported because health scoring and risk detection are manual. CS Rescue recommends a 90-day structured build focused on moving the company from reactive CS execution to a signal-driven, commercially accountable retention engine.”
+
+Add buttons:
+- Export Board Summary
+- Generate 90-Day Plan
+- View Source Evidence
+- Compare Against Portfolio Benchmark
+
+Important positioning:
+CS Rescue is not replacing CRM or CS tooling. It is an operator-led diagnostic and intelligence layer that turns customer data, interviews, and operating evidence into a prioritized value creation plan.
+
+Use illustrative demo data only.
+
+I’d make this a separate Replit route from CEATI, something like:
+
+/cs-health-scorecard

@@ -12,6 +12,7 @@ import Landing from "@/pages/Landing";
 import Overview from "@/pages/Overview";
 import LaunchDemo from "@/pages/LaunchDemo";
 import Ceati from "@/pages/Ceati";
+import CSHealthScorecard from "@/pages/CSHealthScorecard";
 import Dashboard from "@/pages/Dashboard";
 import Accounts from "@/pages/Accounts";
 import Signals from "@/pages/Signals";
@@ -27,7 +28,7 @@ import AICopilot from "@/pages/AICopilot";
 const queryClient = new QueryClient();
 
 // Bare = no sidebar/header (landing & investor pages)
-const BARE_PATHS = new Set<string>(["/", "/overview", "/launch-demo", "/ceati"]);
+const BARE_PATHS = new Set<string>(["/", "/overview", "/launch-demo", "/ceati", "/cs-health-scorecard"]);
 
 function Shell({ children }: { children: ReactNode }) {
   const [location] = useLocation();
@@ -45,6 +46,7 @@ function Router() {
         <Route path="/overview" component={Overview} />
         <Route path="/launch-demo" component={LaunchDemo} />
         <Route path="/ceati" component={Ceati} />
+        <Route path="/cs-health-scorecard" component={CSHealthScorecard} />
         <Route path="/dashboard" component={Dashboard} />
         <Route path="/accounts" component={Accounts} />
         <Route path="/signals" component={Signals} />
