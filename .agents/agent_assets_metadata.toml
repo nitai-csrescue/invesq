@@ -53,3 +53,33 @@ id = "Dsbdh7tOmLPMcCOU3aAxP"
 uri = "file://screenshots/ceati-5-actions.jpg"
 type = "image"
 title = "Tab 5 — Actions"
+
+[[outputs]]
+id = "He_Vktbz2o68y_BE20D5o"
+uri = "file://screenshots/scorecard-1-executive-summary.jpg"
+type = "image"
+title = "1 · Executive Summary"
+
+[[outputs]]
+id = "UzfDgBmtyHHdXajuGQeMY"
+uri = "file://screenshots/scorecard-2-pillar-scores.jpg"
+type = "image"
+title = "2 · Pillar Scores"
+
+[[outputs]]
+id = "z4UQ8h05kUqOFItR6xG9-"
+uri = "file://screenshots/scorecard-3-evidence-review.jpg"
+type = "image"
+title = "3 · Evidence Review"
+
+[[outputs]]
+id = "-rpXKfdXZ_RdB7eVYOYDL"
+uri = "file://screenshots/scorecard-4-engagement-plan.jpg"
+type = "image"
+title = "4 · Engagement Plan"
+
+[[outputs]]
+id = "4DTLVybVI0fpKwzvvG6XC"
+uri = "file://screenshots/scorecard-5-board-ready-output.jpg"
+type = "image"
+title = "5 · Board-Ready Output"
