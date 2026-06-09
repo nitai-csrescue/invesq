@@ -1,0 +1,172 @@
+Refine the CS Rescue Health Scorecard to feel more like a PE operating partner diagnostic and less like a consultant report.
+
+1. Fix Composite Score Explainability
+
+Keep:
+11 / 20 – Structured Build
+
+Rename:
+"Composite CS Health"
+
+to:
+
+"Weighted CS Health Score"
+
+Add tooltip:
+
+"Composite score combines the 5 scored pillars plus leadership readiness weighting. It is not a direct sum of pillar levels."
+
+This eliminates confusion because the pillar scores total 10 while the weighted score is 11.
+
+---
+
+2. Add "Why This Matters" to Executive Summary
+
+Add a card below the score:
+
+Why This Matters
+
+If left unaddressed:
+
+• Customer risk remains reactive
+• Renewals remain difficult to forecast
+• Expansion remains opportunistic
+• Leadership visibility remains limited
+
+Recommended Action:
+90-Day Structured Build
+
+This helps PE operators immediately understand the business impact.
+
+---
+
+3. Add Expected Outcomes
+
+Add a small card:
+
+Expected Outcomes
+
+✓ Earlier risk identification
+
+✓ Repeatable onboarding motion
+
+✓ Forecastable renewals
+
+✓ Structured expansion process
+
+✓ Executive visibility
+
+Avoid ROI claims or fabricated financial impact.
+
+---
+
+4. Improve Pillar Scores
+
+Keep existing pillar cards.
+
+Add:
+
+Peer Benchmark
+
+Bottom Quartile
+Median
+Top Quartile
+
+Use illustrative benchmark labels only.
+
+This gives context to the score without adding complexity.
+
+---
+
+5. Improve Evidence Review Credibility
+
+Add evidence source tags:
+
+Interview
+CRM Review
+Leadership Workshop
+Data Review
+Process Audit
+
+Example:
+
+Health score exists but manually maintained
+[CRM Review]
+
+Customer risk identified through escalations
+[Leadership Interview]
+
+This makes findings feel evidence-based and investor-ready.
+
+---
+
+6. Improve Board-Ready Narrative
+
+Replace current narrative with:
+
+Current State
+
+The company is successfully retaining customers today, but relies heavily on individual heroics and manual processes.
+
+Customer risk, onboarding progress, and renewal readiness are not consistently visible to leadership.
+
+Without additional instrumentation and operating structure, retention performance may become harder to sustain as the company scales.
+
+Recommended Next Step
+
+Implement a 90-day structured build focused on health scoring, onboarding architecture, renewal forecasting, and CS-to-GTM alignment.
+
+This should read like an operating partner memo rather than a consulting report.
+
+---
+
+7. Preserve Existing Strengths
+
+Keep unchanged:
+
+- Executive Summary layout
+- Pillar Scores structure
+- Evidence Review accordion
+- Engagement Plan
+- 90-Day Operating Plan
+- Board Actions buttons
+- Dark theme styling
+- CS Rescue branding
+
+---
+
+8. Strategic Product Positioning
+
+This scorecard is NOT the same experience as the CEATI Operational Intelligence workspace.
+
+Position this module as:
+
+CS Rescue Diagnostic
+
+Assess
+Score
+Recommend
+Build Plan
+
+Audience:
+PE firms
+Operating partners
+Portfolio company executives
+Due diligence teams
+
+The CEATI workspace remains:
+
+CS Rescue Intelligence
+
+Monitor
+Detect
+Recommend
+Act
+
+Audience:
+Customer Success leaders
+CROs
+Membership organizations
+Portfolio companies
+
+Do not merge the two experiences. Treat them as separate modules of the CS Rescue platform.

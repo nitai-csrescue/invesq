@@ -35,7 +35,24 @@ const PRODUCT_BANNER =
   "CS Rescue is an operator-led diagnostic and intelligence layer — not a CRM or CS-tool replacement. It turns customer data, interviews, and operating evidence into a prioritized value creation plan.";
 
 const COMPOSITE_TOOLTIP =
-  "Weighted composite of 5 scored pillars (each rated 1–4), normalized to a 5–20 score and mapped to a recommended engagement tier. Leadership & Talent is assessed qualitatively.";
+  "Composite score combines the 5 scored pillars plus leadership readiness weighting. It is not a direct sum of pillar levels.";
+
+const WHY_IT_MATTERS = [
+  "Customer risk remains reactive",
+  "Renewals remain difficult to forecast",
+  "Expansion remains opportunistic",
+  "Leadership visibility remains limited",
+];
+
+const EXPECTED_OUTCOMES = [
+  "Earlier risk identification",
+  "Repeatable onboarding motion",
+  "Forecastable renewals",
+  "Structured expansion process",
+  "Executive visibility",
+];
+
+const DIAGNOSTIC_STEPS = ["Assess", "Score", "Recommend", "Build Plan"];
 
 const TABS = [
   "Executive Summary",
@@ -67,6 +84,18 @@ function initialTab(): Tab {
 
 type Level = 1 | 2 | 3 | 4 | null;
 
+type Source =
+  | "Interview"
+  | "CRM Review"
+  | "Leadership Workshop"
+  | "Data Review"
+  | "Process Audit"
+  | "Leadership Interview";
+
+type Evidence = { text: string; source: Source };
+
+type Benchmark = "Bottom Quartile" | "Median" | "Top Quartile";
+
 type Pillar = {
   name: string;
   short: string;
@@ -74,7 +103,8 @@ type Pillar = {
   status: string; // "Critical" | "Developing" | "Functional" | "Optimized" | "Augment"
   icon: LucideIcon;
   measures: string;
-  evidence: string[];
+  benchmark: Benchmark;
+  evidence: Evidence[];
   intervention: string;
 };
 
@@ -87,11 +117,12 @@ const PILLARS: Pillar[] = [
     icon: Users,
     measures:
       "How CS roles, ownership, capacity, and operating cadence are structured to deliver retention and expansion outcomes.",
+    benchmark: "Median",
     evidence: [
-      "CS team exists but roles blur between support and success",
-      "Account ownership is informal and capacity is unmodeled",
-      "No documented operating cadence or QBR rhythm",
-      "Escalations handled reactively rather than by a defined motion",
+      { text: "CS team exists but roles blur between support and success", source: "Interview" },
+      { text: "Account ownership is informal and capacity is unmodeled", source: "Process Audit" },
+      { text: "No documented operating cadence or QBR rhythm", source: "Process Audit" },
+      { text: "Escalations handled reactively rather than by a defined motion", source: "Interview" },
     ],
     intervention:
       "Define CS roles and segment-based coverage, model capacity to book of business, and install a weekly operating cadence.",
@@ -104,11 +135,12 @@ const PILLARS: Pillar[] = [
     icon: Activity,
     measures:
       "Whether customer health, usage, and risk signals are captured systematically and surfaced to the people who act on them.",
+    benchmark: "Bottom Quartile",
     evidence: [
-      "Health score exists but is manually maintained",
-      "Customer risk identified through escalations and gut feel",
-      "No systematic product usage data feeding account management",
-      "Leadership cannot see real-time retention risk without manual reporting",
+      { text: "Health score exists but is manually maintained", source: "CRM Review" },
+      { text: "Customer risk identified through escalations and gut feel", source: "Leadership Interview" },
+      { text: "No systematic product usage data feeding account management", source: "Data Review" },
+      { text: "Leadership cannot see real-time retention risk without manual reporting", source: "Leadership Workshop" },
     ],
     intervention:
       "Implement automated health scoring, trigger-based risk alerts, and a weekly customer risk review.",
@@ -121,11 +153,12 @@ const PILLARS: Pillar[] = [
     icon: Layers,
     measures:
       "Whether the customer lifecycle — onboarding, adoption, renewal, expansion — is defined, repeatable, and instrumented.",
+    benchmark: "Bottom Quartile",
     evidence: [
-      "Onboarding is ad hoc and CSM-dependent",
-      "No defined adoption milestones or time-to-value targets",
-      "Renewal motion starts late and varies by rep",
-      "Expansion is opportunistic, not journey-driven",
+      { text: "Onboarding is ad hoc and CSM-dependent", source: "Process Audit" },
+      { text: "No defined adoption milestones or time-to-value targets", source: "Data Review" },
+      { text: "Renewal motion starts late and varies by rep", source: "CRM Review" },
+      { text: "Expansion is opportunistic, not journey-driven", source: "Interview" },
     ],
     intervention:
       "Architect a milestone-based onboarding journey, define time-to-value targets, and standardize a pre-renewal motion.",
@@ -138,11 +171,12 @@ const PILLARS: Pillar[] = [
     icon: TrendingUp,
     measures:
       "Gross/net retention, expansion contribution, and the commercial accountability of the CS function.",
+    benchmark: "Top Quartile",
     evidence: [
-      "Gross retention is healthy for the segment",
-      "Net retention is positive but expansion is inconsistent",
-      "Renewals close, though often late and unforecasted",
-      "Expansion lacks a repeatable CSQL process",
+      { text: "Gross retention is healthy for the segment", source: "Data Review" },
+      { text: "Net retention is positive but expansion is inconsistent", source: "Data Review" },
+      { text: "Renewals close, though often late and unforecasted", source: "CRM Review" },
+      { text: "Expansion lacks a repeatable CSQL process", source: "Process Audit" },
     ],
     intervention:
       "Formalize CSQL and expansion playbooks, add renewal forecasting, and tie CS to net-retention targets.",
@@ -155,11 +189,12 @@ const PILLARS: Pillar[] = [
     icon: Target,
     measures:
       "How well CS, Sales, Product, and Marketing share signals, ownership, and feedback across the revenue lifecycle.",
+    benchmark: "Median",
     evidence: [
-      "Handoffs from Sales to CS are inconsistent",
-      "Customer insight rarely reaches Product or Marketing",
-      "No shared definition of healthy vs at-risk accounts",
-      "Expansion ownership contested between CS and Sales",
+      { text: "Handoffs from Sales to CS are inconsistent", source: "CRM Review" },
+      { text: "Customer insight rarely reaches Product or Marketing", source: "Interview" },
+      { text: "No shared definition of healthy vs at-risk accounts", source: "Leadership Workshop" },
+      { text: "Expansion ownership contested between CS and Sales", source: "Leadership Interview" },
     ],
     intervention:
       "Establish a shared account-health definition, formal handoff SLAs, and a recurring CS-to-GTM feedback loop.",
@@ -172,11 +207,12 @@ const PILLARS: Pillar[] = [
     icon: Sparkles,
     measures:
       "Whether CS leadership and talent can execute and sustain the operating model being built.",
+    benchmark: "Median",
     evidence: [
-      "Capable leader, but stretched across support and success",
-      "Team skews reactive; limited operations and analytics capacity",
-      "No dedicated CS Ops function today",
-      "Strong domain knowledge, thin process discipline",
+      { text: "Capable leader, but stretched across support and success", source: "Leadership Interview" },
+      { text: "Team skews reactive; limited operations and analytics capacity", source: "Interview" },
+      { text: "No dedicated CS Ops function today", source: "Process Audit" },
+      { text: "Strong domain knowledge, thin process discipline", source: "Leadership Workshop" },
     ],
     intervention:
       "Augment with fractional CS Ops and operator coaching through the 90-day build; hire dedicated CS Ops on graduation.",
@@ -202,6 +238,43 @@ function statusText(p: Pillar): string {
   return p.level === null
     ? "Augment"
     : `Level ${p.level} · ${LEVEL_LABEL[p.level]}`;
+}
+
+function SourceTag({ source }: { source: Source }) {
+  return (
+    <span className="ml-0.5 inline-flex items-center rounded border border-white/10 bg-white/5 px-1.5 py-px text-[10px] font-medium text-slate-400 align-middle whitespace-nowrap">
+      {source}
+    </span>
+  );
+}
+
+const BENCHMARK_STEPS: Benchmark[] = ["Bottom Quartile", "Median", "Top Quartile"];
+
+function PeerBenchmark({ value }: { value: Benchmark }) {
+  return (
+    <div>
+      <p className="text-[10px] uppercase tracking-[0.16em] text-slate-500 font-semibold mb-1.5">
+        Peer Benchmark
+      </p>
+      <div className="grid grid-cols-3 gap-1">
+        {BENCHMARK_STEPS.map((s) => {
+          const active = s === value;
+          return (
+            <div
+              key={s}
+              className={`rounded-md border px-2 py-1 text-center text-[10px] font-medium leading-tight ${
+                active
+                  ? "border-cyan-400/40 bg-cyan-500/10 text-cyan-200"
+                  : "border-white/5 bg-slate-900/40 text-slate-500"
+              }`}
+            >
+              {s}
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
 }
 
 const TIERS = [
@@ -298,8 +371,14 @@ const PLAN_WEEKS = [
   },
 ];
 
-const BOARD_NARRATIVE =
-  "This company has a basic CS function but lacks scalable signal infrastructure and repeatable journey architecture. Retention performance is currently functional, but risk may be underreported because health scoring and risk detection are manual. CS Rescue recommends a 90-day structured build focused on moving the company from reactive CS execution to a signal-driven, commercially accountable retention engine.";
+const BOARD_CURRENT_STATE = [
+  "The company is successfully retaining customers today, but relies heavily on individual heroics and manual processes.",
+  "Customer risk, onboarding progress, and renewal readiness are not consistently visible to leadership.",
+  "Without additional instrumentation and operating structure, retention performance may become harder to sustain as the company scales.",
+];
+
+const BOARD_NEXT_STEP =
+  "Implement a 90-day structured build focused on health scoring, onboarding architecture, renewal forecasting, and CS-to-GTM alignment.";
 
 /* --------------------------- shared atoms --------------------------- */
 
@@ -368,8 +447,8 @@ function ExecutiveSummaryTab({ onNavigate }: { onNavigate: (t: Tab) => void }) {
       <div className="rounded-xl border border-white/10 bg-slate-950/40 p-6">
         <div className="grid grid-cols-1 lg:grid-cols-[260px_1fr] gap-6">
           <div className="flex flex-col items-center justify-center rounded-xl border border-amber-400/20 bg-amber-500/5 p-6 text-center">
-            <p className="text-[11px] uppercase tracking-[0.16em] text-slate-400 font-semibold inline-flex items-center gap-1">
-              Composite CS Health
+            <p className="text-[11px] uppercase tracking-[0.16em] text-slate-400 font-semibold inline-flex items-center gap-1 justify-center text-center">
+              Weighted CS Health Score
               <span title={COMPOSITE_TOOLTIP} className="inline-flex cursor-help">
                 <Info className="w-3 h-3 text-slate-500" />
               </span>
@@ -390,6 +469,50 @@ function ExecutiveSummaryTab({ onNavigate }: { onNavigate: (t: Tab) => void }) {
             </p>
             <ScoreBar />
           </div>
+        </div>
+      </div>
+
+      {/* Why this matters + expected outcomes */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <div className="rounded-xl border border-rose-400/15 bg-rose-500/[0.04] p-5">
+          <div className="flex items-center gap-2 mb-3">
+            <AlertTriangle className="w-4 h-4 text-rose-300" />
+            <h3 className="text-xs uppercase tracking-[0.16em] text-slate-400 font-semibold">
+              Why This Matters
+            </h3>
+          </div>
+          <p className="text-xs text-slate-400 mb-2">If left unaddressed:</p>
+          <ul className="space-y-1.5">
+            {WHY_IT_MATTERS.map((w) => (
+              <li key={w} className="text-sm text-slate-200 flex gap-2">
+                <span className="text-rose-400/70 mt-px">•</span>
+                <span>{w}</span>
+              </li>
+            ))}
+          </ul>
+          <div className="mt-4 pt-3 border-t border-white/5">
+            <p className="text-[10px] uppercase tracking-[0.16em] text-slate-500 font-semibold mb-1">
+              Recommended Action
+            </p>
+            <p className="text-sm font-semibold text-white">90-Day Structured Build</p>
+          </div>
+        </div>
+
+        <div className="rounded-xl border border-emerald-400/15 bg-emerald-500/[0.04] p-5">
+          <div className="flex items-center gap-2 mb-3">
+            <CheckCircle2 className="w-4 h-4 text-emerald-300" />
+            <h3 className="text-xs uppercase tracking-[0.16em] text-slate-400 font-semibold">
+              Expected Outcomes
+            </h3>
+          </div>
+          <ul className="space-y-2">
+            {EXPECTED_OUTCOMES.map((o) => (
+              <li key={o} className="text-sm text-slate-200 flex gap-2">
+                <CheckCircle2 className="w-4 h-4 text-emerald-400/80 shrink-0 mt-px" />
+                <span>{o}</span>
+              </li>
+            ))}
+          </ul>
         </div>
       </div>
 
@@ -503,15 +626,18 @@ function PillarScoresTab() {
                 </p>
                 <p className="text-xs text-slate-300 leading-relaxed">{p.measures}</p>
               </div>
+              <PeerBenchmark value={p.benchmark} />
               <div>
                 <p className="text-[10px] uppercase tracking-[0.16em] text-slate-500 font-semibold mb-1.5">
                   Key evidence
                 </p>
-                <ul className="space-y-1">
+                <ul className="space-y-1.5">
                   {p.evidence.slice(0, 3).map((e) => (
-                    <li key={e} className="text-xs text-slate-400 flex gap-2">
+                    <li key={e.text} className="text-xs text-slate-400 flex gap-2">
                       <span className="text-slate-600 mt-px">•</span>
-                      <span>{e}</span>
+                      <span>
+                        {e.text} <SourceTag source={e.source} />
+                      </span>
                     </li>
                   ))}
                 </ul>
@@ -578,9 +704,11 @@ function EvidenceReviewTab() {
                   </p>
                   <ul className="space-y-2">
                     {p.evidence.map((e) => (
-                      <li key={e} className="text-xs text-slate-300 flex gap-2">
+                      <li key={e.text} className="text-xs text-slate-300 flex gap-2">
                         <AlertCircle className="w-3.5 h-3.5 text-slate-500 shrink-0 mt-px" />
-                        <span>{e}</span>
+                        <span>
+                          {e.text} <SourceTag source={e.source} />
+                        </span>
                       </li>
                     ))}
                   </ul>
@@ -746,9 +874,26 @@ function BoardOutputTab({ onNavigate }: { onNavigate: (t: Tab) => void }) {
             90-day build program
           </span>
         </div>
-        <p className="text-base text-slate-200 leading-relaxed max-w-3xl">
-          {BOARD_NARRATIVE}
-        </p>
+        <div className="space-y-4 max-w-3xl">
+          <div>
+            <p className="text-[10px] uppercase tracking-[0.16em] text-slate-500 font-semibold mb-2">
+              Current State
+            </p>
+            <div className="space-y-2.5">
+              {BOARD_CURRENT_STATE.map((para) => (
+                <p key={para} className="text-base text-slate-200 leading-relaxed">
+                  {para}
+                </p>
+              ))}
+            </div>
+          </div>
+          <div className="pt-1">
+            <p className="text-[10px] uppercase tracking-[0.16em] text-cyan-400/80 font-semibold mb-2">
+              Recommended Next Step
+            </p>
+            <p className="text-base text-slate-200 leading-relaxed">{BOARD_NEXT_STEP}</p>
+          </div>
+        </div>
       </div>
 
       <div className="rounded-xl border border-white/10 bg-slate-950/40 p-5">
@@ -830,6 +975,21 @@ export default function CSHealthScorecard() {
 
           <div className="mt-4 rounded-lg border border-cyan-400/15 bg-cyan-500/[0.04] px-4 py-2.5">
             <p className="text-xs text-slate-300 leading-relaxed">{PRODUCT_BANNER}</p>
+          </div>
+
+          <div className="mt-3 flex flex-wrap items-center gap-x-2 gap-y-1 text-[11px]">
+            <span className="font-semibold uppercase tracking-[0.16em] text-cyan-300/90">
+              CS Rescue Diagnostic
+            </span>
+            <span className="text-slate-600">—</span>
+            {DIAGNOSTIC_STEPS.map((s, i) => (
+              <span key={s} className="inline-flex items-center gap-2 text-slate-400">
+                <span>{s}</span>
+                {i < DIAGNOSTIC_STEPS.length - 1 && (
+                  <ArrowRight className="w-3 h-3 text-slate-600" />
+                )}
+              </span>
+            ))}
           </div>
 
           <nav className="flex flex-wrap gap-1 mt-5">
