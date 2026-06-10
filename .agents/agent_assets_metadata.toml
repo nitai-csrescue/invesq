@@ -83,3 +83,9 @@ id = "4DTLVybVI0fpKwzvvG6XC"
 uri = "file://screenshots/scorecard-5-board-ready-output.jpg"
 type = "image"
 title = "5 · Board-Ready Output"
+
+[[outputs]]
+id = "Uq1YLy7s6tKlgwOenYo2S"
+uri = "file://artifacts/cs-rescue-video/public/audio/bg_music.mp3"
+type = "audio"
+title = "background music"

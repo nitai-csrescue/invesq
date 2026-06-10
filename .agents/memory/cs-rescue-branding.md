@@ -21,3 +21,10 @@ deliverable whose source spec/PDF is pervasively branded "CS Rescue · CEATI" an
 references "BackEngine + AI reasoning"; the user supplied that exact title verbatim.
 The INVESQ rule applies to the main investor-pitch chrome, not this standalone
 customer demo. Do not "correct" /ceati to INVESQ without asking.
+
+## Exception: cs-rescue-video artifact (Techstars demo)
+The `artifacts/cs-rescue-video` artifact ("CS Rescue Product Demo Video") is
+intentionally branded **CS Rescue**, NOT INVESQ. **Why:** it was built for a
+Techstars accelerator application whose form describes the product as "CS Rescue —
+an AI-native operational intelligence platform"; the user wants the demo video to
+match that submission verbatim. Do not "correct" this video to INVESQ.
