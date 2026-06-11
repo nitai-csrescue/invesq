@@ -1,9 +1,12 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Cursor } from '../Cursor';
 
 export function Scene2() {
   const [phase, setPhase] = useState(0);
+  const target1Ref = useRef<HTMLTableRowElement>(null);
+  const target2Ref = useRef<HTMLTableRowElement>(null);
+  const [cursorPos, setCursorPos] = useState({ x: '50vw', y: '80vh' });
 
   useEffect(() => {
     const timers = [
@@ -15,6 +18,31 @@ export function Scene2() {
     ];
     return () => timers.forEach(t => clearTimeout(t));
   }, []);
+
+  useEffect(() => {
+    const updateCursor = () => {
+      let target: HTMLElement | null = null;
+      if (phase >= 4) target = target2Ref.current;
+      else if (phase >= 2) target = target1Ref.current;
+
+      if (target) {
+        const rect = target.getBoundingClientRect();
+        setCursorPos({
+          x: `${rect.left + 100 - 6}px`, // 100px into the row horizontally
+          y: `${rect.top + rect.height * 0.5 - 6}px`
+        });
+      } else {
+        setCursorPos({ x: '50vw', y: '80vh' });
+      }
+    };
+    
+    const t = setTimeout(updateCursor, 50);
+    window.addEventListener('resize', updateCursor);
+    return () => {
+      clearTimeout(t);
+      window.removeEventListener('resize', updateCursor);
+    };
+  }, [phase]);
 
   const data = [
     { name: "Acme Corp", health: 92, arr: "$1.2M", risk: "$0", trend: "+5%", status: "Healthy" },
@@ -42,7 +70,7 @@ export function Scene2() {
         </h1>
       </motion.div>
 
-      {/* Narrative Overlays (Moved to bottom left/right) */}
+      {/* Narrative Overlays */}
       <motion.div 
         className="absolute bottom-[5vh] left-[5vw] z-50 bg-black/50 backdrop-blur-md px-6 py-3 rounded-full border border-white/10"
         initial={{ opacity: 0, y: 20 }}
@@ -70,8 +98,8 @@ export function Scene2() {
         animate={{ scale: 1, y: 0, opacity: 1 }}
         transition={{ type: 'spring', stiffness: 100, damping: 20, delay: 0.2 }}
       >
-        {/* Table View */}
-        <div className="flex-1 p-8 overflow-hidden">
+        {/* Table View (Fixed Width) */}
+        <div className="w-[57vw] shrink-0 p-8 overflow-hidden">
           <div className="flex items-center justify-between mb-6">
             <h3 className="text-xl text-white font-medium">Customer Health Directory</h3>
             <div className="flex gap-2">
@@ -96,6 +124,7 @@ export function Scene2() {
                 return (
                   <motion.tr 
                     key={i}
+                    ref={i === 0 ? target1Ref : i === 2 ? target2Ref : null}
                     className={`border-b border-white/5 transition-colors relative ${isActive ? 'bg-blue-500/10' : ''}`}
                     animate={{ backgroundColor: isActive ? 'rgba(59, 130, 246, 0.1)' : 'transparent' }}
                   >
@@ -126,76 +155,65 @@ export function Scene2() {
           </table>
         </div>
 
-        {/* Drill-down Drawer */}
-        <AnimatePresence>
-          {(phase >= 3) && (
-            <motion.div 
-              className="w-[28vw] bg-[#0d131f] border-l border-white/10 p-8 flex flex-col"
-              initial={{ x: '100%' }}
-              animate={{ x: 0 }}
-              exit={{ x: '100%' }}
-              transition={{ type: 'spring', stiffness: 200, damping: 25 }}
-            >
-              <h4 className="text-white/50 text-sm uppercase tracking-wider mb-2">Detailed Analysis</h4>
-              {phase < 5 ? (
-                <>
-                  <h3 className="text-2xl text-white font-bold mb-6">Acme Corp</h3>
-                  <div className="p-5 bg-white/5 rounded-xl border border-white/10 mb-6">
-                    <div className="text-white/50 text-sm mb-1">Health Score Breakdown</div>
-                    <div className="text-4xl text-emerald-400 font-bold mb-4">92/100</div>
-                    <div className="space-y-3">
-                      <div>
-                        <div className="flex justify-between text-xs mb-1"><span className="text-white/80">Product Usage</span><span className="text-white">95/100</span></div>
-                        <div className="h-1.5 w-full bg-white/10 rounded-full overflow-hidden"><div className="h-full bg-blue-400 w-[95%]"></div></div>
-                      </div>
-                      <div>
-                        <div className="flex justify-between text-xs mb-1"><span className="text-white/80">Support Tickets</span><span className="text-white">88/100</span></div>
-                        <div className="h-1.5 w-full bg-white/10 rounded-full overflow-hidden"><div className="h-full bg-emerald-400 w-[88%]"></div></div>
+        {/* Drill-down Drawer Area (Fixed Width) */}
+        <div className="w-[28vw] shrink-0 relative bg-[#0d131f] border-l border-white/10 overflow-hidden">
+          <AnimatePresence>
+            {(phase >= 3) && (
+              <motion.div 
+                className="absolute inset-0 p-8 flex flex-col"
+                initial={{ x: '100%' }}
+                animate={{ x: 0 }}
+                exit={{ x: '100%' }}
+                transition={{ type: 'spring', stiffness: 200, damping: 25 }}
+              >
+                <h4 className="text-white/50 text-sm uppercase tracking-wider mb-2">Detailed Analysis</h4>
+                {phase < 5 ? (
+                  <>
+                    <h3 className="text-2xl text-white font-bold mb-6">Acme Corp</h3>
+                    <div className="p-5 bg-white/5 rounded-xl border border-white/10 mb-6">
+                      <div className="text-white/50 text-sm mb-1">Health Score Breakdown</div>
+                      <div className="text-4xl text-emerald-400 font-bold mb-4">92/100</div>
+                      <div className="space-y-3">
+                        <div>
+                          <div className="flex justify-between text-xs mb-1"><span className="text-white/80">Product Usage</span><span className="text-white">95/100</span></div>
+                          <div className="h-1.5 w-full bg-white/10 rounded-full overflow-hidden"><div className="h-full bg-blue-400 w-[95%]"></div></div>
+                        </div>
+                        <div>
+                          <div className="flex justify-between text-xs mb-1"><span className="text-white/80">Support Tickets</span><span className="text-white">88/100</span></div>
+                          <div className="h-1.5 w-full bg-white/10 rounded-full overflow-hidden"><div className="h-full bg-emerald-400 w-[88%]"></div></div>
+                        </div>
                       </div>
                     </div>
-                  </div>
-                  <p className="text-white/70 text-sm leading-relaxed">
-                    Account is showing strong adoption signals. Opportunity to position Enterprise expansion in Q3.
-                  </p>
-                </>
-              ) : (
-                <>
-                  <h3 className="text-2xl text-white font-bold mb-6">Global Industries</h3>
-                  <div className="p-5 bg-white/5 rounded-xl border border-white/10 mb-6">
-                    <div className="text-white/50 text-sm mb-1">Retention Trend</div>
-                    <div className="text-4xl text-blue-400 font-bold mb-4">+8%</div>
-                    <div className="flex items-end gap-2 h-20 mt-4">
-                      {[40, 50, 60, 55, 70, 85].map((h, i) => (
-                        <div key={i} className="flex-1 bg-blue-500/40 rounded-t-sm" style={{ height: `${h}%` }}></div>
-                      ))}
+                    <p className="text-white/70 text-sm leading-relaxed">
+                      Account is showing strong adoption signals. Opportunity to position Enterprise expansion in Q3.
+                    </p>
+                  </>
+                ) : (
+                  <>
+                    <h3 className="text-2xl text-white font-bold mb-6">Global Industries</h3>
+                    <div className="p-5 bg-white/5 rounded-xl border border-white/10 mb-6">
+                      <div className="text-white/50 text-sm mb-1">Retention Trend</div>
+                      <div className="text-4xl text-blue-400 font-bold mb-4">+8%</div>
+                      <div className="flex items-end gap-2 h-20 mt-4">
+                        {[40, 50, 60, 55, 70, 85].map((h, i) => (
+                          <div key={i} className="flex-1 bg-blue-500/40 rounded-t-sm" style={{ height: `${h}%` }}></div>
+                        ))}
+                      </div>
                     </div>
-                  </div>
-                  <p className="text-white/70 text-sm leading-relaxed">
-                    Consistent multi-quarter growth. Renewal probability estimated at 98%.
-                  </p>
-                </>
-              )}
-            </motion.div>
-          )}
-        </AnimatePresence>
-
+                    <p className="text-white/70 text-sm leading-relaxed">
+                      Consistent multi-quarter growth. Renewal probability estimated at 98%.
+                    </p>
+                  </>
+                )}
+              </motion.div>
+            )}
+          </AnimatePresence>
+        </div>
       </motion.div>
 
       <Cursor 
-        x={
-          phase >= 5 ? '65vw' :
-          phase >= 4 ? '45vw' :
-          phase >= 3 ? '45vw' : 
-          phase >= 2 ? '45vw' :
-          '50vw'
-        }
-        y={
-          phase >= 5 ? '55vh' : 
-          phase >= 4 ? '55vh' :
-          phase >= 3 ? '40vh' :
-          phase >= 2 ? '40vh' :
-          '80vh'
-        }
+        x={cursorPos.x}
+        y={cursorPos.y}
         clicking={phase === 3 || phase === 5}
       />
     </motion.div>

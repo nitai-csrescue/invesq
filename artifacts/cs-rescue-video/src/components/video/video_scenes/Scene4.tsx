@@ -1,9 +1,12 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Cursor } from '../Cursor';
 
 export function Scene4() {
   const [phase, setPhase] = useState(0);
+  const target1Ref = useRef<HTMLTableRowElement>(null);
+  const target2Ref = useRef<HTMLTableRowElement>(null);
+  const [cursorPos, setCursorPos] = useState({ x: '50vw', y: '80vh' });
 
   useEffect(() => {
     const timers = [
@@ -15,6 +18,31 @@ export function Scene4() {
     ];
     return () => timers.forEach(t => clearTimeout(t));
   }, []);
+
+  useEffect(() => {
+    const updateCursor = () => {
+      let target: HTMLElement | null = null;
+      if (phase >= 4) target = target2Ref.current;
+      else if (phase >= 2) target = target1Ref.current;
+
+      if (target) {
+        const rect = target.getBoundingClientRect();
+        setCursorPos({
+          x: `${rect.left + 150 - 6}px`, // 150px into row
+          y: `${rect.top + rect.height * 0.5 - 6}px`
+        });
+      } else {
+        setCursorPos({ x: '50vw', y: '80vh' });
+      }
+    };
+    
+    const t = setTimeout(updateCursor, 50);
+    window.addEventListener('resize', updateCursor);
+    return () => {
+      clearTimeout(t);
+      window.removeEventListener('resize', updateCursor);
+    };
+  }, [phase]);
 
   const data = [
     { name: "Support SLA Breaches", impact: "High", team: "Support", trend: "+15% YoY", status: "Investigating" },
@@ -70,8 +98,8 @@ export function Scene4() {
         animate={{ scale: 1, y: 0, opacity: 1 }}
         transition={{ type: 'spring', stiffness: 100, damping: 20, delay: 0.2 }}
       >
-        {/* Table View */}
-        <div className="flex-1 p-8 overflow-hidden">
+        {/* Table View (Fixed Width) */}
+        <div className="w-[55vw] shrink-0 p-8 overflow-hidden">
           <div className="flex items-center justify-between mb-6">
             <h3 className="text-xl text-white font-medium">Cross-System Findings</h3>
             <div className="flex gap-2 text-xs font-mono text-white/40">
@@ -94,6 +122,7 @@ export function Scene4() {
                 return (
                   <motion.tr 
                     key={i}
+                    ref={i === 0 ? target1Ref : i === 1 ? target2Ref : null}
                     className={`border-b border-white/5 transition-colors relative ${isActive ? 'bg-indigo-500/10' : ''}`}
                     animate={{ backgroundColor: isActive ? 'rgba(99, 102, 241, 0.1)' : 'transparent' }}
                   >
@@ -119,73 +148,63 @@ export function Scene4() {
           </table>
         </div>
 
-        {/* Drill-down Drawer */}
-        <AnimatePresence>
-          {(phase >= 3) && (
-            <motion.div 
-              className="w-[30vw] bg-[#0d131f] border-l border-white/10 p-8 flex flex-col"
-              initial={{ x: '100%' }}
-              animate={{ x: 0 }}
-              exit={{ x: '100%' }}
-              transition={{ type: 'spring', stiffness: 200, damping: 25 }}
-            >
-              <div className="flex items-center gap-2 text-indigo-400 font-mono text-xs mb-4">
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 12a9 9 0 1 1-9-9c2.52 0 4.93 1 6.74 2.74L21 8"/><path d="M21 3v5h-5"/></svg>
-                AI ANALYSIS COMPLETE
-              </div>
+        {/* Drill-down Drawer Area (Fixed Width) */}
+        <div className="w-[30vw] shrink-0 relative bg-[#0d131f] border-l border-white/10 overflow-hidden">
+          <AnimatePresence>
+            {(phase >= 3) && (
+              <motion.div 
+                className="absolute inset-0 p-8 flex flex-col"
+                initial={{ x: '100%' }}
+                animate={{ x: 0 }}
+                exit={{ x: '100%' }}
+                transition={{ type: 'spring', stiffness: 200, damping: 25 }}
+              >
+                <div className="flex items-center gap-2 text-indigo-400 font-mono text-xs mb-4">
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 12a9 9 0 1 1-9-9c2.52 0 4.93 1 6.74 2.74L21 8"/><path d="M21 3v5h-5"/></svg>
+                  AI ANALYSIS COMPLETE
+                </div>
 
-              {phase < 5 ? (
-                <>
-                  <h3 className="text-xl text-white font-bold mb-4">Support SLA Breaches</h3>
-                  <div className="p-4 bg-white/5 rounded-lg border border-white/10 mb-4">
-                    <p className="text-white/80 text-sm leading-relaxed">
-                      Cross-referencing <span className="text-blue-400 font-mono">Zendesk</span> volume with <span className="text-emerald-400 font-mono">Jira</span> bug resolution times shows a 45% correlation. SLA breaches are isolated to Enterprise accounts facing API integration issues.
-                    </p>
-                  </div>
-                  <div className="mt-4">
-                    <div className="text-white/50 text-xs mb-2 uppercase tracking-wider">Root Cause Graph</div>
-                    <div className="h-24 flex items-end gap-1">
-                      {[2, 3, 5, 8, 12, 18, 25, 30].map((v, i) => (
-                        <div key={i} className="flex-1 bg-orange-500/50 rounded-t-sm" style={{ height: `${v}%` }}></div>
-                      ))}
+                {phase < 5 ? (
+                  <>
+                    <h3 className="text-xl text-white font-bold mb-4">Support SLA Breaches</h3>
+                    <div className="p-4 bg-white/5 rounded-lg border border-white/10 mb-4">
+                      <p className="text-white/80 text-sm leading-relaxed">
+                        Cross-referencing <span className="text-blue-400 font-mono">Zendesk</span> volume with <span className="text-emerald-400 font-mono">Jira</span> bug resolution times shows a 45% correlation. SLA breaches are isolated to Enterprise accounts facing API integration issues.
+                      </p>
                     </div>
-                  </div>
-                </>
-              ) : (
-                <>
-                  <h3 className="text-xl text-white font-bold mb-4">Onboarding Handoff Delay</h3>
-                  <div className="p-4 bg-white/5 rounded-lg border border-white/10 mb-4">
-                    <p className="text-white/80 text-sm leading-relaxed">
-                      Time gap between "Closed Won" in <span className="text-blue-400 font-mono">Salesforce</span> and first kickoff meeting logged in <span className="text-purple-400 font-mono">Gong</span> averages 14 days. Industry benchmark is &lt;3 days.
-                    </p>
-                  </div>
-                  <div className="p-4 bg-red-500/10 border border-red-500/20 rounded-lg">
-                    <div className="text-red-400 font-bold mb-1">Impact</div>
-                    <div className="text-white/90 text-sm">Delays Time-to-Value. Driving early-stage churn risk in SMB segment.</div>
-                  </div>
-                </>
-              )}
-            </motion.div>
-          )}
-        </AnimatePresence>
+                    <div className="mt-4">
+                      <div className="text-white/50 text-xs mb-2 uppercase tracking-wider">Root Cause Graph</div>
+                      <div className="h-24 flex items-end gap-1">
+                        {[2, 3, 5, 8, 12, 18, 25, 30].map((v, i) => (
+                          <div key={i} className="flex-1 bg-orange-500/50 rounded-t-sm" style={{ height: `${v}%` }}></div>
+                        ))}
+                      </div>
+                    </div>
+                  </>
+                ) : (
+                  <>
+                    <h3 className="text-xl text-white font-bold mb-4">Onboarding Handoff Delay</h3>
+                    <div className="p-4 bg-white/5 rounded-lg border border-white/10 mb-4">
+                      <p className="text-white/80 text-sm leading-relaxed">
+                        Time gap between "Closed Won" in <span className="text-blue-400 font-mono">Salesforce</span> and first kickoff meeting logged in <span className="text-purple-400 font-mono">Gong</span> averages 14 days. Industry benchmark is &lt;3 days.
+                      </p>
+                    </div>
+                    <div className="p-4 bg-red-500/10 border border-red-500/20 rounded-lg">
+                      <div className="text-red-400 font-bold mb-1">Impact</div>
+                      <div className="text-white/90 text-sm">Delays Time-to-Value. Driving early-stage churn risk in SMB segment.</div>
+                    </div>
+                  </>
+                )}
+              </motion.div>
+            )}
+          </AnimatePresence>
+        </div>
 
       </motion.div>
 
       <Cursor 
-        x={
-          phase >= 5 ? '45vw' :
-          phase >= 4 ? '45vw' :
-          phase >= 3 ? '45vw' : 
-          phase >= 2 ? '45vw' :
-          '50vw'
-        }
-        y={
-          phase >= 5 ? '48vh' : 
-          phase >= 4 ? '48vh' :
-          phase >= 3 ? '38vh' :
-          phase >= 2 ? '38vh' :
-          '80vh'
-        }
+        x={cursorPos.x}
+        y={cursorPos.y}
         clicking={phase === 3 || phase === 5}
       />
     </motion.div>

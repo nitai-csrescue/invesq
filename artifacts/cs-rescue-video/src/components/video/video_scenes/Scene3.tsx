@@ -1,9 +1,12 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Cursor } from '../Cursor';
 
 export function Scene3() {
   const [phase, setPhase] = useState(0);
+  const target1Ref = useRef<HTMLTableRowElement>(null);
+  const target2Ref = useRef<HTMLDivElement>(null);
+  const [cursorPos, setCursorPos] = useState({ x: '50vw', y: '80vh' });
 
   useEffect(() => {
     const timers = [
@@ -15,6 +18,33 @@ export function Scene3() {
     ];
     return () => timers.forEach(t => clearTimeout(t));
   }, []);
+
+  useEffect(() => {
+    const updateCursor = () => {
+      let target: HTMLElement | null = null;
+      if (phase >= 4) target = target2Ref.current;
+      else if (phase >= 2) target = target1Ref.current;
+
+      if (target) {
+        const rect = target.getBoundingClientRect();
+        // If it's a div (the tab), center horizontally. If row, 100px in.
+        const isTab = target.tagName.toLowerCase() === 'div';
+        setCursorPos({
+          x: `${rect.left + (isTab ? rect.width * 0.5 : 100) - 6}px`,
+          y: `${rect.top + rect.height * 0.5 - 6}px`
+        });
+      } else {
+        setCursorPos({ x: '50vw', y: '80vh' });
+      }
+    };
+    
+    const t = setTimeout(updateCursor, 50);
+    window.addEventListener('resize', updateCursor);
+    return () => {
+      clearTimeout(t);
+      window.removeEventListener('resize', updateCursor);
+    };
+  }, [phase]);
 
   const data = [
     { name: "Acme Corp", stage: "Adoption", ttv: "45 days", status: "On Track" },
@@ -70,8 +100,8 @@ export function Scene3() {
         animate={{ scale: 1, y: 0, opacity: 1 }}
         transition={{ type: 'spring', stiffness: 100, damping: 20, delay: 0.2 }}
       >
-        {/* Table View */}
-        <div className="flex-1 p-8 overflow-hidden">
+        {/* Table View (Fixed Width) */}
+        <div className="w-[55vw] shrink-0 p-8 overflow-hidden">
           <div className="flex items-center justify-between mb-6">
             <h3 className="text-xl text-white font-medium">Lifecycle Tracker</h3>
             <div className="flex gap-2">
@@ -94,6 +124,7 @@ export function Scene3() {
                 return (
                   <motion.tr 
                     key={i}
+                    ref={i === 1 ? target1Ref : null}
                     className={`border-b border-white/5 transition-colors relative ${isActive ? 'bg-emerald-500/10' : ''}`}
                     animate={{ backgroundColor: isActive ? 'rgba(16, 185, 129, 0.1)' : 'transparent' }}
                   >
@@ -121,89 +152,79 @@ export function Scene3() {
           </table>
         </div>
 
-        {/* Drill-down Drawer */}
-        <AnimatePresence>
-          {(phase >= 3) && (
-            <motion.div 
-              className="w-[30vw] bg-[#0d131f] border-l border-white/10 p-8 flex flex-col"
-              initial={{ x: '100%' }}
-              animate={{ x: 0 }}
-              exit={{ x: '100%' }}
-              transition={{ type: 'spring', stiffness: 200, damping: 25 }}
-            >
-              <div className="flex items-center gap-4 mb-6">
-                <div className="w-10 h-10 rounded bg-red-500/20 flex items-center justify-center text-red-400 font-bold">TF</div>
-                <div>
-                  <h3 className="text-xl text-white font-bold">TechFlow</h3>
-                  <div className="text-white/50 text-xs">Onboarding Stage</div>
-                </div>
-              </div>
-
-              {/* Tabs */}
-              <div className="flex gap-4 border-b border-white/10 mb-6">
-                <div className={`pb-2 text-sm font-medium border-b-2 transition-colors ${phase < 5 ? 'border-emerald-400 text-emerald-400' : 'border-transparent text-white/50'}`}>Performance</div>
-                <div className={`pb-2 text-sm font-medium border-b-2 transition-colors ${phase >= 5 ? 'border-red-400 text-red-400' : 'border-transparent text-white/50'}`}>Risk Flags</div>
-              </div>
-
-              {phase < 5 ? (
-                <div className="space-y-4">
-                  <div className="p-4 bg-white/5 rounded-xl border border-white/10">
-                    <div className="text-white/50 text-sm mb-2">Implementation Milestone</div>
-                    <div className="flex justify-between items-end mb-2">
-                      <div className="text-2xl text-yellow-400 font-bold">Stalled</div>
-                      <div className="text-white/80 text-sm">Week 6 of 4</div>
-                    </div>
-                    <div className="w-full bg-white/10 h-2 rounded-full mt-4 overflow-hidden">
-                      <div className="bg-yellow-400 w-[60%] h-full rounded-full"></div>
-                    </div>
+        {/* Drill-down Drawer Area (Fixed Width) */}
+        <div className="w-[30vw] shrink-0 relative bg-[#0d131f] border-l border-white/10 overflow-hidden">
+          <AnimatePresence>
+            {(phase >= 3) && (
+              <motion.div 
+                className="absolute inset-0 p-8 flex flex-col"
+                initial={{ x: '100%' }}
+                animate={{ x: 0 }}
+                exit={{ x: '100%' }}
+                transition={{ type: 'spring', stiffness: 200, damping: 25 }}
+              >
+                <div className="flex items-center gap-4 mb-6">
+                  <div className="w-10 h-10 rounded bg-red-500/20 flex items-center justify-center text-red-400 font-bold">TF</div>
+                  <div>
+                    <h3 className="text-xl text-white font-bold">TechFlow</h3>
+                    <div className="text-white/50 text-xs">Onboarding Stage</div>
                   </div>
-                  <p className="text-white/70 text-sm leading-relaxed">
-                    Technical integration blocked on customer IT resources. Executive sponsor has not logged in for 14 days.
-                  </p>
                 </div>
-              ) : (
-                <div className="space-y-4">
-                  <div className="p-4 bg-red-500/10 rounded-xl border border-red-500/20">
-                    <div className="flex items-start gap-3">
-                      <div className="text-red-400 mt-1">⚠️</div>
-                      <div>
-                        <div className="text-white font-medium mb-1">Executive Sponsor Churn</div>
-                        <div className="text-white/70 text-sm leading-relaxed">System detected key contact "VP of Eng" removed from Okta directory integration 2 days ago.</div>
+
+                {/* Tabs */}
+                <div className="flex gap-4 border-b border-white/10 mb-6">
+                  <div className={`pb-2 text-sm font-medium border-b-2 transition-colors ${phase < 5 ? 'border-emerald-400 text-emerald-400' : 'border-transparent text-white/50'}`}>Performance</div>
+                  <div ref={target2Ref} className={`pb-2 px-2 text-sm font-medium border-b-2 transition-colors cursor-pointer ${phase >= 5 ? 'border-red-400 text-red-400' : 'border-transparent text-white/50 hover:text-white'}`}>Risk Flags</div>
+                </div>
+
+                {phase < 5 ? (
+                  <div className="space-y-4">
+                    <div className="p-4 bg-white/5 rounded-xl border border-white/10">
+                      <div className="text-white/50 text-sm mb-2">Implementation Milestone</div>
+                      <div className="flex justify-between items-end mb-2">
+                        <div className="text-2xl text-yellow-400 font-bold">Stalled</div>
+                        <div className="text-white/80 text-sm">Week 6 of 4</div>
+                      </div>
+                      <div className="w-full bg-white/10 h-2 rounded-full mt-4 overflow-hidden">
+                        <div className="bg-yellow-400 w-[60%] h-full rounded-full"></div>
+                      </div>
+                    </div>
+                    <p className="text-white/70 text-sm leading-relaxed">
+                      Technical integration blocked on customer IT resources. Executive sponsor has not logged in for 14 days.
+                    </p>
+                  </div>
+                ) : (
+                  <div className="space-y-4">
+                    <div className="p-4 bg-red-500/10 rounded-xl border border-red-500/20">
+                      <div className="flex items-start gap-3">
+                        <div className="text-red-400 mt-1">⚠️</div>
+                        <div>
+                          <div className="text-white font-medium mb-1">Executive Sponsor Churn</div>
+                          <div className="text-white/70 text-sm leading-relaxed">System detected key contact "VP of Eng" removed from Okta directory integration 2 days ago.</div>
+                        </div>
+                      </div>
+                    </div>
+                    <div className="p-4 bg-yellow-500/10 rounded-xl border border-yellow-500/20">
+                      <div className="flex items-start gap-3">
+                        <div className="text-yellow-400 mt-1">⏳</div>
+                        <div>
+                          <div className="text-white font-medium mb-1">Missed Value Date</div>
+                          <div className="text-white/70 text-sm leading-relaxed">Expected go-live date passed. Associated $50K expansion opp at risk.</div>
+                        </div>
                       </div>
                     </div>
                   </div>
-                  <div className="p-4 bg-yellow-500/10 rounded-xl border border-yellow-500/20">
-                    <div className="flex items-start gap-3">
-                      <div className="text-yellow-400 mt-1">⏳</div>
-                      <div>
-                        <div className="text-white font-medium mb-1">Missed Value Date</div>
-                        <div className="text-white/70 text-sm leading-relaxed">Expected go-live date passed. Associated $50K expansion opp at risk.</div>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              )}
-            </motion.div>
-          )}
-        </AnimatePresence>
+                )}
+              </motion.div>
+            )}
+          </AnimatePresence>
+        </div>
 
       </motion.div>
 
       <Cursor 
-        x={
-          phase >= 5 ? '70vw' :
-          phase >= 4 ? '70vw' :
-          phase >= 3 ? '45vw' : 
-          phase >= 2 ? '45vw' :
-          '50vw'
-        }
-        y={
-          phase >= 5 ? '30vh' : 
-          phase >= 4 ? '30vh' :
-          phase >= 3 ? '45vh' :
-          phase >= 2 ? '45vh' :
-          '80vh'
-        }
+        x={cursorPos.x}
+        y={cursorPos.y}
         clicking={phase === 3 || phase === 5}
       />
     </motion.div>

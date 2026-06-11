@@ -51,3 +51,12 @@ that updates as the cursor drills in), NOT as a label attached to the cursor.
 cursor-attached label on review. **How to apply:** when asked for an "interactive"
 or "guided walkthrough" video, build live JSX tables/components the cursor operates;
 treat product screenshots as at most secondary context, not the interaction itself.
+
+The cursor tip must visibly LAND on the element it clicks. Don't position it with
+hand-guessed vw/vh — put a ref on each click target, measure getBoundingClientRect()
+on the move-phase, and set the cursor in px (offset the tip ~6px for the 48px SVG
+whose hotspot is at ~6,6). Also reserve the drill-down drawer's width from the start
+(fixed-width table + drawer, `shrink-0`) so rows don't reflow/shift when the drawer
+opens and slide out from under the cursor at click time.
+**Why:** the user specifically asked that the cursor be over the relevant object when
+it clicks; flex-1 table + late-mounting drawer was moving the row mid-click.

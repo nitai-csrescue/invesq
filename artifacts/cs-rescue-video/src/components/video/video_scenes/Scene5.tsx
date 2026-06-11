@@ -1,9 +1,12 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Cursor } from '../Cursor';
 
 export function Scene5() {
   const [phase, setPhase] = useState(0);
+  const target1Ref = useRef<HTMLTableRowElement>(null);
+  const target2Ref = useRef<HTMLTableRowElement>(null);
+  const [cursorPos, setCursorPos] = useState({ x: '50vw', y: '80vh' });
 
   useEffect(() => {
     const timers = [
@@ -15,6 +18,31 @@ export function Scene5() {
     ];
     return () => timers.forEach(t => clearTimeout(t));
   }, []);
+
+  useEffect(() => {
+    const updateCursor = () => {
+      let target: HTMLElement | null = null;
+      if (phase >= 4) target = target2Ref.current;
+      else if (phase >= 2) target = target1Ref.current;
+
+      if (target) {
+        const rect = target.getBoundingClientRect();
+        setCursorPos({
+          x: `${rect.left + 100 - 6}px`, // 100px into row
+          y: `${rect.top + rect.height * 0.5 - 6}px`
+        });
+      } else {
+        setCursorPos({ x: '50vw', y: '80vh' });
+      }
+    };
+    
+    const t = setTimeout(updateCursor, 50);
+    window.addEventListener('resize', updateCursor);
+    return () => {
+      clearTimeout(t);
+      window.removeEventListener('resize', updateCursor);
+    };
+  }, [phase]);
 
   const data = [
     { name: "Acme Corp", arr: "$1.2M", opp: "Platform Upgrade", value: "$400K", likelihood: "High" },
@@ -70,8 +98,8 @@ export function Scene5() {
         animate={{ scale: 1, y: 0, opacity: 1 }}
         transition={{ type: 'spring', stiffness: 100, damping: 20, delay: 0.2 }}
       >
-        {/* Table View */}
-        <div className="flex-1 p-8 overflow-hidden">
+        {/* Table View (Fixed Width) */}
+        <div className="w-[55vw] shrink-0 p-8 overflow-hidden">
           <div className="flex items-center justify-between mb-6">
             <h3 className="text-xl text-white font-medium">Growth Actions</h3>
             <div className="flex gap-2">
@@ -96,6 +124,7 @@ export function Scene5() {
                 return (
                   <motion.tr 
                     key={i}
+                    ref={i === 0 ? target1Ref : i === 2 ? target2Ref : null}
                     className={`border-b border-white/5 transition-colors relative ${isActive ? 'bg-amber-500/10' : ''}`}
                     animate={{ backgroundColor: isActive ? 'rgba(245, 158, 11, 0.1)' : 'transparent' }}
                   >
@@ -119,78 +148,68 @@ export function Scene5() {
           </table>
         </div>
 
-        {/* Drill-down Drawer */}
-        <AnimatePresence>
-          {(phase >= 3) && (
-            <motion.div 
-              className="w-[30vw] bg-[#0d131f] border-l border-white/10 p-8 flex flex-col"
-              initial={{ x: '100%' }}
-              animate={{ x: 0 }}
-              exit={{ x: '100%' }}
-              transition={{ type: 'spring', stiffness: 200, damping: 25 }}
-            >
-              {phase < 5 ? (
-                <>
-                  <div className="text-amber-400 text-xs font-bold tracking-widest uppercase mb-2">Upsell Playbook</div>
-                  <h3 className="text-2xl text-white font-bold mb-1">Acme Corp</h3>
-                  <div className="text-emerald-400 text-xl font-mono mb-6">+$400K Expansion</div>
-                  
-                  <div className="space-y-4">
-                    <div className="p-4 bg-white/5 rounded-xl border border-white/10">
-                      <div className="font-medium text-white mb-2">Trigger Event</div>
-                      <p className="text-white/70 text-sm">Platform utilization reached 95% threshold. Usage of advanced features increased 3x over 30 days.</p>
+        {/* Drill-down Drawer Area (Fixed Width) */}
+        <div className="w-[30vw] shrink-0 relative bg-[#0d131f] border-l border-white/10 overflow-hidden">
+          <AnimatePresence>
+            {(phase >= 3) && (
+              <motion.div 
+                className="absolute inset-0 p-8 flex flex-col"
+                initial={{ x: '100%' }}
+                animate={{ x: 0 }}
+                exit={{ x: '100%' }}
+                transition={{ type: 'spring', stiffness: 200, damping: 25 }}
+              >
+                {phase < 5 ? (
+                  <>
+                    <div className="text-amber-400 text-xs font-bold tracking-widest uppercase mb-2">Upsell Playbook</div>
+                    <h3 className="text-2xl text-white font-bold mb-1">Acme Corp</h3>
+                    <div className="text-emerald-400 text-xl font-mono mb-6">+$400K Expansion</div>
+                    
+                    <div className="space-y-4">
+                      <div className="p-4 bg-white/5 rounded-xl border border-white/10">
+                        <div className="font-medium text-white mb-2">Trigger Event</div>
+                        <p className="text-white/70 text-sm">Platform utilization reached 95% threshold. Usage of advanced features increased 3x over 30 days.</p>
+                      </div>
+                      <div className="p-4 bg-white/5 rounded-xl border border-white/10">
+                        <div className="font-medium text-white mb-2">Recommended Action</div>
+                        <p className="text-white/70 text-sm">Initiate Enterprise Upgrade playbook. Auto-drafted email available for Account Executive.</p>
+                        <div className="mt-3 px-3 py-1.5 bg-blue-500 text-white text-xs font-bold rounded text-center inline-block">Execute Playbook</div>
+                      </div>
                     </div>
-                    <div className="p-4 bg-white/5 rounded-xl border border-white/10">
-                      <div className="font-medium text-white mb-2">Recommended Action</div>
-                      <p className="text-white/70 text-sm">Initiate Enterprise Upgrade playbook. Auto-drafted email available for Account Executive.</p>
-                      <div className="mt-3 px-3 py-1.5 bg-blue-500 text-white text-xs font-bold rounded text-center inline-block">Execute Playbook</div>
+                  </>
+                ) : (
+                  <>
+                    <div className="text-blue-400 text-xs font-bold tracking-widest uppercase mb-2">Retention Playbook</div>
+                    <h3 className="text-2xl text-white font-bold mb-1">TechFlow</h3>
+                    <div className="text-red-400 text-xl font-mono mb-6">Save $850K ARR</div>
+                    
+                    <div className="space-y-4">
+                      <div className="p-4 bg-white/5 rounded-xl border border-white/10">
+                        <div className="font-medium text-white mb-2">Risk Factor</div>
+                        <p className="text-white/70 text-sm">Implementation stalled. Executive sponsor removed from directory.</p>
+                      </div>
+                      <div className="p-4 bg-red-500/10 rounded-xl border border-red-500/20">
+                        <div className="font-medium text-red-400 mb-2">Rescue Action Plan</div>
+                        <ul className="text-white/80 text-sm space-y-2 list-disc pl-4">
+                          <li>Escalate to VP Customer Success</li>
+                          <li>Schedule executive alignment meeting</li>
+                          <li>Pause billing until integration unblocked</li>
+                        </ul>
+                        <div className="mt-4 px-3 py-1.5 bg-red-500 text-white text-xs font-bold rounded text-center inline-block">Trigger Intervention</div>
+                      </div>
                     </div>
-                  </div>
-                </>
-              ) : (
-                <>
-                  <div className="text-blue-400 text-xs font-bold tracking-widest uppercase mb-2">Retention Playbook</div>
-                  <h3 className="text-2xl text-white font-bold mb-1">TechFlow</h3>
-                  <div className="text-red-400 text-xl font-mono mb-6">Save $850K ARR</div>
-                  
-                  <div className="space-y-4">
-                    <div className="p-4 bg-white/5 rounded-xl border border-white/10">
-                      <div className="font-medium text-white mb-2">Risk Factor</div>
-                      <p className="text-white/70 text-sm">Implementation stalled. Executive sponsor removed from directory.</p>
-                    </div>
-                    <div className="p-4 bg-red-500/10 rounded-xl border border-red-500/20">
-                      <div className="font-medium text-red-400 mb-2">Rescue Action Plan</div>
-                      <ul className="text-white/80 text-sm space-y-2 list-disc pl-4">
-                        <li>Escalate to VP Customer Success</li>
-                        <li>Schedule executive alignment meeting</li>
-                        <li>Pause billing until integration unblocked</li>
-                      </ul>
-                      <div className="mt-4 px-3 py-1.5 bg-red-500 text-white text-xs font-bold rounded text-center inline-block">Trigger Intervention</div>
-                    </div>
-                  </div>
-                </>
-              )}
-            </motion.div>
-          )}
-        </AnimatePresence>
+                  </>
+                )}
+              </motion.div>
+            )}
+          </AnimatePresence>
+        </div>
 
       </motion.div>
 
       <Cursor 
-        x={
-          phase >= 5 ? '45vw' :
-          phase >= 4 ? '45vw' :
-          phase >= 3 ? '45vw' : 
-          phase >= 2 ? '45vw' :
-          '50vw'
-        }
-        y={
-          phase >= 5 ? '55vh' : 
-          phase >= 4 ? '55vh' :
-          phase >= 3 ? '35vh' :
-          phase >= 2 ? '35vh' :
-          '80vh'
-        }
+        x={cursorPos.x}
+        y={cursorPos.y}
         clicking={phase === 3 || phase === 5}
       />
     </motion.div>
