@@ -72,27 +72,6 @@ export function Scene3() {
         </h1>
       </motion.div>
 
-      {/* Narrative Overlays */}
-      <motion.div 
-        className="absolute bottom-[5vh] left-[5vw] z-50 bg-black/50 backdrop-blur-md px-6 py-3 rounded-full border border-white/10"
-        initial={{ opacity: 0, y: 20 }}
-        animate={phase >= 1 ? { opacity: 1, y: 0 } : { opacity: 0, y: 20 }}
-        transition={{ duration: 0.8 }}
-      >
-        <span className="text-blue-400 font-bold mr-3">PE Narrative</span>
-        <span className="text-white/80">Validate growth assumptions during diligence.</span>
-      </motion.div>
-
-      <motion.div 
-        className="absolute bottom-[5vh] right-[5vw] z-50 bg-black/50 backdrop-blur-md px-6 py-3 rounded-full border border-white/10"
-        initial={{ opacity: 0, y: 20 }}
-        animate={phase >= 3 ? { opacity: 1, y: 0 } : { opacity: 0, y: 20 }}
-        transition={{ duration: 0.8 }}
-      >
-        <span className="text-emerald-400 font-bold mr-3">PortCo Narrative</span>
-        <span className="text-white/80">Accelerate customer onboarding.</span>
-      </motion.div>
-
       {/* Main UI Frame */}
       <motion.div 
         className="w-[85vw] h-[65vh] flex bg-[#111827] rounded-xl overflow-hidden shadow-[0_20px_50px_rgba(0,0,0,0.5)] border border-white/10 relative"
