@@ -3,13 +3,11 @@ import { motion } from 'framer-motion';
 export function Cursor({ 
   x, 
   y, 
-  clicking = false,
-  label
+  clicking = false
 }: { 
   x: string | number, 
   y: string | number, 
-  clicking?: boolean,
-  label?: string
+  clicking?: boolean
 }) {
   return (
     <motion.div
@@ -34,15 +32,6 @@ export function Cursor({
           />
         )}
       </motion.div>
-      {label && (
-        <motion.div 
-          className="bg-primary text-white text-xs px-2 py-1 rounded shadow-lg ml-[-12px] mt-8 whitespace-nowrap"
-          initial={{ opacity: 0, y: 10 }}
-          animate={{ opacity: 1, y: 0 }}
-        >
-          {label}
-        </motion.div>
-      )}
     </motion.div>
   );
 }

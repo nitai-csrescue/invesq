@@ -40,3 +40,14 @@ whenever the redesign changes the `SCENE_DURATIONS` total, regenerate
 `public/audio/bg_music.mp3` to cover the new full runtime (slightly longer) so it
 never runs out or restarts audibly; the main agent owns audio generation since the
 subagent hands it back.
+
+## "Guided product walkthrough" means real interactive UI, not panning a screenshot
+For the cs-rescue demo video, the user wants the cursor to click into REAL rendered
+data tables that visibly react (row highlights + a drill-down drawer/inline expand
+with deeper metrics) — NOT a cursor gliding over a static product screenshot being
+zoomed. Section titles/headlines belong in a persistent top header (with a sub-line
+that updates as the cursor drills in), NOT as a label attached to the cursor.
+**Why:** they explicitly rejected the zoom-over-screenshot approach and the
+cursor-attached label on review. **How to apply:** when asked for an "interactive"
+or "guided walkthrough" video, build live JSX tables/components the cursor operates;
+treat product screenshots as at most secondary context, not the interaction itself.
