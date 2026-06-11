@@ -23,3 +23,20 @@ and recording/export never invokes `tsc`. **How to apply:** do NOT chase these
 typecheck errors or edit the scaffold tsconfig on a video artifact. Verify a video
 build with the dev server + `scripts/validate-recording.sh`, not `tsc`. The video-js
 first-build flow explicitly waives code review/typecheck beyond recording validation.
+
+## Redesigning a video that has a custom control/audio overlay
+Some video artifacts diverge from the stock video-js template: `VideoTemplate`
+exports `SCENE_DURATIONS` (+ a `SCENE_COMPONENTS` map), takes
+`{durations, loop, muted, onSceneChange}` props, drives a scene-synced `<audio>`,
+and its hook returns a string `currentSceneKey` (not numeric `currentScene`); a
+sibling `VideoWithControls` + `useSceneControls` render the on-screen scrub/mute/loop
+bar off those exports. **When delegating a redesign to the DESIGN subagent, pass
+this contract as explicit factual constraints** — otherwise it rewrites
+`VideoTemplate` to the standard numeric-`currentScene` pattern and the control bar +
+audio break.
+**Why:** the subagent follows the stock skill template by default and has no way to
+know the overlay exists. **How to apply:** also remember audio is fixed-length —
+whenever the redesign changes the `SCENE_DURATIONS` total, regenerate
+`public/audio/bg_music.mp3` to cover the new full runtime (slightly longer) so it
+never runs out or restarts audibly; the main agent owns audio generation since the
+subagent hands it back.

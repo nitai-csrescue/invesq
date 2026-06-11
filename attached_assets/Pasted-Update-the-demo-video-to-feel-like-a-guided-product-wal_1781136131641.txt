@@ -1,0 +1,100 @@
+Update the demo video to feel like a guided product walkthrough rather than a passive screen recording.
+
+Primary Goal:
+The viewer should immediately understand that CS Rescue consolidates fragmented operational systems into a single executive intelligence platform that helps Private Equity firms evaluate acquisition targets and helps portfolio companies identify operational weaknesses, retention risks, and growth opportunities.
+
+Video Requirements:
+
+• Add a visible mouse cursor throughout the demo.
+• Show the cursor actively clicking into dashboards, reports, scorecards, and drill-down views.
+• Use smooth zoom transitions to focus attention on important metrics and findings.
+• Animate data flowing from disconnected systems into a unified platform.
+
+Opening Scene:
+
+Show multiple disconnected systems (Salesforce, HubSpot, Zendesk, Jira, Gong, Slack, spreadsheets, etc.) operating in silos.
+
+Display a simple message:
+
+"Critical customer intelligence is fragmented across dozens of systems."
+
+Then animate all data sources converging into CS Rescue.
+
+Display:
+
+"One Platform. One Source of Truth."
+
+Middle Section:
+
+Show the user clicking through:
+
+1. Executive Summary
+
+   * Overall business health score
+   * ARR at risk
+   * Expansion opportunity value
+   * Customer retention trends
+
+2. Customer Journey Analysis
+
+   * Onboarding performance
+   * Time-to-value analysis
+   * Risk indicators
+
+3. Operational Intelligence
+
+   * AI-generated findings
+   * Process bottlenecks
+   * Team performance insights
+
+4. Value Creation Opportunities
+
+   * Upsell potential
+   * Retention improvements
+   * Revenue expansion recommendations
+
+For every section, show the mouse clicking into the details and drilling down to supporting evidence.
+
+Private Equity Narrative:
+
+Include subtle text overlays throughout the experience:
+
+"Identify hidden risks before acquisition."
+
+"Validate growth assumptions during diligence."
+
+"Measure value creation post-close."
+
+"Track operational improvements across portfolio companies."
+
+Portfolio Company Narrative:
+
+Include additional overlays:
+
+"Reduce churn."
+
+"Accelerate customer onboarding."
+
+"Increase expansion revenue."
+
+"Improve customer health and retention."
+
+Ending Scene:
+
+Return to a clean executive dashboard.
+
+Display a concise outcome summary:
+
+✓ Increased Retention
+✓ Higher Expansion Revenue
+✓ Faster Time-to-Value
+✓ Stronger Customer Outcomes
+✓ Greater Enterprise Value
+
+Final statement:
+
+"CS Rescue transforms operational data into measurable value creation."
+
+Subtitle:
+
+"Helping investors make smarter decisions and portfolio companies grow more efficiently."

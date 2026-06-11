@@ -9,20 +9,20 @@ import { Scene5 } from './video_scenes/Scene5';
 import { Scene6 } from './video_scenes/Scene6';
 
 export const SCENE_DURATIONS = {
-  problem: 6000,
-  intro: 6000,
-  summary: 8000,
-  pillars: 12000,
-  plan: 10000,
-  outro: 6000,
+  opening: 9000,
+  executive_summary: 8500,
+  customer_journey: 8500,
+  operational_intelligence: 8500,
+  value_creation: 9000,
+  outro: 8000,
 };
 
 const SCENE_COMPONENTS: Record<string, ComponentType> = {
-  problem: Scene1,
-  intro: Scene2,
-  summary: Scene3,
-  pillars: Scene4,
-  plan: Scene5,
+  opening: Scene1,
+  executive_summary: Scene2,
+  customer_journey: Scene3,
+  operational_intelligence: Scene4,
+  value_creation: Scene5,
   outro: Scene6,
 };
 
@@ -73,12 +73,12 @@ export default function VideoTemplate({
   }, [currentSceneKey, baseSceneKey, muted]);
 
   return (
-    <div className="w-full h-screen overflow-hidden relative bg-[var(--color-bg-dark)] font-body">
+    <div className="w-full h-screen overflow-hidden relative bg-[#0B0F19] font-body text-white">
 
       {/* Persistent Background Layer */}
       <div className="absolute inset-0 z-0 opacity-40">
         <motion.div
-          className="absolute w-[80vw] h-[80vw] rounded-full blur-[100px] bg-primary/20 mix-blend-screen"
+          className="absolute w-[80vw] h-[80vw] rounded-full blur-[100px] bg-blue-500/20 mix-blend-screen"
           animate={{
             x: ['-20%', '10%', '-10%', '30%', '-20%', '10%'][sceneIndex] || '0%',
             y: ['-10%', '-30%', '20%', '-10%', '10%', '-20%'][sceneIndex] || '0%',
@@ -87,28 +87,17 @@ export default function VideoTemplate({
           transition={{ duration: 4, ease: 'easeInOut' }}
         />
         <motion.div
-          className="absolute right-0 bottom-0 w-[60vw] h-[60vw] rounded-full blur-[100px] bg-secondary/10 mix-blend-screen"
+          className="absolute right-0 bottom-0 w-[60vw] h-[60vw] rounded-full blur-[100px] bg-emerald-500/10 mix-blend-screen"
           animate={{
             x: ['20%', '-10%', '10%', '-30%', '20%', '-10%'][sceneIndex] || '0%',
             y: ['20%', '10%', '-20%', '30%', '-10%', '20%'][sceneIndex] || '0%',
           }}
           transition={{ duration: 5, ease: 'easeInOut' }}
         />
-        <div className="absolute inset-0 bg-[url('https://grainy-gradients.vercel.app/noise.svg')] opacity-20 mix-blend-overlay"></div>
       </div>
 
-      {/* Persistent Midground Grid/Lines */}
-      <motion.div
-        className="absolute inset-0 z-0 pointer-events-none opacity-10"
-        style={{
-          backgroundImage: `linear-gradient(to right, rgba(255,255,255,0.1) 1px, transparent 1px), linear-gradient(to bottom, rgba(255,255,255,0.1) 1px, transparent 1px)`,
-          backgroundSize: '4vw 4vw',
-        }}
-        animate={{
-          y: sceneIndex * -50,
-          opacity: sceneIndex === 0 ? 0.05 : 0.15,
-        }}
-        transition={{ duration: 2, ease: 'easeInOut' }}
+      <div className="absolute inset-0 z-0 pointer-events-none opacity-[0.03]"
+        style={{ backgroundImage: `linear-gradient(to right, #fff 1px, transparent 1px), linear-gradient(to bottom, #fff 1px, transparent 1px)`, backgroundSize: '4vw 4vw' }}
       />
 
       {/* Scene Content */}
