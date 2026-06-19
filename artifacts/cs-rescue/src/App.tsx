@@ -24,6 +24,9 @@ import Integrations from "@/pages/Integrations";
 import Settings from "@/pages/Settings";
 import Architecture from "@/pages/Architecture";
 import AICopilot from "@/pages/AICopilot";
+import PrenaxExecutiveOverview from "@/pages/prenax/ExecutiveOverview";
+import PrenaxPortfolio from "@/pages/prenax/Portfolio";
+import PrenaxCustomerDetail from "@/pages/prenax/CustomerDetail";
 
 const queryClient = new QueryClient();
 
@@ -32,6 +35,10 @@ const BARE_PATHS = new Set<string>(["/", "/overview", "/launch-demo", "/ceati", 
 
 function Shell({ children }: { children: ReactNode }) {
   const [location] = useLocation();
+  // Prenax is a fully self-contained prototype with its own chrome.
+  if (location === "/prenax" || location.startsWith("/prenax/")) {
+    return <>{children}</>;
+  }
   if (BARE_PATHS.has(location)) {
     return <BareLayout>{children}</BareLayout>;
   }
@@ -58,6 +65,11 @@ function Router() {
         <Route path="/settings" component={Settings} />
         <Route path="/platform/architecture" component={Architecture} />
         <Route path="/platform/ai-copilot" component={AICopilot} />
+
+        {/* Prenax Customer Health Intelligence — self-contained prototype */}
+        <Route path="/prenax" component={PrenaxExecutiveOverview} />
+        <Route path="/prenax/portfolio" component={PrenaxPortfolio} />
+        <Route path="/prenax/customers/:id" component={PrenaxCustomerDetail} />
 
         {/* Archived routes redirect to the narrative overview */}
         <Route path="/resources">{() => <Redirect to="/overview" />}</Route>

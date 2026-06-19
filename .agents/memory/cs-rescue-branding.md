@@ -22,6 +22,16 @@ references "BackEngine + AI reasoning"; the user supplied that exact title verba
 The INVESQ rule applies to the main investor-pitch chrome, not this standalone
 customer demo. Do not "correct" /ceati to INVESQ without asking.
 
+## Exception: Prenax prototype (/prenax routes)
+The `/prenax`, `/prenax/portfolio`, `/prenax/customers/:id` pages are a self-contained
+"Prenax Customer Health Intelligence" demo intentionally branded **Prenax**, NOT
+INVESQ or CS Rescue. **Why:** the user asked for a distinct enterprise-SaaS product
+prototype (a separate brand) living inside the cs-rescue app; it bypasses the INVESQ
+shell and sets its own dark theme. Do not "correct" Prenax copy to INVESQ.
+**How to apply:** these pages live under `src/pages/prenax/` + `src/components/prenax/`
+with their own data layer (`src/data/prenax.ts`); keep all changes scoped there and do
+not edit the global `src/index.css` theme tokens.
+
 ## Exception: cs-rescue-video artifact (Techstars demo)
 The `artifacts/cs-rescue-video` artifact ("CS Rescue Product Demo Video") is
 intentionally branded **CS Rescue**, NOT INVESQ. **Why:** it was built for a
