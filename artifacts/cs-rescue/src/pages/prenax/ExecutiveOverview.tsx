@@ -1,184 +1,217 @@
 import { Link } from "wouter";
-import { portfolioMetrics, prenaxCustomers, formatCurrency, PERIOD_LABELS } from "@/data/prenax";
+import {
+  ShieldAlert,
+  Headset,
+  Smile,
+  CalendarClock,
+  ArrowRight,
+} from "lucide-react";
 import { PrenaxLayout } from "@/components/prenax/PrenaxLayout";
-import { Card, HealthBadge, MiniSparkline, DeltaIndicator } from "@/components/prenax/PrenaxComponents";
-import { Users, TrendingUp, ShieldAlert, DollarSign, Activity, ArrowUpRight, ArrowDownRight } from "lucide-react";
-import { ResponsiveContainer, LineChart, Line, Tooltip, XAxis, YAxis, CartesianGrid } from "recharts";
+import { Card, ScoreRing, DeltaIndicator, MiniSparkline, HealthBadge } from "@/components/prenax/PrenaxComponents";
+import {
+  portfolioMetrics,
+  healthDistribution,
+  prenaxCustomers,
+  formatCurrency,
+  formatDate,
+  type HealthBand,
+} from "@/data/prenax";
 
-function MetricCard({ title, value, subValue, icon, trend }: { title: string, value: string | React.ReactNode, subValue?: string | React.ReactNode, icon: React.ReactNode, trend?: 'up' | 'down' | 'neutral' }) {
+const BAND_DOT: Record<HealthBand, string> = {
+  green: "bg-emerald-500",
+  amber: "bg-amber-500",
+  red: "bg-rose-500",
+};
+const BAND_BAR: Record<HealthBand, string> = {
+  green: "bg-emerald-500",
+  amber: "bg-amber-500",
+  red: "bg-rose-500",
+};
+
+function KpiCard({
+  icon,
+  label,
+  value,
+  sub,
+  trend,
+  trendColor,
+}: {
+  icon: React.ReactNode;
+  label: string;
+  value: string;
+  sub?: React.ReactNode;
+  trend?: number[];
+  trendColor?: string;
+}) {
   return (
     <Card className="p-5 flex flex-col justify-between">
-      <div className="flex items-center justify-between mb-4">
-        <h3 className="text-sm font-medium text-slate-400">{title}</h3>
-        <div className="text-slate-500">{icon}</div>
-      </div>
-      <div>
-        <div className="text-3xl font-light text-white mb-1 flex items-end gap-2">
-          {value}
-          {trend === 'up' && <ArrowUpRight className="w-5 h-5 text-emerald-500 mb-1" />}
-          {trend === 'down' && <ArrowDownRight className="w-5 h-5 text-rose-500 mb-1" />}
+      <div className="flex items-start justify-between">
+        <div className="flex items-center gap-2 text-slate-400 text-sm font-medium">
+          <span className="text-slate-500">{icon}</span>
+          {label}
         </div>
-        {subValue && <div className="text-sm text-slate-500">{subValue}</div>}
+        {trend && trendColor && <MiniSparkline data={trend} color={trendColor} />}
+      </div>
+      <div className="mt-3">
+        <div className="text-3xl font-bold text-white tracking-tight">{value}</div>
+        {sub && <div className="text-xs text-slate-500 mt-1">{sub}</div>}
       </div>
     </Card>
   );
 }
 
-export default function PrenaxExecutiveOverview() {
-  const chartData = PERIOD_LABELS.map((label, i) => ({
-    name: label,
-    health: portfolioMetrics.overallHealthTrend[i]
-  }));
+export default function ExecutiveOverview() {
+  const m = portfolioMetrics;
+  const total = m.customerCount;
+  const pct = (n: number) => Math.round((n / total) * 100);
+
+  const atRisk = [...prenaxCustomers]
+    .filter((c) => c.overallBand === "red")
+    .sort((a, b) => a.overallScore - b.overallScore);
 
   return (
     <PrenaxLayout>
-      <div className="mb-8 flex items-end justify-between">
+      {/* Header */}
+      <div className="mb-8 flex flex-wrap items-end justify-between gap-4">
         <div>
-          <h1 className="text-3xl font-semibold text-white tracking-tight">Executive Overview</h1>
-          <p className="text-slate-400 mt-2">Portfolio health, risk signals, and expansion opportunities across {portfolioMetrics.customerCount} accounts.</p>
+          <h1 className="text-3xl font-bold text-white tracking-tight">Executive Overview</h1>
+          <p className="text-slate-400 mt-1">
+            Portfolio health diagnostic across {total} customer accounts.
+          </p>
         </div>
+        <span className="inline-flex items-center gap-2 rounded-full border border-slate-700 bg-slate-900/40 px-3 py-1 text-xs text-slate-400">
+          <span className="h-1.5 w-1.5 rounded-full bg-indigo-400" />
+          Salesforce Service Cloud · refreshed weekly
+        </span>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-5 mb-8">
-        <MetricCard 
-          title="Overall Health Score" 
-          value={portfolioMetrics.overallHealth} 
-          subValue={<><DeltaIndicator delta={portfolioMetrics.overallHealthDelta} /> vs last period</>}
-          icon={<Activity className="w-5 h-5" />}
-        />
-        <Card className="p-5 flex flex-col justify-between">
-          <div className="flex items-center justify-between mb-4">
-            <h3 className="text-sm font-medium text-slate-400">Health Distribution</h3>
-            <div className="text-slate-500"><Users className="w-5 h-5" /></div>
-          </div>
-          <div className="flex items-end gap-4 h-full pb-1">
-            <div className="text-center">
-              <div className="text-2xl font-light text-emerald-400">{portfolioMetrics.green}</div>
-              <div className="text-xs text-slate-500 uppercase tracking-wider">Healthy</div>
+      {/* Hero: composite score + distribution */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-5 mb-5">
+        <Card className="p-6 flex items-center gap-6">
+          <ScoreRing score={m.overallHealth} band="amber" size={104} strokeWidth={9} />
+          <div>
+            <div className="text-sm font-medium text-slate-400">Portfolio Health Score</div>
+            <div className="mt-1 flex items-baseline gap-2">
+              <span className="text-5xl font-bold text-white tracking-tight">{m.overallHealth}</span>
+              <span className="text-slate-500 text-lg">/100</span>
             </div>
-            <div className="text-center">
-              <div className="text-2xl font-light text-amber-400">{portfolioMetrics.amber}</div>
-              <div className="text-xs text-slate-500 uppercase tracking-wider">Watch</div>
-            </div>
-            <div className="text-center">
-              <div className="text-2xl font-light text-rose-400">{portfolioMetrics.red}</div>
-              <div className="text-xs text-slate-500 uppercase tracking-wider">At Risk</div>
+            <div className="mt-2 flex items-center gap-2 text-xs text-slate-500">
+              <DeltaIndicator delta={m.overallHealthDelta} />
+              <span>vs. start of period</span>
             </div>
           </div>
         </Card>
-        <MetricCard 
-          title="Renewal Risk Exposure" 
-          value={`${portfolioMetrics.renewalRiskPct}%`} 
-          subValue={`ARR at risk in next 12mo`}
-          icon={<ShieldAlert className="w-5 h-5" />}
-          trend={portfolioMetrics.renewalRiskTrend[portfolioMetrics.renewalRiskTrend.length - 1] > portfolioMetrics.renewalRiskTrend[portfolioMetrics.renewalRiskTrend.length - 2] ? 'up' : 'down'}
-        />
-        <MetricCard 
-          title="Expansion Opportunity" 
-          value={formatCurrency(portfolioMetrics.expansionOpportunity)} 
-          subValue="Qualified upsell whitespace"
-          icon={<DollarSign className="w-5 h-5" />}
-        />
-      </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 mb-8">
         <Card className="lg:col-span-2 p-6">
-          <div className="flex items-center justify-between mb-6">
-            <h2 className="text-lg font-medium text-white">Portfolio Health Trend</h2>
+          <div className="flex items-center justify-between">
+            <div className="text-sm font-medium text-slate-400">Accounts by Health Band</div>
+            <div className="text-xs text-slate-500">{total} accounts</div>
           </div>
-          <div className="h-64">
-            <ResponsiveContainer width="100%" height="100%">
-              <LineChart data={chartData} margin={{ top: 5, right: 5, bottom: 5, left: -20 }}>
-                <CartesianGrid strokeDasharray="3 3" stroke="#1e293b" vertical={false} />
-                <XAxis dataKey="name" stroke="#64748b" tick={{ fill: '#64748b', fontSize: 12 }} axisLine={false} tickLine={false} />
-                <YAxis stroke="#64748b" tick={{ fill: '#64748b', fontSize: 12 }} axisLine={false} tickLine={false} domain={[50, 100]} />
-                <Tooltip 
-                  contentStyle={{ backgroundColor: '#0f1526', borderColor: '#1e293b', color: '#f1f5f9' }}
-                  itemStyle={{ color: '#818cf8' }}
-                />
-                <Line type="monotone" dataKey="health" stroke="#818cf8" strokeWidth={3} dot={{ fill: '#0f1526', stroke: '#818cf8', strokeWidth: 2, r: 4 }} activeDot={{ r: 6 }} />
-              </LineChart>
-            </ResponsiveContainer>
+          <div className="mt-4 flex h-3 w-full overflow-hidden rounded-full bg-slate-800">
+            {healthDistribution.map((d) => (
+              <div
+                key={d.band}
+                className={BAND_BAR[d.band]}
+                style={{ width: `${pct(d.count)}%` }}
+                title={`${d.label}: ${d.count}`}
+              />
+            ))}
           </div>
-        </Card>
-
-        <Card className="p-6">
-          <div className="flex items-center justify-between mb-6">
-            <h2 className="text-lg font-medium text-white">Engagement KPIs</h2>
-          </div>
-          <div className="space-y-6">
-            <div>
-              <div className="flex items-center justify-between mb-2">
-                <span className="text-slate-400">Platform Adoption</span>
-                <span className="text-white font-medium">{portfolioMetrics.adoptionPct}%</span>
+          <div className="mt-5 grid grid-cols-3 gap-4">
+            {healthDistribution.map((d) => (
+              <div key={d.band} className="rounded-lg border border-slate-800/60 bg-slate-900/30 p-4">
+                <div className="flex items-center gap-2 text-sm text-slate-300">
+                  <span className={`h-2 w-2 rounded-full ${BAND_DOT[d.band]}`} />
+                  {d.label}
+                </div>
+                <div className="mt-2 flex items-baseline gap-2">
+                  <span className="text-2xl font-bold text-white">{pct(d.count)}%</span>
+                  <span className="text-xs text-slate-500">{d.count} accounts</span>
+                </div>
+                <div className="mt-1 text-xs text-slate-500">{formatCurrency(d.arr)} ARR</div>
               </div>
-              <div className="w-full bg-slate-800 rounded-full h-2">
-                <div className="bg-indigo-500 h-2 rounded-full" style={{ width: `${portfolioMetrics.adoptionPct}%` }}></div>
-              </div>
-              <div className="mt-2 h-10">
-                <MiniSparkline data={portfolioMetrics.adoptionTrend} color="#818cf8" />
-              </div>
-            </div>
-            
-            <div className="pt-4 border-t border-slate-800">
-              <div className="flex items-center justify-between mb-2">
-                <span className="text-slate-400">Aggregate NPS</span>
-                <span className="text-white font-medium">{portfolioMetrics.nps}</span>
-              </div>
-              <div className="mt-2 h-10">
-                <MiniSparkline data={portfolioMetrics.npsTrend} color="#34d399" />
-              </div>
-            </div>
+            ))}
           </div>
         </Card>
       </div>
 
-      <Card className="overflow-hidden">
-        <div className="p-6 border-b border-slate-800 flex items-center justify-between">
-          <h2 className="text-lg font-medium text-white">Critical Accounts</h2>
-          <Link href="/prenax/portfolio" className="text-sm text-indigo-400 hover:text-indigo-300 transition-colors">View full portfolio &rarr;</Link>
+      {/* KPI row */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5 mb-5">
+        <KpiCard
+          icon={<ShieldAlert className="w-4 h-4" />}
+          label="Accounts at Risk"
+          value={`${m.accountsAtRisk}`}
+          sub={`${formatCurrency(healthDistribution.find((d) => d.band === "red")!.arr)} ARR exposed`}
+        />
+        <KpiCard
+          icon={<Headset className="w-4 h-4" />}
+          label="Client Self-Service Rate"
+          value={`${m.selfServiceRate}%`}
+          sub="Cases resolved without an agent"
+          trend={m.selfServiceTrend}
+          trendColor="#34d399"
+        />
+        <KpiCard
+          icon={<Smile className="w-4 h-4" />}
+          label="Portfolio NPS"
+          value={`${m.nps > 0 ? "+" : ""}${m.nps}`}
+          sub="Trailing voice-of-customer"
+          trend={m.npsTrend.map((v) => v + 50)}
+          trendColor="#818cf8"
+        />
+        <KpiCard
+          icon={<CalendarClock className="w-4 h-4" />}
+          label="Renewal Risk Exposure"
+          value={formatCurrency(m.renewalRiskArr)}
+          sub={`${m.renewalRiskPct}% of ARR weighted by risk`}
+          trend={m.renewalRiskTrend}
+          trendColor="#fb7185"
+        />
+      </div>
+
+      {/* Accounts at risk */}
+      <Card>
+        <div className="flex items-center justify-between border-b border-slate-800/60 px-6 py-4">
+          <div>
+            <h2 className="text-base font-semibold text-white">Accounts Requiring Attention</h2>
+            <p className="text-xs text-slate-500 mt-0.5">At-risk accounts with an owner and a committed next action.</p>
+          </div>
+          <Link
+            href="/prenax/portfolio"
+            className="inline-flex items-center gap-1 text-sm text-indigo-400 hover:text-indigo-300"
+          >
+            Full portfolio <ArrowRight className="w-4 h-4" />
+          </Link>
         </div>
-        <div className="overflow-x-auto">
-          <table className="w-full text-sm text-left">
-            <thead className="bg-[#131b2f] text-slate-400">
-              <tr>
-                <th className="px-6 py-4 font-medium">Customer</th>
-                <th className="px-6 py-4 font-medium">Segment</th>
-                <th className="px-6 py-4 font-medium">ARR</th>
-                <th className="px-6 py-4 font-medium">Health Score</th>
-                <th className="px-6 py-4 font-medium">Trend</th>
-                <th className="px-6 py-4 font-medium">Status</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-slate-800">
-              {[...prenaxCustomers].sort((a,b) => a.overallScore - b.overallScore).slice(0, 5).map((c) => (
-                <tr key={c.id} className="hover:bg-white/[0.02] transition-colors group">
-                  <td className="px-6 py-4">
-                    <Link href={`/prenax/customers/${c.id}`} className="font-medium text-white group-hover:text-indigo-400 transition-colors block">
-                      {c.name}
-                    </Link>
-                  </td>
-                  <td className="px-6 py-4 text-slate-400">{c.segment}</td>
-                  <td className="px-6 py-4 text-slate-300">{formatCurrency(c.arr)}</td>
-                  <td className="px-6 py-4">
-                    <div className="flex items-center gap-3">
-                      <span className="font-medium text-white">{c.overallScore}</span>
-                      <DeltaIndicator delta={c.overallDelta} />
-                    </div>
-                  </td>
-                  <td className="px-6 py-4">
-                    <MiniSparkline 
-                      data={c.overallTrend} 
-                      color={c.overallBand === 'green' ? '#34d399' : c.overallBand === 'amber' ? '#fbbf24' : '#fb7185'} 
-                    />
-                  </td>
-                  <td className="px-6 py-4">
-                    <HealthBadge band={c.overallBand} />
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+        <div className="divide-y divide-slate-800/60">
+          {atRisk.map((c) => (
+            <Link
+              key={c.id}
+              href={`/prenax/customers/${c.id}`}
+              className="grid grid-cols-12 items-center gap-3 px-6 py-4 hover:bg-slate-900/40 transition-colors"
+            >
+              <div className="col-span-12 sm:col-span-4 flex items-center gap-3">
+                <div className="flex h-9 w-9 items-center justify-center rounded-md bg-slate-800 text-xs font-semibold text-slate-300">
+                  {c.initials}
+                </div>
+                <div>
+                  <div className="font-medium text-white">{c.name}</div>
+                  <div className="text-xs text-slate-500">
+                    {c.segment} · {c.region}
+                  </div>
+                </div>
+              </div>
+              <div className="col-span-6 sm:col-span-2 flex items-center gap-2">
+                <span className="text-lg font-bold text-rose-400">{c.overallScore}</span>
+                <HealthBadge band={c.overallBand} />
+              </div>
+              <div className="col-span-12 sm:col-span-4 text-sm text-slate-400">{c.topRiskDriver}</div>
+              <div className="col-span-6 sm:col-span-2 text-right">
+                <div className="text-xs text-slate-400">{c.nextActionOwner}</div>
+                <div className="text-xs text-slate-500">Due {formatDate(c.nextActionDue)}</div>
+              </div>
+            </Link>
+          ))}
         </div>
       </Card>
     </PrenaxLayout>

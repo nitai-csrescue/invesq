@@ -27,6 +27,7 @@ import AICopilot from "@/pages/AICopilot";
 import PrenaxExecutiveOverview from "@/pages/prenax/ExecutiveOverview";
 import PrenaxPortfolio from "@/pages/prenax/Portfolio";
 import PrenaxCustomerDetail from "@/pages/prenax/CustomerDetail";
+import PrenaxMethodology from "@/pages/prenax/Methodology";
 
 const queryClient = new QueryClient();
 
@@ -69,6 +70,7 @@ function Router() {
         {/* Prenax Customer Health Intelligence — self-contained prototype */}
         <Route path="/prenax" component={PrenaxExecutiveOverview} />
         <Route path="/prenax/portfolio" component={PrenaxPortfolio} />
+        <Route path="/prenax/methodology" component={PrenaxMethodology} />
         <Route path="/prenax/customers/:id" component={PrenaxCustomerDetail} />
 
         {/* Archived routes redirect to the narrative overview */}

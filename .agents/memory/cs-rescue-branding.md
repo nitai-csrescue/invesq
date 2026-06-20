@@ -31,6 +31,11 @@ shell and sets its own dark theme. Do not "correct" Prenax copy to INVESQ.
 **How to apply:** these pages live under `src/pages/prenax/` + `src/components/prenax/`
 with their own data layer (`src/data/prenax.ts`); keep all changes scoped there and do
 not edit the global `src/index.css` theme tokens.
+**Tone/scope (durable):** Prenax is framed as a Phase-1 *consulting diagnostic* on
+Salesforce Service Cloud data for a board/PE audience — NOT a production CS platform and
+NOT an AI copilot. Use "Recommended Actions"; avoid copilot/automation language
+("AI Recommendations", "automated decisions", etc.). Keep it to 4 screens (Overview,
+Portfolio table, Account drilldown, Methodology) and keep the DARK theme (user confirmed).
 
 ## Exception: cs-rescue-video artifact (Techstars demo)
 The `artifacts/cs-rescue-video` artifact ("CS Rescue Product Demo Video") is
