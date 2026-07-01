@@ -28,6 +28,8 @@ import PrenaxExecutiveOverview from "@/pages/prenax/ExecutiveOverview";
 import PrenaxPortfolio from "@/pages/prenax/Portfolio";
 import PrenaxCustomerDetail from "@/pages/prenax/CustomerDetail";
 import PrenaxMethodology from "@/pages/prenax/Methodology";
+import PortfolioDashboard from "@/pages/portfolio/PortfolioDashboard";
+import PortfolioCompany from "@/pages/portfolio/PortfolioCompany";
 
 const queryClient = new QueryClient();
 
@@ -38,6 +40,10 @@ function Shell({ children }: { children: ReactNode }) {
   const [location] = useLocation();
   // Prenax is a fully self-contained prototype with its own chrome.
   if (location === "/prenax" || location.startsWith("/prenax/")) {
+    return <>{children}</>;
+  }
+  // Portfolio Rollup is a self-contained client portal with its own chrome.
+  if (location === "/portfolio" || location.startsWith("/portfolio/")) {
     return <>{children}</>;
   }
   if (BARE_PATHS.has(location)) {
@@ -66,6 +72,10 @@ function Router() {
         <Route path="/settings" component={Settings} />
         <Route path="/platform/architecture" component={Architecture} />
         <Route path="/platform/ai-copilot" component={AICopilot} />
+
+        {/* Portfolio Rollup — self-contained STG client portal */}
+        <Route path="/portfolio" component={PortfolioDashboard} />
+        <Route path="/portfolio/:companyId" component={PortfolioCompany} />
 
         {/* Prenax Customer Health Intelligence — self-contained prototype */}
         <Route path="/prenax" component={PrenaxExecutiveOverview} />
