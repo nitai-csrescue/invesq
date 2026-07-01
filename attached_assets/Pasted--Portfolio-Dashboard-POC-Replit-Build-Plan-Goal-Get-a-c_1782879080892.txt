@@ -1,0 +1,66 @@
+# Portfolio Dashboard POC — Replit Build Plan
+
+**Goal:** Get a client-presentable rollup dashboard live in Replit before the STG demo, using Option 1 from the earlier plan — a lightweight, static/JSON-driven site that extends the existing report-writer pattern rather than a new stack.
+
+**Reference:** [cs-rescue.replit.app/dashboard](https://cs-rescue.replit.app/dashboard) (INVESQ) is the visual/UX bar to hit — dark navy, institutional, PE-grade polish, not a "prototype" look.
+
+---
+
+## 1. Set up the Replit project
+
+- New Replit, **HTML/CSS/JS (static) or Node/Express** template — no framework needed for a POC this size. Express is worth the extra 10 minutes if you want clean routes like `/dashboard` and `/company/:id`; plain static works if you're okay with query params or separate HTML files per company.
+- Keep it in the same repo/Replit as the existing report-writer output if possible, so the dashboard can literally link to the per-company report pages you already generate.
+
+## 2. Build the data layer first
+
+- Create `portfolio-rollup-data.json` — one object per portfolio company, one file per PE firm (or a top-level array with a `firm_id` if you want one file to serve multiple firms later).
+- Minimum fields per company, pulled from what you already track in Notion:
+  - `company_name`
+  - `composite_score`
+  - `engagement_tier`
+  - `top_gap` (pillar name + short description)
+  - `pillar_scores` (all 8, for the detail view)
+  - `last_diagnostic_date`
+  - `report_link` (path to the existing per-company report page)
+  - `trend` — placeholder array of past composite scores; mark this clearly as illustrative until real re-runs exist
+- This file is your single source of truth. No database needed — hand-edit or script-export it from Notion for the demo.
+
+## 3. Build the dashboard (grid) view
+
+- Route/page: `/dashboard`
+- Layout: header with firm name/logo placeholder → grid or table of portfolio company cards.
+- Each card shows: company name, composite score (large, color-coded), engagement tier (badge), top gap (one line).
+- Sort/filter controls are optional polish — a static sort by composite score is enough for a POC.
+- Card click → navigates to that company's existing report page (`report_link`). This is the "click-through" that makes it feel like a real product instead of a slide.
+
+## 4. Build (or wire up) the company detail / trend view
+
+- If a full per-company report page already exists from the report-writer skill, just link to it — don't rebuild it.
+- If you want a trend chart on the dashboard itself (composite score over time), add a lightweight chart library (Chart.js via CDN is enough) fed by the `trend` field. Label it clearly as illustrative in a caption or tooltip if the underlying data is placeholder.
+
+## 5. Match the visual bar
+
+- Pull the color palette and type treatment from the INVESQ reference: dark navy background (`#0f172a`-style), high-contrast score numbers, restrained accent color for tier badges.
+- Reuse whatever CSS/branding assets already exist from the report-writer HTML output so the dashboard and the per-company reports feel like one product, not two.
+- No auth UI needed for the POC — but consider a simple "logged in as [Firm Name]" header treatment so it *reads* like a real client portal even without real access control.
+
+## 6. Deploy and share
+
+- Use Replit's built-in **Deploy / Publish** to get a stable public URL (matches the pattern of the existing `cs-rescue.replit.app` link).
+- Test the full click path end-to-end: dashboard → card → per-company report → back.
+- Have a fallback (screen recording or PDF export of the dashboard) in case live internet/demo conditions are unreliable during STG.
+
+## 7. What to say explicitly in the demo
+
+- Be upfront that trend data is illustrative until diagnostics are re-run periodically — don't let a partner assume more history exists than it does.
+- Frame this as a rollup/monitoring layer on top of the diagnostic they already know, not a replacement for it.
+- No real auth/multi-tenancy yet — this is a design-partner preview, not the production product.
+
+---
+
+### Suggested order of work (fastest path to demo-ready)
+1. Data JSON structure (30–60 min)
+2. Dashboard grid view, static styling (half day)
+3. Wire click-through to existing report pages (1–2 hrs)
+4. Visual polish pass to match INVESQ bar (half day)
+5. Deploy + full run-through (1 hr)
