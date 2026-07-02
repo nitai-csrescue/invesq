@@ -17,6 +17,7 @@ import { PILLARS, PILLAR_MAX, TIERS, getTier } from "./pillars";
 import { FIRMS, getFirm as _getFirm } from "./firms";
 import STG_COMPANIES from "./stg";
 import PAMLICO_COMPANIES from "./pamlico";
+import RAVIGA_COMPANIES from "./raviga";
 
 // ---------------------------------------------------------------------------
 // Raw company registry — keyed by firm slug
@@ -24,6 +25,7 @@ import PAMLICO_COMPANIES from "./pamlico";
 const RAW_COMPANIES_BY_FIRM: Readonly<Record<string, RawCompany[]>> = {
   stg: STG_COMPANIES,
   pamlico: PAMLICO_COMPANIES,
+  raviga: RAVIGA_COMPANIES,
 };
 
 // ---------------------------------------------------------------------------
@@ -413,4 +415,91 @@ export function formatDate(iso: string): string {
     day: "numeric",
     year: "numeric",
   });
+}
+
+// ---------------------------------------------------------------------------
+// Forecast — additive; never modifies core derivation logic above
+// ---------------------------------------------------------------------------
+
+/** A single forward-projected data point produced by computeCompanyForecast / computePortfolioForecast. */
+export interface ForecastPoint {
+  period: string;    // human-readable label e.g. "Jul '26"
+  sortKey: string;   // ISO yyyy-mm-dd for sorting / deduplication
+  baselineValue: number; // clamped to [0, PILLAR_MAX]
+}
+
+/** Pre-defined hypothetical actions for the interactive forecast dropdown. */
+export const FORECAST_ACTIONS = [
+  { id: "hire-hocs",    label: "Hire Head of Customer Success",          bump: 1.5, rampMonths: 3 },
+  { id: "cs-platform",  label: "Deploy CS Platform (Gainsight/Planhat)", bump: 2.0, rampMonths: 3 },
+  { id: "onboarding",   label: "Implement formal onboarding process",    bump: 1.2, rampMonths: 2 },
+  { id: "trust-safety", label: "Stand up Trust & Safety function",       bump: 1.0, rampMonths: 2 },
+  { id: "support-team", label: "Hire dedicated support team",            bump: 1.0, rampMonths: 2 },
+  { id: "qbr-cadence",  label: "Install formal QBR cadence",             bump: 0.8, rampMonths: 2 },
+] as const;
+
+export type ForecastActionId = (typeof FORECAST_ACTIONS)[number]["id"];
+
+/** Simple linear regression helper — returns { slope, intercept } fitted on ys. */
+function linReg(ys: number[]): { slope: number; intercept: number } {
+  const n = ys.length;
+  if (n < 2) return { slope: 0, intercept: ys[0] ?? 0 };
+  const xs = Array.from({ length: n }, (_, i) => i);
+  const meanX = xs.reduce((a, b) => a + b, 0) / n;
+  const meanY = ys.reduce((a, b) => a + b, 0) / n;
+  const ssXX = xs.reduce((s, x) => s + (x - meanX) ** 2, 0) || 1;
+  const ssXY = xs.reduce((s, x, i) => s + (x - meanX) * (ys[i] - meanY), 0);
+  const slope = ssXY / ssXX;
+  return { slope, intercept: meanY - slope * meanX };
+}
+
+/** Generate N forward months given a last ISO date string. */
+function futureMonths(lastIso: string, count: number): { iso: string; period: string }[] {
+  const base = new Date(lastIso + "T00:00:00");
+  return Array.from({ length: count }, (_, i) => {
+    const d = new Date(base);
+    d.setMonth(d.getMonth() + i + 1);
+    const iso = d.toISOString().slice(0, 10);
+    return { iso, period: monthLabel(iso) };
+  });
+}
+
+/**
+ * Produce 6-month forward baseline forecast for a company using linear regression
+ * on the last (up to 4) real assessment points.
+ * Returns [] when fewer than 2 assessment points exist.
+ */
+export function computeCompanyForecast(
+  assessmentPoints: AssessmentPoint[],
+  monthsAhead = 6,
+): ForecastPoint[] {
+  if (assessmentPoints.length < 2) return [];
+  const window = assessmentPoints.slice(-Math.min(4, assessmentPoints.length));
+  const { slope, intercept } = linReg(window.map((p) => p.normalizedComposite));
+  const n = window.length;
+  const months = futureMonths(assessmentPoints[assessmentPoints.length - 1].date, monthsAhead);
+  return months.map(({ iso, period }, i) => ({
+    period,
+    sortKey: iso,
+    baselineValue: Math.max(0, Math.min(PILLAR_MAX, Math.round((slope * (n + i) + intercept) * 10) / 10)),
+  }));
+}
+
+/**
+ * Produce 6-month forward baseline forecast for a firm's portfolio average
+ * using linear regression on the last (up to 4) portfolio trend periods.
+ * Returns [] when fewer than 2 trend periods exist.
+ */
+export function computePortfolioForecast(firmSlug: string, monthsAhead = 6): ForecastPoint[] {
+  const trendPoints = getPortfolioTrendPoints(firmSlug);
+  if (trendPoints.length < 2) return [];
+  const window = trendPoints.slice(-Math.min(4, trendPoints.length));
+  const { slope, intercept } = linReg(window.map((p) => p.avgNormalized));
+  const n = window.length;
+  const months = futureMonths(trendPoints[trendPoints.length - 1].sortKey, monthsAhead);
+  return months.map(({ iso, period }, i) => ({
+    period,
+    sortKey: iso,
+    baselineValue: Math.max(0, Math.min(PILLAR_MAX, Math.round((slope * (n + i) + intercept) * 10) / 10)),
+  }));
 }

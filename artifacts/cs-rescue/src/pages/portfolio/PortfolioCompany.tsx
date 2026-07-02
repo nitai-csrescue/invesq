@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { Link, useRoute } from "wouter";
 import {
   ArrowLeft,
@@ -18,6 +19,7 @@ import {
   CartesianGrid,
   Tooltip,
   ResponsiveContainer,
+  ReferenceLine,
 } from "recharts";
 import { PortfolioLayout, ConfidenceBadge } from "@/components/portfolio/PortfolioLayout";
 import {
@@ -29,6 +31,8 @@ import {
   formatDate,
   PILLAR_MAX,
   AS_OF_DATE,
+  computeCompanyForecast,
+  FORECAST_ACTIONS,
   type Company,
   type Firm,
   type AssessmentPoint,
@@ -174,6 +178,15 @@ function TrendChart({ company }: { company: Company }) {
               connectNulls={false}
             />
           )}
+          {(company.actionsLog ?? []).map((entry) => (
+            <ReferenceLine
+              key={entry.date}
+              x={periodLabel(entry.date)}
+              stroke="#f59e0b"
+              strokeDasharray="3 3"
+              strokeOpacity={0.6}
+            />
+          ))}
         </LineChart>
       </ResponsiveContainer>
 
@@ -194,6 +207,187 @@ function TrendChart({ company }: { company: Company }) {
           </div>
         )}
       </div>
+    </div>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Forecast section — interactive 6-month outlook shown when ≥ 2 real data pts
+// ---------------------------------------------------------------------------
+
+function ForecastSection({ company }: { company: Company }) {
+  const [selectedAction, setSelectedAction] = useState("none");
+
+  const forecastPts = computeCompanyForecast(company.assessmentPoints);
+  if (forecastPts.length === 0) return null;
+
+  const action = FORECAST_ACTIONS.find((a) => a.id === selectedAction);
+
+  type Row = { period: string; actual: number | null; baseline: number | null; upside: number | null };
+
+  const chartData: Row[] = [
+    ...company.assessmentPoints.map((p, i) => ({
+      period: periodLabel(p.date),
+      actual: p.normalizedComposite,
+      // Bridge: last actual point anchors both forecast lines for visual continuity
+      baseline: i === company.assessmentPoints.length - 1 ? p.normalizedComposite : null,
+      upside: i === company.assessmentPoints.length - 1 && action != null ? p.normalizedComposite : null,
+    })),
+    ...forecastPts.map((fp, i) => {
+      const bumpAtMonth = action
+        ? Math.min(action.bump, action.bump * ((i + 1) / action.rampMonths))
+        : 0;
+      return {
+        period: fp.period,
+        actual: null,
+        baseline: fp.baselineValue,
+        upside:
+          action != null
+            ? Math.max(0, Math.min(PILLAR_MAX, Math.round((fp.baselineValue + bumpAtMonth) * 10) / 10))
+            : null,
+      };
+    }),
+  ];
+
+  const actionMarkers = (company.actionsLog ?? []).map((entry) => ({
+    period: periodLabel(entry.date),
+    label: entry.label,
+    date: entry.date,
+  }));
+
+  return (
+    <div className="mt-4 rounded-xl border border-border bg-card p-6">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+        <div>
+          <h2 className="text-sm font-semibold text-foreground">Forecast</h2>
+          <p className="mt-0.5 text-xs text-muted-foreground">
+            {company.assessmentPoints.length} real data points · linear trend extrapolation · 6-month outlook
+          </p>
+        </div>
+        <div className="flex shrink-0 items-center gap-2">
+          <span className="text-xs text-muted-foreground">Model action:</span>
+          <select
+            value={selectedAction}
+            onChange={(e) => setSelectedAction(e.target.value)}
+            className="rounded border border-border bg-background px-2 py-1 text-xs text-foreground"
+          >
+            <option value="none">None — baseline only</option>
+            {FORECAST_ACTIONS.map((a) => (
+              <option key={a.id} value={a.id}>
+                {a.label}
+              </option>
+            ))}
+          </select>
+        </div>
+      </div>
+
+      <div className="mt-3">
+        <ResponsiveContainer width="100%" height={220}>
+          <LineChart data={chartData} margin={{ top: 10, right: 12, left: -20, bottom: 0 }}>
+            <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
+            <XAxis dataKey="period" stroke="hsl(var(--muted-foreground))" fontSize={11} tickLine={false} />
+            <YAxis domain={[0, PILLAR_MAX]} stroke="hsl(var(--muted-foreground))" fontSize={11} tickLine={false} />
+            <Tooltip
+              contentStyle={{
+                backgroundColor: "hsl(var(--popover))",
+                border: "1px solid hsl(var(--border))",
+                borderRadius: 8,
+                fontSize: 12,
+                color: "hsl(var(--foreground))",
+              }}
+              labelStyle={{ color: "hsl(var(--muted-foreground))" }}
+              formatter={(value: number, name: string) => [
+                value.toFixed(1),
+                name === "actual"
+                  ? "Actual (normalized)"
+                  : name === "baseline"
+                    ? "Projected — baseline"
+                    : "Modeled upside",
+              ]}
+            />
+            <Line
+              type="monotone"
+              dataKey="actual"
+              stroke={company.tier.color}
+              strokeWidth={2.5}
+              dot={{ r: 3, fill: company.tier.color, strokeWidth: 0 }}
+              activeDot={{ r: 5 }}
+              connectNulls={false}
+            />
+            <Line
+              type="monotone"
+              dataKey="baseline"
+              stroke="#6b7280"
+              strokeWidth={1.5}
+              strokeDasharray="5 4"
+              dot={{ r: 2.5, fill: "#6b7280", strokeWidth: 0 }}
+              connectNulls={false}
+            />
+            {action != null && (
+              <Line
+                type="monotone"
+                dataKey="upside"
+                stroke="#818cf8"
+                strokeWidth={1.5}
+                strokeDasharray="6 3"
+                dot={{ r: 2.5, fill: "#818cf8", strokeWidth: 0 }}
+                connectNulls={false}
+              />
+            )}
+            {actionMarkers.map((m) => (
+              <ReferenceLine
+                key={m.date}
+                x={m.period}
+                stroke="#f59e0b"
+                strokeDasharray="3 3"
+                label={{ value: "⚑", position: "top", fontSize: 11, fill: "#f59e0b" }}
+              />
+            ))}
+          </LineChart>
+        </ResponsiveContainer>
+      </div>
+
+      {/* Chart legend */}
+      <div className="mt-2 flex flex-wrap items-center gap-4 text-[11px] text-muted-foreground">
+        <div className="flex items-center gap-1.5">
+          <div className="h-0.5 w-5 rounded" style={{ backgroundColor: company.tier.color }} />
+          <span>Actual ({company.assessmentPoints.length} assessments)</span>
+        </div>
+        <div className="flex items-center gap-1.5">
+          <svg width="20" height="4" className="shrink-0">
+            <line x1="0" y1="2" x2="20" y2="2" stroke="#6b7280" strokeWidth="1.5" strokeDasharray="5 4" />
+          </svg>
+          <span>Projected — trend continuation</span>
+        </div>
+        {action != null && (
+          <div className="flex items-center gap-1.5">
+            <svg width="20" height="4" className="shrink-0">
+              <line x1="0" y1="2" x2="20" y2="2" stroke="#818cf8" strokeWidth="1.5" strokeDasharray="6 3" />
+            </svg>
+            <span>Modeled upside — {action.label}</span>
+          </div>
+        )}
+      </div>
+
+      {/* Actions log annotation key */}
+      {actionMarkers.length > 0 && (
+        <div className="mt-3 space-y-1.5">
+          {actionMarkers.map((m) => (
+            <div key={m.date} className="flex items-start gap-2 text-[11px] text-muted-foreground">
+              <span className="text-amber-400">⚑</span>
+              <span>
+                <span className="text-foreground">{m.period}</span> — {m.label}
+              </span>
+            </div>
+          ))}
+        </div>
+      )}
+
+      <p className="mt-3 border-t border-border pt-2 text-[10px] italic text-muted-foreground/70">
+        Forecasts are illustrative projections, not guarantees.
+        {action != null &&
+          ` Modeled upside assumes a linear ramp over ${action.rampMonths} months once the selected action is taken.`}
+      </p>
     </div>
   );
 }
@@ -440,11 +634,16 @@ export default function PortfolioCompany() {
                 ? "1 assessment on record — trend builds as diagnostics re-run"
                 : company.assessmentPoints.length === 2
                   ? "2 assessments on record — projection shown until 3+ diagnostics exist"
-                  : `${company.assessmentPoints.length} assessments · projection hidden once 3+ real data points exist`}
+                  : company.assessmentPoints.length >= 6
+                    ? `${company.assessmentPoints.length} monthly assessments on record · see Forecast section below`
+                    : `${company.assessmentPoints.length} assessments on record`}
             </p>
           </div>
         </div>
       </div>
+
+      {/* Forecast section */}
+      <ForecastSection company={company} />
 
       {/* Phase 2 integrations */}
       <Phase2Integrations />

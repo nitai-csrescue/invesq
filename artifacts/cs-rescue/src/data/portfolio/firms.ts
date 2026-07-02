@@ -18,6 +18,12 @@ export const FIRMS: Firm[] = [
     statusLabel: "Internal preview — not cleared for external distribution",
     internalOnly: true,
   },
+  {
+    slug: "raviga",
+    displayName: "Raviga Capital",
+    statusLabel: "Demo Sandbox — Not for External Use",
+    internalOnly: true,
+  },
 ];
 
 export const FIRMS_BY_SLUG: Readonly<Record<string, Firm>> = Object.fromEntries(

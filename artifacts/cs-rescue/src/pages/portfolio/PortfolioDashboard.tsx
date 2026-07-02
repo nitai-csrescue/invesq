@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { Link, useRoute } from "wouter";
 import { TrendingDown, Building2, Wallet, Gauge, AlertTriangle, ShieldAlert } from "lucide-react";
 import {
@@ -22,6 +23,8 @@ import {
   getFirmCompanies,
   getFirmSummary,
   getPortfolioTrendPoints,
+  computePortfolioForecast,
+  FORECAST_ACTIONS,
   type Company,
   type Firm,
   type PortfolioTrendPoint,
@@ -116,6 +119,13 @@ function CompanyCard({ company, firmSlug }: { company: Company; firmSlug: string
         <div className="mt-4">
           <PillarStrip company={company} />
         </div>
+
+        {company.calloutNote && (
+          <div className="mt-3 flex items-start gap-1.5 rounded border border-amber-500/20 bg-amber-500/5 px-2.5 py-2 text-[11px] text-amber-300">
+            <AlertTriangle className="mt-0.5 h-3 w-3 shrink-0" />
+            <span>{company.calloutNote}</span>
+          </div>
+        )}
 
         {company.topGap && (
           <div className="mt-4 flex items-start gap-2 rounded-lg border border-border bg-background/40 p-2.5">
@@ -262,6 +272,172 @@ function PortfolioTrendWidget({
   );
 }
 
+// ---------------------------------------------------------------------------
+// Portfolio forecast widget — shown only when firm has ≥ 3 real trend periods
+// ---------------------------------------------------------------------------
+
+function PortfolioForecastWidget({
+  firmSlug,
+  companyCount,
+}: {
+  firmSlug: string;
+  companyCount: number;
+}) {
+  const [selectedAction, setSelectedAction] = useState("none");
+  const realPoints = getPortfolioTrendPoints(firmSlug);
+  const forecastPts = computePortfolioForecast(firmSlug);
+
+  if (realPoints.length < 3 || forecastPts.length === 0) return null;
+
+  const action = FORECAST_ACTIONS.find((a) => a.id === selectedAction);
+
+  type Row = { period: string; actual: number | null; baseline: number | null; upside: number | null };
+
+  const chartData: Row[] = [
+    ...realPoints.map((p, i) => ({
+      period: p.period,
+      actual: p.avgNormalized,
+      baseline: i === realPoints.length - 1 ? p.avgNormalized : null,
+      upside: i === realPoints.length - 1 && action != null ? p.avgNormalized : null,
+    })),
+    ...forecastPts.map((fp, i) => {
+      const bumpAtMonth = action
+        ? Math.min(action.bump, action.bump * ((i + 1) / action.rampMonths))
+        : 0;
+      return {
+        period: fp.period,
+        actual: null,
+        baseline: fp.baselineValue,
+        upside:
+          action != null
+            ? Math.max(0, Math.min(PILLAR_MAX, Math.round((fp.baselineValue + bumpAtMonth) * 10) / 10))
+            : null,
+      };
+    }),
+  ];
+
+  return (
+    <div className="mt-4 rounded-xl border border-border bg-card px-5 py-4">
+      <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+        <div>
+          <h2 className="text-xs font-semibold text-foreground">Portfolio forecast</h2>
+          <span className="text-[10px] text-muted-foreground">
+            avg normalized composite · 0–{PILLAR_MAX} · {companyCount}{" "}
+            {companyCount === 1 ? "company" : "companies"} · 6-month outlook
+          </span>
+        </div>
+        <div className="flex items-center gap-2">
+          <span className="text-[10px] text-muted-foreground">Model action:</span>
+          <select
+            value={selectedAction}
+            onChange={(e) => setSelectedAction(e.target.value)}
+            className="rounded border border-border bg-background px-2 py-1 text-[10px] text-foreground"
+          >
+            <option value="none">Baseline only</option>
+            {FORECAST_ACTIONS.map((a) => (
+              <option key={a.id} value={a.id}>
+                {a.label}
+              </option>
+            ))}
+          </select>
+        </div>
+      </div>
+      <div className="mt-2">
+        <ResponsiveContainer width="100%" height={110}>
+          <LineChart data={chartData} margin={{ top: 6, right: 8, left: -28, bottom: 0 }}>
+            <XAxis
+              dataKey="period"
+              stroke="hsl(var(--muted-foreground))"
+              fontSize={10}
+              tickLine={false}
+              axisLine={false}
+            />
+            <YAxis
+              domain={[0, PILLAR_MAX]}
+              stroke="hsl(var(--muted-foreground))"
+              fontSize={10}
+              tickLine={false}
+              axisLine={false}
+              tickCount={3}
+            />
+            <Tooltip
+              contentStyle={{
+                backgroundColor: "hsl(var(--popover))",
+                border: "1px solid hsl(var(--border))",
+                borderRadius: 6,
+                fontSize: 11,
+                color: "hsl(var(--foreground))",
+              }}
+              formatter={(value: number, name: string) => [
+                value.toFixed(1),
+                name === "actual"
+                  ? "Avg composite (actual)"
+                  : name === "baseline"
+                    ? "Projected — baseline"
+                    : "Modeled upside",
+              ]}
+            />
+            <Line
+              type="monotone"
+              dataKey="actual"
+              stroke="hsl(var(--primary))"
+              strokeOpacity={0.7}
+              strokeWidth={2}
+              dot={{ r: 3, fill: "hsl(var(--primary))", strokeWidth: 0, fillOpacity: 0.8 }}
+              connectNulls={false}
+            />
+            <Line
+              type="monotone"
+              dataKey="baseline"
+              stroke="#6b7280"
+              strokeWidth={1.5}
+              strokeDasharray="5 4"
+              dot={{ r: 2, fill: "#6b7280", strokeWidth: 0 }}
+              connectNulls={false}
+            />
+            {action != null && (
+              <Line
+                type="monotone"
+                dataKey="upside"
+                stroke="#818cf8"
+                strokeWidth={1.5}
+                strokeDasharray="6 3"
+                dot={{ r: 2, fill: "#818cf8", strokeWidth: 0 }}
+                connectNulls={false}
+              />
+            )}
+          </LineChart>
+        </ResponsiveContainer>
+      </div>
+      <div className="mt-1.5 flex flex-wrap items-center gap-3 text-[10px] text-muted-foreground">
+        <div className="flex items-center gap-1.5">
+          <div className="h-0.5 w-4 rounded bg-primary/70" />
+          <span>
+            Actual ({realPoints.length} {realPoints.length === 1 ? "period" : "periods"})
+          </span>
+        </div>
+        <div className="flex items-center gap-1.5">
+          <svg width="16" height="4" className="shrink-0">
+            <line x1="0" y1="2" x2="16" y2="2" stroke="#6b7280" strokeWidth="1.5" strokeDasharray="4 3" />
+          </svg>
+          <span>Projected — trend continuation</span>
+        </div>
+        {action != null && (
+          <div className="flex items-center gap-1.5">
+            <svg width="16" height="4" className="shrink-0">
+              <line x1="0" y1="2" x2="16" y2="2" stroke="#818cf8" strokeWidth="1.5" strokeDasharray="5 3" />
+            </svg>
+            <span>Modeled upside — {action.label}</span>
+          </div>
+        )}
+      </div>
+      <p className="mt-1 text-[10px] italic text-muted-foreground/60">
+        Forecasts are illustrative projections, not guarantees.
+      </p>
+    </div>
+  );
+}
+
 function FirmNotFound() {
   return (
     <div className="flex min-h-screen items-center justify-center bg-background text-foreground">
@@ -300,7 +476,7 @@ export default function PortfolioDashboard() {
         <div className="flex flex-col items-start gap-2 sm:items-end">
           {firm.internalOnly && (
             <span className="inline-flex w-fit items-center gap-1.5 rounded-full border border-rose-500/30 bg-rose-500/10 px-2.5 py-1 text-[11px] text-rose-300">
-              <ShieldAlert className="h-3 w-3" /> Internal preview — not cleared for external distribution
+              <ShieldAlert className="h-3 w-3" /> {firm.statusLabel}
             </span>
           )}
           <span className="inline-flex w-fit items-center gap-1.5 rounded-md border border-amber-500/30 bg-amber-500/10 px-2.5 py-1 text-[11px] text-amber-300">
@@ -350,6 +526,9 @@ export default function PortfolioDashboard() {
 
       {/* Portfolio trend */}
       <PortfolioTrendWidget firmSlug={firmSlug} companyCount={summary.companyCount} />
+
+      {/* Portfolio forecast (only renders when firm has ≥ 3 real trend periods) */}
+      <PortfolioForecastWidget firmSlug={firmSlug} companyCount={summary.companyCount} />
 
       {/* Tier distribution */}
       <div className="mt-4 rounded-xl border border-border bg-card p-5">

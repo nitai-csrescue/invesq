@@ -17,6 +17,7 @@ export type {
   Company,
   PortfolioSummary,
   TierCount,
+  ActionLogEntry,
 } from "./types";
 
 // Pillar / tier definitions + helpers
@@ -44,4 +45,10 @@ export {
   formatCurrencyCompact,
   formatCurrencyRange,
   formatDate,
+  // Forecast — additive; safe to import in page components
+  computeCompanyForecast,
+  computePortfolioForecast,
+  FORECAST_ACTIONS,
+  type ForecastPoint,
+  type ForecastActionId,
 } from "./engine";

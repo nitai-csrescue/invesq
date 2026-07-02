@@ -27,6 +27,14 @@ export interface AssessmentPoint {
 }
 
 // ---------------------------------------------------------------------------
+// Actions log — events annotated on the trend / forecast chart
+// ---------------------------------------------------------------------------
+export interface ActionLogEntry {
+  date: string;   // ISO date e.g. "2025-10-15"
+  label: string;  // short description shown as chart annotation
+}
+
+// ---------------------------------------------------------------------------
 // Pillar definition
 // ---------------------------------------------------------------------------
 export interface Pillar {
@@ -78,13 +86,15 @@ export interface RawCompany {
   // ARR range in dollars used for portfolio rollups.
   // null = undisclosed — excluded from Total ARR and Est. ARR at Risk.
   arrForRollup: [number, number] | null;
-  confidence: "High" | "Medium"; // assessment confidence from external signals
+  confidence: "High" | "Medium" | "Low"; // assessment confidence from external signals
   engagement: string;           // per-company engagement recommendation
   invesqSignal: string;         // per-company INVESQ signal
   // When a company has no CS leader at all, leadership copy is framed as
   // "establish" (never anything implying replacement of an incumbent).
   leadershipFraming?: "establish";
   summary: string;              // executive summary paragraph
+  // Optional callout shown as an amber flag on portfolio cards (e.g. expansion mismatch).
+  calloutNote?: string;
   // Assessment history — must contain at least one entry, sorted ascending by date.
   // The LATEST entry determines current scores, tier, composite, and rollups.
   // Append a new entry to perform a re-run (no UI changes required).
@@ -92,6 +102,8 @@ export interface RawCompany {
   // Company-level gap-note overrides, keyed by pillar id.
   // Falls back to the pillar's generic gapNote when not present here.
   gapNotes?: Record<string, string>;
+  // Dated events annotated as markers on the trend / forecast chart.
+  actionsLog?: ActionLogEntry[];
 }
 
 // ---------------------------------------------------------------------------
