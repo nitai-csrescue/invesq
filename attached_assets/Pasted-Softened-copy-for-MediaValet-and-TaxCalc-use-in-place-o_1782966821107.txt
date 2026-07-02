@@ -1,0 +1,62 @@
+Softened copy for MediaValet and TaxCalc — use in place of the raw Notion evidence text
+in generated exec summaries, leadership sections, and top-gap descriptions. Scores/tiers
+stay exactly as specified — this only changes the narrative language layer.
+
+WHY THIS MATTERS (context for whoever builds this):
+These two companies are real, named STG portfolio companies with real named executives.
+The raw Notion research includes things like an anonymous Glassdoor quote calling
+MediaValet's post-acquisition management "profoundly toxic," and a rubric label of
+"Replace" for TaxCalc's leadership gap. That's normal, useful internal diagnostic
+language — but it reads very differently in a live demo shown back to the PE firm that
+owns these companies. The fix isn't to change the scores, it's to describe the same
+gap as a forward-looking opportunity instead of a judgment on a specific person.
+
+---
+
+MEDIAVALET
+
+Executive summary (replace generated version):
+"Strong foundation — high customer satisfaction, a structured onboarding motion, and
+clear role separation across the CS team. The two areas of opportunity: no formal
+account-planning cadence (QBRs, success plans) exists yet, and CS leadership brings deep
+client-relationship experience from outside core SaaS. Pairing that relationship
+strength with SaaS-native CS frameworks is the fastest path to unlocking the >100% NRR
+target set at acquisition."
+
+CS Leadership pillar note (replace "Junior or newly placed" evidence text):
+"CS leadership has strong client-relationship experience from an agency/marketing
+background. Layering in SaaS-specific CS infrastructure — health scoring, structured
+QBRs — would help convert that relationship strength into measurable retention gains."
+
+Top gap card copy:
+"Account Planning: No structured QBR or success-plan cadence yet, despite an active,
+well-reviewed CS team — a clear near-term build, not a rebuild."
+
+Do NOT surface: the Glassdoor "toxic management" quote, or any other anonymous employee
+sentiment, anywhere in generated copy for this company. Keep it in the internal Notion
+record only.
+
+---
+
+TAXCALC
+
+Executive summary (replace generated version):
+"A minority growth investment where customer success hasn't yet been stood up as a
+unified function — retention is currently split between a commercial account-management
+team and a separate reactive support team, with no single owner connecting the two.
+Standing up a dedicated CS function is the single highest-leverage move available here,
+and aligns directly with the investment thesis STG announced at close."
+
+CS Leadership pillar note (replace "No leader or recent replacement" / "Replace"):
+"No dedicated CS leader is in place today. The opportunity isn't fixing an underperforming
+leader — it's that the role doesn't exist yet. A first CS leadership hire, unifying
+account management and support under one retention-accountable owner, is the clearest
+starting point."
+
+Top gap card copy:
+"CS Org Design: Retention responsibility is currently split across two teams with no
+unifying function — a first CS hire would close this gap directly."
+
+Framework note: wherever the underlying rubric field is literally "Replace" (P6
+Leadership Recommendation), display it as "Establish CS Leadership" in any user-facing
+copy for TaxCalc specifically, since there's no incumbent to replace.

@@ -1,0 +1,60 @@
+Replace the 8 fictional portfolio companies on /portfolio with STG's 5 real portfolio companies from the
+Portfolio Company Diagnostics Notion database. Nomis Solutions is currently in the demo with the WRONG
+scores (11/16, Tier 3) — replace with its real diagnostic. Add the other 4 as new entries. Same 8-pillar
+framework, same 0–16 scale, same N/A handling as Orchard's fix.
+
+1. NOMIS SOLUTIONS (CORRECT existing entry — currently wrong)
+Sector: AI-native pricing optimization, Financial Services SaaS | ARR: $20M–$30M (range, low-confidence) | Headcount: 77
+Composite: 4/16 · Tier 1 - Significant Opportunities
+CS Org Design: 1 - Developing | Onboarding: 0 - Infrastructure Gap | Health Scoring: 0 - Infrastructure Gap
+Revenue Motion: 0 - Infrastructure Gap | Escalation & Churn Mgmt: Insufficient Data | CS Leadership: 1 - Developing
+Account Planning: 0 - Infrastructure Gap | AI Adoption Maturity: 1 - Developing
+Top gaps: Revenue Motion, Health Scoring, Account Planning
+CS Leader: Amy Chase (CCO) — Ops/PS background, 39mo tenure — recommendation: Augment
+
+2. CADMIUM (new)
+Sector: Events/LMS/Content Mgmt SaaS | ARR: $10M–$20M | Headcount: unconfirmed (102–186, conflicting sources)
+Composite: 7/16 · Tier 2 - Targeted Opportunities
+CS Org Design: 1 - Developing | Onboarding: 1 - Developing | Health Scoring: Insufficient Data
+Revenue Motion: 1 - Developing | Escalation & Churn Mgmt: 2 - Optimized | CS Leadership: 1 - Developing
+Account Planning: 0 - Infrastructure Gap | AI Adoption Maturity: 0 - Infrastructure Gap
+Top gaps: Account Planning, AI Adoption Maturity, CS Org Design
+CS Leader: Christina Rice (VP CS & Ops) — recommendation: Augment
+
+3. CONFIENCE (new)
+Sector: LIMS (Laboratory Info Mgmt) SaaS | ARR: not disclosed — show as "Undisclosed," do not estimate | Headcount: unconfirmed
+Composite: 7/16 · Tier 2 - Targeted Opportunities | Confidence: Medium (3-4 sources) — show confidence badge
+CS Org Design: 2 - Optimized | Onboarding: 1 - Developing | Health Scoring: Insufficient Data
+Revenue Motion: Insufficient Data | Escalation & Churn Mgmt: 1 - Developing | CS Leadership: 1 - Developing
+Account Planning: 0 - Infrastructure Gap | AI Adoption Maturity: 0 - Infrastructure Gap
+Top gaps: Account Planning, AI Adoption Maturity, Revenue Motion
+CS Leader: Camila Leal (Sr. Dir CS) / Alex Andrade (EVP Global Cust. Ops) — recommendation: Augment
+
+4. MEDIAVALET (new)
+Sector: Digital Asset Management SaaS | ARR: $10M–$20M | Headcount: 102
+Composite: 9/16 · Tier 2 - Targeted Opportunities
+CS Org Design: 2 - Optimized | Onboarding: 2 - Optimized | Health Scoring: Insufficient Data
+Revenue Motion: 1 - Developing | Escalation & Churn Mgmt: 2 - Optimized | CS Leadership: 1 - Developing
+Account Planning: 0 - Infrastructure Gap | AI Adoption Maturity: 0 - Infrastructure Gap
+Top gaps: Account Planning, AI Adoption Maturity, CS Leadership
+CS Leader: Kelsey Fielding (VP CS) — CS-native, 30mo tenure — recommendation: Augment
+Note: post-acquisition Glassdoor sentiment is notably negative — soften/omit raw quotes in generated copy.
+
+5. TAXCALC (new)
+Sector: Tax Compliance / Practice Mgmt SaaS (UK) | ARR: undisclosed — do not estimate | Headcount: 100
+Composite: 3/16 · Tier 1 - Significant Opportunities
+CS Org Design: 0 - Infrastructure Gap | Onboarding: 1 - Developing | Health Scoring: Insufficient Data
+Revenue Motion: 0 - Infrastructure Gap | Escalation & Churn Mgmt: 1 - Developing | CS Leadership: 0 - Infrastructure Gap
+Account Planning: 0 - Infrastructure Gap | AI Adoption Maturity: 0 - Infrastructure Gap
+Top gaps: CS Org Design, CS Leadership, Revenue Motion
+No dedicated CS leader — recommendation: Replace (soften to "hire" framing in generated copy, not raw "Replace" label)
+
+GLOBAL CHANGES NEEDED:
+- Where ARR is a Notion range (not a point figure), display the range — don't fabricate a precise number, and
+  exclude undisclosed-ARR companies (Confience, TaxCalc) from the "Total ARR" rollup sum, footnoting why.
+- Recompute each composite from the raw pillar scores using the same normalization logic as the existing N/A
+  handling (Orchard) — don't just import Notion's "Composite Score" field as-is, since spot-checking shows it
+  doesn't always match the sum of the 8 pillar scores.
+- Add a "Confidence: Medium/High" badge per company since this is now real diagnostic data, not illustrative.
+- These are marked "Complete - Internal" in Notion, not "Complete - Sendable" — surface that status somewhere
+  (e.g. a small internal-only watermark) so it's clear this hasn't been cleared for external distribution yet.
