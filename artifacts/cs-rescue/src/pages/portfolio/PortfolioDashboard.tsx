@@ -1,20 +1,21 @@
-import { Link } from "wouter";
+import { Link, useRoute } from "wouter";
 import { TrendingDown, Building2, Wallet, Gauge, AlertTriangle, ShieldAlert } from "lucide-react";
 import { PortfolioLayout, ConfidenceBadge } from "@/components/portfolio/PortfolioLayout";
 import {
-  COMPANIES,
   PILLARS,
   TIERS,
   SCORE_LEVELS,
   scoreLevel,
-  portfolioSummary,
   gapTitle,
   formatDate,
   PILLAR_MAX,
-  FIRM_NAME,
   AS_OF_DATE,
+  getFirm,
+  getFirmCompanies,
+  getFirmSummary,
   type Company,
-} from "@/data/portfolioRollup";
+  type Firm,
+} from "@/data/portfolio";
 
 function KpiCard({
   icon: Icon,
@@ -63,10 +64,10 @@ function PillarStrip({ company }: { company: Company }) {
   );
 }
 
-function CompanyCard({ company }: { company: Company }) {
+function CompanyCard({ company, firmSlug }: { company: Company; firmSlug: string }) {
   const { tier } = company;
   return (
-    <Link href={`/portfolio/${company.id}`}>
+    <Link href={`/${firmSlug}/portfolio/${company.id}`}>
       <div className="group h-full cursor-pointer rounded-xl border border-border bg-card p-5 transition-colors hover:border-primary/40 hover:bg-card/80">
         <div className="flex items-start justify-between gap-3">
           <div className="min-w-0">
@@ -125,24 +126,47 @@ function CompanyCard({ company }: { company: Company }) {
   );
 }
 
+function FirmNotFound() {
+  return (
+    <div className="flex min-h-screen items-center justify-center bg-background text-foreground">
+      <div className="text-center">
+        <div className="text-6xl font-bold text-muted-foreground/30">404</div>
+        <h1 className="mt-4 text-lg font-semibold text-foreground">Firm not found</h1>
+        <p className="mt-2 text-sm text-muted-foreground">No portfolio exists for this firm identifier.</p>
+      </div>
+    </div>
+  );
+}
+
 export default function PortfolioDashboard() {
-  const { tierCounts } = portfolioSummary;
+  const [, params] = useRoute("/:firmSlug/portfolio");
+  const firmSlug = params?.firmSlug ?? "";
+  const firm = getFirm(firmSlug);
+
+  if (!firm) return <FirmNotFound />;
+
+  const companies = getFirmCompanies(firmSlug);
+  const summary = getFirmSummary(firmSlug)!;
+  const { tierCounts } = summary;
   const maxTierCount = Math.max(...tierCounts.map((t) => t.count), 1);
 
   return (
-    <PortfolioLayout>
+    <PortfolioLayout firm={firm}>
       {/* Page heading */}
       <div className="flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
         <div>
           <h1 className="text-2xl font-semibold tracking-tight text-foreground">Portfolio Operating Review</h1>
           <p className="mt-1 text-sm text-muted-foreground">
-            Customer Success operational-diligence rollup across {FIRM_NAME}&apos;s portfolio · as of {formatDate(AS_OF_DATE)}
+            Customer Success operational-diligence rollup across {firm.displayName}&apos;s portfolio · as of{" "}
+            {formatDate(AS_OF_DATE)}
           </p>
         </div>
         <div className="flex flex-col items-start gap-2 sm:items-end">
-          <span className="inline-flex w-fit items-center gap-1.5 rounded-full border border-rose-500/30 bg-rose-500/10 px-2.5 py-1 text-[11px] text-rose-300">
-            <ShieldAlert className="h-3 w-3" /> Internal preview — not cleared for external distribution
-          </span>
+          {firm.internalOnly && (
+            <span className="inline-flex w-fit items-center gap-1.5 rounded-full border border-rose-500/30 bg-rose-500/10 px-2.5 py-1 text-[11px] text-rose-300">
+              <ShieldAlert className="h-3 w-3" /> Internal preview — not cleared for external distribution
+            </span>
+          )}
           <span className="inline-flex w-fit items-center gap-1.5 rounded-md border border-amber-500/30 bg-amber-500/10 px-2.5 py-1 text-[11px] text-amber-300">
             <AlertTriangle className="h-3 w-3" /> Phase 1 external-signal scoring · trend data illustrative
           </span>
@@ -154,17 +178,17 @@ export default function PortfolioDashboard() {
         <KpiCard
           icon={Building2}
           label="Portfolio Companies"
-          value={String(portfolioSummary.companyCount)}
+          value={String(summary.companyCount)}
           sub="Assessed this cycle"
         />
         <KpiCard
           icon={Wallet}
           label="Total ARR"
-          value={portfolioSummary.totalArrDisplay}
+          value={summary.totalArrDisplay}
           sub={
-            portfolioSummary.arrUndisclosedCount > 0
-              ? `Disclosed ARR only — ${portfolioSummary.arrUndisclosedCount} ${
-                  portfolioSummary.arrUndisclosedCount === 1 ? "company" : "companies"
+            summary.arrUndisclosedCount > 0
+              ? `Disclosed ARR only — ${summary.arrUndisclosedCount} ${
+                  summary.arrUndisclosedCount === 1 ? "company" : "companies"
                 } undisclosed²`
               : "Across assessed companies"
           }
@@ -172,14 +196,18 @@ export default function PortfolioDashboard() {
         <KpiCard
           icon={Gauge}
           label="Avg Composite"
-          value={`${portfolioSummary.avgComposite}`}
+          value={`${summary.avgComposite}`}
           sub={`of ${PILLAR_MAX} · Phase 1 · normalized for N/A pillars`}
         />
         <KpiCard
           icon={AlertTriangle}
           label="Est. ARR at Risk"
-          value={portfolioSummary.arrAtRiskDisplay}
-          sub="Preventable, tier-weighted · disclosed ARR only²"
+          value={summary.arrAtRiskDisplay}
+          sub={
+            summary.arrUndisclosedCount > 0
+              ? "Preventable, tier-weighted · disclosed ARR only²"
+              : "Preventable, tier-weighted"
+          }
           illustrative
         />
       </div>
@@ -223,14 +251,14 @@ export default function PortfolioDashboard() {
         <span className="text-xs text-muted-foreground">Lowest composite first</span>
       </div>
       <div className="mt-4 grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">
-        {COMPANIES.map((c) => (
-          <CompanyCard key={c.id} company={c} />
+        {companies.map((c) => (
+          <CompanyCard key={c.id} company={c} firmSlug={firmSlug} />
         ))}
       </div>
-      {portfolioSummary.arrUndisclosedCount > 0 && (
+      {summary.arrUndisclosedCount > 0 && (
         <p className="mt-3 text-[11px] text-muted-foreground">
-          ² {portfolioSummary.arrUndisclosedNames.join(" and ")} ARR is undisclosed and excluded from the Total ARR
-          and Est. ARR at Risk figures.
+          ² {summary.arrUndisclosedNames.join(" and ")} ARR is undisclosed and excluded from the Total ARR and Est.
+          ARR at Risk figures.
         </p>
       )}
 
@@ -286,9 +314,9 @@ export default function PortfolioDashboard() {
           </div>
         </div>
         <p className="mt-4 border-t border-border pt-3 text-[11px] text-muted-foreground">
-          Phase 1 scores use external public signals only (LinkedIn, G2/Capterra, Glassdoor, job postings, press) and
-          are illustrative for this preview. Phase 2 layers in proprietary data (CRM, Gainsight, Gong, product
-          telemetry) once INVESQ is engaged, producing a weighted composite (max 19.5).
+          Phase 1 scores use external public signals only (LinkedIn, G2/Capterra, job postings, press) and are
+          illustrative for this preview. Phase 2 layers in proprietary data (CRM, Gainsight, Gong, product telemetry)
+          once INVESQ is engaged, producing a weighted composite (max 19.5).
         </p>
       </div>
     </PortfolioLayout>

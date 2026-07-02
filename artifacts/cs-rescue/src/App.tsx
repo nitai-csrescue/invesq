@@ -31,22 +31,39 @@ import PrenaxMethodology from "@/pages/prenax/Methodology";
 import PortfolioDashboard from "@/pages/portfolio/PortfolioDashboard";
 import PortfolioCompany from "@/pages/portfolio/PortfolioCompany";
 import PortfolioReport from "@/pages/portfolio/PortfolioReport";
+import FirmsIndex from "@/pages/portfolio/FirmsIndex";
 
 const queryClient = new QueryClient();
 
 // Bare = no sidebar/header (landing & investor pages)
 const BARE_PATHS = new Set<string>(["/", "/overview", "/launch-demo", "/ceati", "/cs-health-scorecard"]);
 
+// Pattern: /<firmSlug>/portfolio or /<firmSlug>/portfolio/...
+const FIRM_PORTFOLIO_RE = /^\/[^/]+\/portfolio(\/|$)/;
+
 function Shell({ children }: { children: ReactNode }) {
   const [location] = useLocation();
+
   // Prenax is a fully self-contained prototype with its own chrome.
   if (location === "/prenax" || location.startsWith("/prenax/")) {
     return <>{children}</>;
   }
-  // Portfolio Rollup is a self-contained client portal with its own chrome.
+
+  // Legacy /portfolio paths (redirected below, but shell still needs to pass them through).
   if (location === "/portfolio" || location.startsWith("/portfolio/")) {
     return <>{children}</>;
   }
+
+  // Firm-scoped portfolio portals — self-contained client chrome.
+  if (FIRM_PORTFOLIO_RE.test(location)) {
+    return <>{children}</>;
+  }
+
+  // Internal tenant index — standalone page.
+  if (location === "/firms") {
+    return <>{children}</>;
+  }
+
   if (BARE_PATHS.has(location)) {
     return <BareLayout>{children}</BareLayout>;
   }
@@ -74,10 +91,24 @@ function Router() {
         <Route path="/platform/architecture" component={Architecture} />
         <Route path="/platform/ai-copilot" component={AICopilot} />
 
-        {/* Portfolio Rollup — self-contained STG client portal */}
-        <Route path="/portfolio" component={PortfolioDashboard} />
-        <Route path="/portfolio/:companyId/report" component={PortfolioReport} />
-        <Route path="/portfolio/:companyId" component={PortfolioCompany} />
+        {/* Internal tenant index (unlinked) */}
+        <Route path="/firms" component={FirmsIndex} />
+
+        {/* Firm-scoped portfolio portals — /:firmSlug/portfolio/... */}
+        <Route path="/:firmSlug/portfolio" component={PortfolioDashboard} />
+        <Route path="/:firmSlug/portfolio/:companyId/report" component={PortfolioReport} />
+        <Route path="/:firmSlug/portfolio/:companyId" component={PortfolioCompany} />
+
+        {/* Legacy /portfolio routes — 301-redirect to /stg equivalents */}
+        <Route path="/portfolio">
+          {() => <Redirect to="/stg/portfolio" />}
+        </Route>
+        <Route path="/portfolio/:companyId/report">
+          {(params) => <Redirect to={`/stg/portfolio/${params?.companyId}/report`} />}
+        </Route>
+        <Route path="/portfolio/:companyId">
+          {(params) => <Redirect to={`/stg/portfolio/${params?.companyId}`} />}
+        </Route>
 
         {/* Prenax Customer Health Intelligence — self-contained prototype */}
         <Route path="/prenax" component={PrenaxExecutiveOverview} />

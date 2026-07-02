@@ -3,15 +3,16 @@ import { ArrowLeft, AlertTriangle, FileText, Info, TrendingDown } from "lucide-r
 import { PortfolioLayout, ConfidenceBadge } from "@/components/portfolio/PortfolioLayout";
 import {
   AS_OF_DATE,
-  FIRM_NAME,
   PILLARS,
   PILLAR_MAX,
   WEIGHTED_MAX,
   formatDate,
   gapTitle,
-  getCompany,
+  getFirm,
+  getFirmCompany,
   scoreLevel,
-} from "@/data/portfolioRollup";
+  type Firm,
+} from "@/data/portfolio";
 
 function MetaItem({ label, value }: { label: string; value: string }) {
   return (
@@ -22,19 +23,39 @@ function MetaItem({ label, value }: { label: string; value: string }) {
   );
 }
 
+function FirmNotFound() {
+  return (
+    <div className="flex min-h-screen items-center justify-center bg-background text-foreground">
+      <div className="text-center">
+        <div className="text-6xl font-bold text-muted-foreground/30">404</div>
+        <h1 className="mt-4 text-lg font-semibold text-foreground">Firm not found</h1>
+        <p className="mt-2 text-sm text-muted-foreground">No portfolio exists for this firm identifier.</p>
+      </div>
+    </div>
+  );
+}
+
 export default function PortfolioReport() {
-  const [, params] = useRoute("/portfolio/:companyId/report");
-  const company = params?.companyId ? getCompany(params.companyId) : undefined;
+  const [, params] = useRoute("/:firmSlug/portfolio/:companyId/report");
+  const firmSlug = params?.firmSlug ?? "";
+  const firm = getFirm(firmSlug);
+
+  if (!firm) return <FirmNotFound />;
+
+  const company = params?.companyId ? getFirmCompany(firmSlug, params.companyId) : undefined;
 
   if (!company) {
     return (
-      <PortfolioLayout>
+      <PortfolioLayout firm={firm}>
         <div className="mx-auto max-w-md py-24 text-center">
           <h1 className="text-lg font-semibold text-foreground">Report not found</h1>
           <p className="mt-2 text-sm text-muted-foreground">
             No diagnostic report exists for this company id.
           </p>
-          <Link href="/portfolio" className="mt-4 inline-flex items-center gap-1.5 text-sm text-primary hover:underline">
+          <Link
+            href={`/${firm.slug}/portfolio`}
+            className="mt-4 inline-flex items-center gap-1.5 text-sm text-primary hover:underline"
+          >
             <ArrowLeft className="h-4 w-4" /> Back to portfolio
           </Link>
         </div>
@@ -45,9 +66,9 @@ export default function PortfolioReport() {
   const { tier } = company;
 
   return (
-    <PortfolioLayout>
+    <PortfolioLayout firm={firm}>
       <Link
-        href={`/portfolio/${company.id}`}
+        href={`/${firm.slug}/portfolio/${company.id}`}
         className="inline-flex items-center gap-1.5 text-sm text-muted-foreground transition-colors hover:text-primary"
       >
         <ArrowLeft className="h-4 w-4" /> {company.name}
@@ -67,7 +88,9 @@ export default function PortfolioReport() {
               {company.sector} · {company.hq}
             </p>
             <div className="mt-3 flex flex-wrap items-center gap-1.5">
-              <span className={`inline-flex items-center rounded-full border px-2.5 py-0.5 text-[11px] font-medium ${tier.badgeClass}`}>
+              <span
+                className={`inline-flex items-center rounded-full border px-2.5 py-0.5 text-[11px] font-medium ${tier.badgeClass}`}
+              >
                 Tier {tier.id} · {tier.label}
               </span>
               <ConfidenceBadge confidence={company.confidence} />
@@ -81,15 +104,16 @@ export default function PortfolioReport() {
             </div>
             {company.insufficientCount > 0 && (
               <p className="mt-1.5 text-[11px] text-amber-300/80">
-                {company.insufficientCount} {company.insufficientCount === 1 ? "pillar" : "pillars"} marked Insufficient
-                Data — excluded from the composite, reducing the max from {PILLAR_MAX} to {company.displayMax}.
+                {company.insufficientCount}{" "}
+                {company.insufficientCount === 1 ? "pillar" : "pillars"} marked Insufficient Data — excluded from
+                the composite, reducing the max from {PILLAR_MAX} to {company.displayMax}.
               </p>
             )}
           </div>
         </div>
 
         <div className="mt-6 grid grid-cols-2 gap-4 border-t border-border pt-5 sm:grid-cols-3 lg:grid-cols-6">
-          <MetaItem label="Prepared for" value={FIRM_NAME} />
+          <MetaItem label="Prepared for" value={firm.displayName} />
           <MetaItem label="Assessment date" value={formatDate(company.lastDiagnostic)} />
           <MetaItem label="ARR" value={company.arrDisplay} />
           <MetaItem label="Headcount" value={company.employeesDisplay} />
@@ -122,7 +146,10 @@ export default function PortfolioReport() {
             const lvl = scoreLevel(score);
             const fill = score === null ? 0 : (score / 2) * 100;
             return (
-              <div key={p.id} className="grid grid-cols-1 gap-2 py-3.5 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-center sm:gap-6 first:pt-0 last:pb-0">
+              <div
+                key={p.id}
+                className="grid grid-cols-1 gap-2 py-3.5 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-center sm:gap-6 first:pt-0 last:pb-0"
+              >
                 <div className="min-w-0">
                   <div className="flex items-center gap-2">
                     <span className="text-sm font-medium text-foreground">{p.name}</span>
@@ -157,7 +184,8 @@ export default function PortfolioReport() {
           <div>
             <div className="text-[10px] uppercase tracking-wider text-muted-foreground">Phase 2 · weighted</div>
             <div className="font-mono text-lg font-semibold text-foreground">
-              {company.weightedComposite} <span className="text-xs text-muted-foreground">/ {company.weightedMax}</span>
+              {company.weightedComposite}{" "}
+              <span className="text-xs text-muted-foreground">/ {company.weightedMax}</span>
             </div>
           </div>
           <div>
@@ -180,7 +208,9 @@ export default function PortfolioReport() {
         <div className="mt-4 space-y-3">
           {company.gaps.slice(0, 4).map((g, i) => (
             <div key={g.pillar.id} className="flex gap-3 rounded-lg border border-border bg-background/40 p-4">
-              <div className="font-mono text-sm font-semibold text-muted-foreground">{String(i + 1).padStart(2, "0")}</div>
+              <div className="font-mono text-sm font-semibold text-muted-foreground">
+                {String(i + 1).padStart(2, "0")}
+              </div>
               <div className="min-w-0">
                 <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
                   <span className="text-sm font-medium text-foreground">{gapTitle(company, g)}</span>
@@ -206,8 +236,8 @@ export default function PortfolioReport() {
         <p className="mt-2 text-xs text-muted-foreground">
           {company.arrAtRiskRange ? (
             <>
-              Tier {tier.id} companies typically carry {tier.arrRisk.toLowerCase()} — for {company.name}, an estimated{" "}
-              {company.arrAtRiskDisplay} of {company.arrDisplay} ARR.
+              Tier {tier.id} companies typically carry {tier.arrRisk.toLowerCase()} — for {company.name}, an
+              estimated {company.arrAtRiskDisplay} of {company.arrDisplay} ARR.
             </>
           ) : (
             <>
@@ -226,7 +256,7 @@ export default function PortfolioReport() {
         <ul className="mt-3 space-y-2 text-xs leading-relaxed text-muted-foreground">
           <li>
             Phase 1 scores each of the 8 pillars 0–2 using external public signals only (LinkedIn, job descriptions,
-            G2/Capterra, Glassdoor, company content) — unweighted composite out of {PILLAR_MAX}.
+            G2/Capterra, company content) — unweighted composite out of {PILLAR_MAX}.
           </li>
           <li>
             Phase 2 applies pillar weights (max {WEIGHTED_MAX}) once proprietary data is available post-engagement.
@@ -246,7 +276,7 @@ export default function PortfolioReport() {
       </div>
 
       <p className="mt-4 text-center text-[11px] text-muted-foreground">
-        Prepared for {FIRM_NAME} by INVESQ · as of {formatDate(AS_OF_DATE)} · Design-partner preview
+        Prepared for {firm.displayName} by INVESQ · as of {formatDate(AS_OF_DATE)} · Design-partner preview
       </p>
     </PortfolioLayout>
   );

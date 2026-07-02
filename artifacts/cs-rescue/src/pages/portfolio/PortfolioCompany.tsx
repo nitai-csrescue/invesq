@@ -8,6 +8,7 @@ import {
   TrendingDown,
   FileText,
   Info,
+  Plug,
 } from "lucide-react";
 import {
   LineChart,
@@ -20,16 +21,17 @@ import {
 } from "recharts";
 import { PortfolioLayout, ConfidenceBadge } from "@/components/portfolio/PortfolioLayout";
 import {
-  getCompany,
+  getFirm,
+  getFirmCompany,
   gapTitle,
   PILLARS,
   scoreLevel,
   formatDate,
   PILLAR_MAX,
   AS_OF_DATE,
-  FIRM_NAME,
   type Company,
-} from "@/data/portfolioRollup";
+  type Firm,
+} from "@/data/portfolio";
 
 function Meta({ icon: Icon, label, value }: { icon: typeof Building2; label: string; value: string }) {
   return (
@@ -103,14 +105,60 @@ function TrendChart({ company }: { company: Company }) {
   );
 }
 
-function NotFound() {
+const PHASE2_CONNECTORS = [
+  { label: "CRM", example: "Salesforce / HubSpot" },
+  { label: "CS Platform", example: "Gainsight / Planhat / ChurnZero" },
+  { label: "Conversation Intelligence", example: "Gong / Chorus" },
+  { label: "Product Telemetry", example: "" },
+] as const;
+
+function Phase2Integrations() {
   return (
-    <PortfolioLayout>
+    <div className="mt-4 rounded-xl border border-border bg-card p-6">
+      <div className="flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between">
+        <div className="flex items-center gap-2">
+          <Plug className="h-4 w-4 text-primary/70" />
+          <h2 className="text-sm font-semibold text-foreground">Integrations · Phase 2</h2>
+        </div>
+        <span className="text-xs text-muted-foreground">Activate in a Phase 2 engagement</span>
+      </div>
+      <p className="mt-1.5 text-xs text-muted-foreground">
+        Telemetry connections activate in a Phase 2 engagement — scores upgrade from external signals (max 16) to the
+        weighted proprietary model (max 19.5).
+      </p>
+      <div className="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
+        {PHASE2_CONNECTORS.map((conn) => (
+          <div key={conn.label} className="rounded-lg border border-border bg-background/40 p-4">
+            <div className="text-xs font-medium text-foreground">{conn.label}</div>
+            {conn.example && (
+              <div className="mt-0.5 text-[11px] text-muted-foreground">{conn.example}</div>
+            )}
+            <div className="mt-3 flex items-center justify-between">
+              <span className="text-[11px] text-muted-foreground">Not connected</span>
+              <button
+                disabled
+                className="cursor-not-allowed rounded border border-border bg-background px-2.5 py-1 text-[11px] font-medium text-muted-foreground opacity-50"
+              >
+                Connect
+              </button>
+            </div>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function CompanyNotFound({ firm }: { firm: Firm }) {
+  return (
+    <PortfolioLayout firm={firm}>
       <div className="flex flex-col items-center justify-center py-24 text-center">
         <h1 className="text-lg font-semibold text-foreground">Company not found</h1>
-        <p className="mt-1 text-sm text-muted-foreground">This portfolio company isn&apos;t in the current rollup.</p>
+        <p className="mt-1 text-sm text-muted-foreground">
+          This portfolio company isn&apos;t in the current rollup.
+        </p>
         <Link
-          href="/portfolio"
+          href={`/${firm.slug}/portfolio`}
           className="mt-4 inline-flex items-center gap-1.5 rounded-md border border-border bg-card px-3 py-1.5 text-sm text-foreground hover:border-primary/40"
         >
           <ArrowLeft className="h-4 w-4" /> Back to portfolio
@@ -120,17 +168,34 @@ function NotFound() {
   );
 }
 
-export default function PortfolioCompany() {
-  const [, params] = useRoute("/portfolio/:companyId");
-  const company = params?.companyId ? getCompany(params.companyId) : undefined;
+function FirmNotFound() {
+  return (
+    <div className="flex min-h-screen items-center justify-center bg-background text-foreground">
+      <div className="text-center">
+        <div className="text-6xl font-bold text-muted-foreground/30">404</div>
+        <h1 className="mt-4 text-lg font-semibold text-foreground">Firm not found</h1>
+        <p className="mt-2 text-sm text-muted-foreground">No portfolio exists for this firm identifier.</p>
+      </div>
+    </div>
+  );
+}
 
-  if (!company) return <NotFound />;
+export default function PortfolioCompany() {
+  const [, params] = useRoute("/:firmSlug/portfolio/:companyId");
+  const firmSlug = params?.firmSlug ?? "";
+  const firm = getFirm(firmSlug);
+
+  if (!firm) return <FirmNotFound />;
+
+  const company = params?.companyId ? getFirmCompany(firmSlug, params.companyId) : undefined;
+  if (!company) return <CompanyNotFound firm={firm} />;
+
   const { tier } = company;
 
   return (
-    <PortfolioLayout>
+    <PortfolioLayout firm={firm}>
       <Link
-        href="/portfolio"
+        href={`/${firm.slug}/portfolio`}
         className="inline-flex items-center gap-1.5 text-sm text-muted-foreground transition-colors hover:text-primary"
       >
         <ArrowLeft className="h-4 w-4" /> Portfolio
@@ -282,6 +347,9 @@ export default function PortfolioCompany() {
         </div>
       </div>
 
+      {/* Phase 2 integrations */}
+      <Phase2Integrations />
+
       {/* Phase footer + CTA */}
       <div className="mt-4 flex flex-col gap-4 rounded-xl border border-border bg-card p-6 sm:flex-row sm:items-center sm:justify-between">
         <div className="flex flex-wrap gap-x-8 gap-y-2">
@@ -294,12 +362,13 @@ export default function PortfolioCompany() {
           <div>
             <div className="text-[10px] uppercase tracking-wider text-muted-foreground">Phase 2 · weighted</div>
             <div className="font-mono text-lg font-semibold text-foreground">
-              {company.weightedComposite} <span className="text-xs text-muted-foreground">/ {company.weightedMax}</span>
+              {company.weightedComposite}{" "}
+              <span className="text-xs text-muted-foreground">/ {company.weightedMax}</span>
             </div>
           </div>
         </div>
         <Link
-          href={`/portfolio/${company.id}/report`}
+          href={`/${firm.slug}/portfolio/${company.id}/report`}
           className="inline-flex items-center justify-center gap-2 rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground transition-opacity hover:opacity-90"
         >
           <FileText className="h-4 w-4" /> View sample diagnostic report
@@ -307,7 +376,7 @@ export default function PortfolioCompany() {
       </div>
 
       <p className="mt-4 text-center text-[11px] text-muted-foreground">
-        Prepared for {FIRM_NAME} · as of {formatDate(AS_OF_DATE)} · Design-partner preview
+        Prepared for {firm.displayName} · as of {formatDate(AS_OF_DATE)} · Design-partner preview
       </p>
     </PortfolioLayout>
   );
