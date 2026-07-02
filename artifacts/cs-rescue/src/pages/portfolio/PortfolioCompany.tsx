@@ -32,10 +32,14 @@ import {
   PILLAR_MAX,
   AS_OF_DATE,
   computeCompanyForecast,
+  computeCompanyArrForecast,
   FORECAST_ACTIONS,
+  formatCurrencyCompact,
   type Company,
   type Firm,
   type AssessmentPoint,
+  type ArrForecastPoint,
+  type ArrTooltipData,
 } from "@/data/portfolio";
 
 function Meta({ icon: Icon, label, value }: { icon: typeof Building2; label: string; value: string }) {
@@ -212,24 +216,119 @@ function TrendChart({ company }: { company: Company }) {
 }
 
 // ---------------------------------------------------------------------------
+// Helpers for View B ARR overlay (Raviga sandbox A/B feature)
+// ---------------------------------------------------------------------------
+
+function ArrInfoPopover({ data }: { data: ArrTooltipData }) {
+  const [open, setOpen] = useState(false);
+  return (
+    <span className="relative inline-flex items-center">
+      <button
+        type="button"
+        onMouseEnter={() => setOpen(true)}
+        onMouseLeave={() => setOpen(false)}
+        onClick={() => setOpen((v) => !v)}
+        className="ml-1 text-muted-foreground/50 hover:text-muted-foreground focus:outline-none"
+        aria-label="Show ARR forecast methodology"
+      >
+        <Info className="h-3 w-3" />
+      </button>
+      {open && (
+        <div className="absolute bottom-full left-0 z-50 mb-2 w-60 rounded-lg border border-border bg-popover p-3 shadow-lg">
+          <div className="space-y-1.5 text-[11px]">
+            <div>
+              <span className="text-muted-foreground">Tier: </span>
+              <span className="font-medium text-foreground">{data.tierMovement}</span>
+            </div>
+            <div>
+              <span className="text-muted-foreground">Benchmark: </span>
+              <span className="font-medium text-foreground">{data.benchmarkPct}</span>
+            </div>
+            <div>
+              <span className="text-muted-foreground">Action: </span>
+              <span className="font-medium text-foreground">{data.actionNote}</span>
+            </div>
+          </div>
+        </div>
+      )}
+    </span>
+  );
+}
+
+function formatArrTick(v: number): string {
+  if (v >= 1_000_000_000) return `$${(v / 1_000_000_000).toFixed(1)}B`;
+  if (v >= 1_000_000) return `$${(v / 1_000_000).toFixed(1)}M`;
+  return `$${Math.round(v / 1_000)}K`;
+}
+
+function ArrChartTooltipContent({
+  active,
+  payload,
+  label,
+}: {
+  active?: boolean;
+  payload?: Array<{
+    value: number;
+    name: string;
+    payload: { baselineTooltip?: ArrTooltipData; upsideTooltip?: ArrTooltipData };
+  }>;
+  label?: string;
+}) {
+  if (!active || !payload?.length) return null;
+  const row = payload[0]?.payload;
+  return (
+    <div
+      className="rounded-lg border border-border bg-popover p-3 shadow-lg"
+      style={{ fontSize: 11, color: "hsl(var(--foreground))" }}
+    >
+      <div className="mb-1.5 font-medium">{label}</div>
+      {payload.map((p) => {
+        const isUpside = p.name === "upsideArrMid";
+        const tip = isUpside ? row.upsideTooltip : row.baselineTooltip;
+        return (
+          <div key={p.name} className="mb-1.5 last:mb-0">
+            <div className="flex items-center gap-1.5">
+              <div
+                className="h-0.5 w-3 shrink-0 rounded"
+                style={{ backgroundColor: isUpside ? "#818cf8" : "#6b7280" }}
+              />
+              <span className="text-muted-foreground">{isUpside ? "Upside" : "Baseline"}:</span>
+              <span className="font-medium">{formatArrTick(p.value)}</span>
+            </div>
+            {tip && (
+              <div className="ml-4 mt-0.5 space-y-0.5 text-[10px] text-muted-foreground">
+                <div>{tip.tierMovement}</div>
+                <div>{tip.benchmarkPct}</div>
+              </div>
+            )}
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
+// ---------------------------------------------------------------------------
 // Forecast section — interactive 6-month outlook shown when ≥ 2 real data pts
 // ---------------------------------------------------------------------------
 
-function ForecastSection({ company }: { company: Company }) {
+function ForecastSection({ company, firmSlug }: { company: Company; firmSlug: string }) {
   const [selectedAction, setSelectedAction] = useState("none");
+  const [viewB, setViewB] = useState(false);
 
+  const isRaviga = firmSlug === "raviga";
   const forecastPts = computeCompanyForecast(company.assessmentPoints);
   if (forecastPts.length === 0) return null;
 
   const action = FORECAST_ACTIONS.find((a) => a.id === selectedAction);
 
+  // ── Composite forecast chart data (View A — always shown) ──────────────
   type Row = { period: string; actual: number | null; baseline: number | null; upside: number | null };
 
   const chartData: Row[] = [
     ...company.assessmentPoints.map((p, i) => ({
       period: periodLabel(p.date),
       actual: p.normalizedComposite,
-      // Bridge: last actual point anchors both forecast lines for visual continuity
       baseline: i === company.assessmentPoints.length - 1 ? p.normalizedComposite : null,
       upside: i === company.assessmentPoints.length - 1 && action != null ? p.normalizedComposite : null,
     })),
@@ -255,16 +354,93 @@ function ForecastSection({ company }: { company: Company }) {
     date: entry.date,
   }));
 
+  // ── ARR forecast (View B — Raviga only) ────────────────────────────────
+  const arrForecastPts: ArrForecastPoint[] =
+    isRaviga && viewB ? computeCompanyArrForecast(company, forecastPts, action) : [];
+
+  const arrMidCurrent = company.arrForRollup
+    ? (company.arrForRollup[0] + company.arrForRollup[1]) / 2
+    : 0;
+  const lastPeriod = periodLabel(
+    company.assessmentPoints[company.assessmentPoints.length - 1].date,
+  );
+
+  type ArrRow = {
+    period: string;
+    baselineArrMid: number | null;
+    upsideArrMid: number | null;
+    baselineTooltip?: ArrTooltipData;
+    upsideTooltip?: ArrTooltipData;
+  };
+
+  const arrChartData: ArrRow[] =
+    arrForecastPts.length > 0
+      ? [
+          {
+            period: lastPeriod,
+            baselineArrMid: arrMidCurrent,
+            upsideArrMid: action != null ? arrMidCurrent : null,
+          },
+          ...arrForecastPts.map((pt) => ({
+            period: pt.period,
+            baselineArrMid: pt.baselineArrMid,
+            upsideArrMid: pt.upsideArrMid,
+            baselineTooltip: pt.baselineTooltip,
+            upsideTooltip: pt.upsideTooltip ?? undefined,
+          })),
+        ]
+      : [];
+
+  const endArrPt = arrForecastPts.length > 0 ? arrForecastPts[arrForecastPts.length - 1] : null;
+  const arrYValues = arrChartData.flatMap((d) =>
+    [d.baselineArrMid, d.upsideArrMid].filter((v): v is number => v != null),
+  );
+  const arrYMin = arrYValues.length > 0 ? Math.floor(Math.min(...arrYValues) * 0.96) : 0;
+  const arrYMax = arrYValues.length > 0 ? Math.ceil(Math.max(...arrYValues) * 1.04) : 1;
+
   return (
     <div className="mt-4 rounded-xl border border-border bg-card p-6">
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+      {/* ── Header ──────────────────────────────────────────────────────── */}
+      <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
         <div>
           <h2 className="text-sm font-semibold text-foreground">Forecast</h2>
           <p className="mt-0.5 text-xs text-muted-foreground">
             {company.assessmentPoints.length} real data points · linear trend extrapolation · 6-month outlook
           </p>
         </div>
-        <div className="flex shrink-0 items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2">
+          {/* A/B toggle — Raviga sandbox only */}
+          {isRaviga && (
+            <>
+              <span className="rounded border border-amber-500/30 bg-amber-500/10 px-1.5 py-0.5 text-[9px] font-semibold uppercase tracking-widest text-amber-400">
+                Sandbox A/B
+              </span>
+              <div className="flex overflow-hidden rounded border border-border">
+                <button
+                  type="button"
+                  onClick={() => setViewB(false)}
+                  className={`px-2.5 py-1 text-xs transition-colors ${
+                    !viewB
+                      ? "bg-primary/20 font-medium text-foreground"
+                      : "text-muted-foreground hover:text-foreground"
+                  }`}
+                >
+                  View A
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setViewB(true)}
+                  className={`border-l border-border px-2.5 py-1 text-xs transition-colors ${
+                    viewB
+                      ? "bg-primary/20 font-medium text-foreground"
+                      : "text-muted-foreground hover:text-foreground"
+                  }`}
+                >
+                  View B
+                </button>
+              </div>
+            </>
+          )}
           <span className="text-xs text-muted-foreground">Model action:</span>
           <select
             value={selectedAction}
@@ -281,6 +457,7 @@ function ForecastSection({ company }: { company: Company }) {
         </div>
       </div>
 
+      {/* ── Composite forecast chart ─────────────────────────────────────── */}
       <div className="mt-3">
         <ResponsiveContainer width="100%" height={220}>
           <LineChart data={chartData} margin={{ top: 10, right: 12, left: -20, bottom: 0 }}>
@@ -347,7 +524,7 @@ function ForecastSection({ company }: { company: Company }) {
         </ResponsiveContainer>
       </div>
 
-      {/* Chart legend */}
+      {/* Composite legend */}
       <div className="mt-2 flex flex-wrap items-center gap-4 text-[11px] text-muted-foreground">
         <div className="flex items-center gap-1.5">
           <div className="h-0.5 w-5 rounded" style={{ backgroundColor: company.tier.color }} />
@@ -383,6 +560,106 @@ function ForecastSection({ company }: { company: Company }) {
         </div>
       )}
 
+      {/* ── View B: ARR Outlook panel ─────────────────────────────────────── */}
+      {isRaviga && viewB && arrForecastPts.length > 0 && (
+        <div className="mt-5 border-t border-border pt-5">
+          <div className="flex flex-wrap items-baseline gap-2">
+            <h3 className="text-xs font-semibold text-foreground">ARR Outlook</h3>
+            <span className="text-[10px] text-muted-foreground">
+              projected company ARR · 6-month window · tier-benchmark model · illustrative only
+            </span>
+          </div>
+
+          <div className="mt-3">
+            <ResponsiveContainer width="100%" height={180}>
+              <LineChart data={arrChartData} margin={{ top: 8, right: 12, left: 10, bottom: 0 }}>
+                <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
+                <XAxis
+                  dataKey="period"
+                  stroke="hsl(var(--muted-foreground))"
+                  fontSize={11}
+                  tickLine={false}
+                />
+                <YAxis
+                  domain={[arrYMin, arrYMax]}
+                  stroke="hsl(var(--muted-foreground))"
+                  fontSize={11}
+                  tickLine={false}
+                  tickFormatter={formatArrTick}
+                  width={56}
+                />
+                <Tooltip content={<ArrChartTooltipContent />} />
+                <Line
+                  type="monotone"
+                  dataKey="baselineArrMid"
+                  stroke="#6b7280"
+                  strokeWidth={1.5}
+                  strokeDasharray="5 4"
+                  dot={{ r: 3, fill: "#6b7280", strokeWidth: 0 }}
+                  connectNulls
+                />
+                {action != null && (
+                  <Line
+                    type="monotone"
+                    dataKey="upsideArrMid"
+                    stroke="#818cf8"
+                    strokeWidth={1.5}
+                    strokeDasharray="6 3"
+                    dot={{ r: 3, fill: "#818cf8", strokeWidth: 0 }}
+                    connectNulls
+                  />
+                )}
+              </LineChart>
+            </ResponsiveContainer>
+          </div>
+
+          {/* ARR chart legend */}
+          <div className="mt-2 flex flex-wrap items-center gap-4 text-[11px] text-muted-foreground">
+            <div className="flex items-center gap-1.5">
+              <svg width="20" height="4" className="shrink-0">
+                <line x1="0" y1="2" x2="20" y2="2" stroke="#6b7280" strokeWidth="1.5" strokeDasharray="5 4" />
+              </svg>
+              <span>Baseline ARR</span>
+            </div>
+            {action != null && (
+              <div className="flex items-center gap-1.5">
+                <svg width="20" height="4" className="shrink-0">
+                  <line x1="0" y1="2" x2="20" y2="2" stroke="#818cf8" strokeWidth="1.5" strokeDasharray="6 3" />
+                </svg>
+                <span>Upside ARR — {action.label}</span>
+              </div>
+            )}
+          </div>
+
+          {/* End-of-period summary with info popovers */}
+          {endArrPt && (
+            <div className="mt-3 flex flex-wrap gap-x-6 gap-y-2">
+              <div className="flex items-center text-xs">
+                <span className="text-muted-foreground">Baseline at 6 mo:</span>
+                <span className="ml-1 font-medium text-foreground">
+                  {formatCurrencyCompact(endArrPt.baselineArrMid)}
+                </span>
+                <ArrInfoPopover data={endArrPt.baselineTooltip} />
+              </div>
+              {action != null && endArrPt.upsideArrMid != null && (
+                <div className="flex items-center text-xs">
+                  <span className="text-muted-foreground">Upside at 6 mo:</span>
+                  <span className="ml-1 font-medium text-indigo-400">
+                    {formatCurrencyCompact(endArrPt.upsideArrMid)}
+                  </span>
+                  <ArrInfoPopover data={endArrPt.upsideTooltip!} />
+                </div>
+              )}
+            </div>
+          )}
+
+          <p className="mt-3 text-[10px] italic text-amber-300/70">
+            Modeled ARR uplift is an illustrative benchmark, not a guarantee — actual results vary by company.
+          </p>
+        </div>
+      )}
+
+      {/* Composite forecast disclaimer */}
       <p className="mt-3 border-t border-border pt-2 text-[10px] italic text-muted-foreground/70">
         Forecasts are illustrative projections, not guarantees.
         {action != null &&
@@ -643,7 +920,7 @@ export default function PortfolioCompany() {
       </div>
 
       {/* Forecast section */}
-      <ForecastSection company={company} />
+      <ForecastSection company={company} firmSlug={firmSlug} />
 
       {/* Phase 2 integrations */}
       <Phase2Integrations />

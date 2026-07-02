@@ -503,3 +503,182 @@ export function computePortfolioForecast(firmSlug: string, monthsAhead = 6): For
     baselineValue: Math.max(0, Math.min(PILLAR_MAX, Math.round((slope * (n + i) + intercept) * 10) / 10)),
   }));
 }
+
+// ---------------------------------------------------------------------------
+// ARR Forecast — tier-based uplift benchmarks
+// (Raviga sandbox only — illustrative benchmarks, not guarantees)
+// ---------------------------------------------------------------------------
+
+/**
+ * Modeled ARR uplift benchmarks by tier movement — ILLUSTRATIVE BENCHMARKS ONLY.
+ * Key format: "fromTierId→toTierId" (e.g. "1→2").
+ * Values are annualized rates (0.09 = +9% per year).
+ * These are PE-industry directional benchmarks; actual results vary by company and execution.
+ */
+export const ARR_UPLIFT_BENCHMARKS: Readonly<Record<string, number>> = {
+  "1→2": 0.09, // T1 → T2: +9% ARR uplift (annualized benchmark)
+  "2→3": 0.15, // T2 → T3: +15% ARR uplift (annualized benchmark)
+  "3→4": 0.20, // T3 → T4: +20% ARR uplift (annualized benchmark)
+} as const;
+
+/**
+ * Fraction of the next band's benchmark applied when a company shows composite
+ * improvement in the upside scenario but does not cross a tier boundary.
+ * Roughly half the next step's rate — reflects partial operational progress.
+ */
+const PARTIAL_UPLIFT_FRACTION = 0.5;
+
+function lookupUpliftRate(fromId: number, toId: number): number {
+  if (toId <= fromId) return 0;
+  return ARR_UPLIFT_BENCHMARKS[`${fromId}→${toId}`] ?? 0;
+}
+
+function nextBandPartialRate(tierId: number): number {
+  if (tierId >= 4) return 0;
+  return (ARR_UPLIFT_BENCHMARKS[`${tierId}→${tierId + 1}`] ?? 0) * PARTIAL_UPLIFT_FRACTION;
+}
+
+/** Tooltip metadata attached to each projected ARR figure. */
+export interface ArrTooltipData {
+  /** e.g. "T2 → T3" or "T2 (no tier change projected)" */
+  tierMovement: string;
+  /** e.g. "+15% annualized benchmark" or "Flat — no tier crossing projected" */
+  benchmarkPct: string;
+  /** e.g. "Hire Head of CS — modeled impact M1–M3" or "No additional action assumed" */
+  actionNote: string;
+}
+
+/** A single forward-projected ARR data point. */
+export interface ArrForecastPoint {
+  period: string;
+  sortKey: string;
+  /** Projected ARR midpoint for the baseline scenario (no additional action). */
+  baselineArrMid: number;
+  /** Projected ARR midpoint for the modeled-upside scenario. null when no action selected. */
+  upsideArrMid: number | null;
+  baselineTooltip: ArrTooltipData;
+  upsideTooltip: ArrTooltipData | null;
+}
+
+/**
+ * Compute a per-company 6-month ARR forecast from the composite forecast points.
+ * Applies tier-based uplift benchmarks phased in linearly over the forecast window.
+ * Returns [] when the company has no ARR data or no forecast points.
+ */
+export function computeCompanyArrForecast(
+  company: Company,
+  forecastPts: ForecastPoint[],
+  action: (typeof FORECAST_ACTIONS)[number] | undefined,
+): ArrForecastPoint[] {
+  if (!company.arrForRollup || forecastPts.length === 0) return [];
+  const arrMid = (company.arrForRollup[0] + company.arrForRollup[1]) / 2;
+  const fromTier = company.tier;
+
+  return forecastPts.map((fp, i) => {
+    const monthIndex = i + 1; // 1–6 (out of 6-month window)
+
+    // ── Baseline ──────────────────────────────────────────────────────────
+    const baselineTier = getTier(fp.baselineValue);
+    const baselineRate = lookupUpliftRate(fromTier.id, baselineTier.id);
+    // Phase in linearly: at month N, apply N/12 of the annualized uplift rate.
+    // Spec: "flat ARR (0% modeled change) in baseline" when no tier crossing.
+    const baselineArrMid = Math.round(arrMid * (1 + baselineRate * (monthIndex / 12)));
+
+    const baselineTooltip: ArrTooltipData = {
+      tierMovement:
+        baselineTier.id > fromTier.id
+          ? `T${fromTier.id} → T${baselineTier.id}`
+          : `T${fromTier.id} (no tier change projected)`,
+      benchmarkPct:
+        baselineRate > 0
+          ? `+${Math.round(baselineRate * 100)}% annualized benchmark`
+          : "Flat — no tier crossing projected in baseline",
+      actionNote: "No additional action assumed — trend continuation only",
+    };
+
+    // ── Upside ────────────────────────────────────────────────────────────
+    let upsideArrMid: number | null = null;
+    let upsideTooltip: ArrTooltipData | null = null;
+
+    if (action != null) {
+      const bumpAtMonth = Math.min(action.bump, action.bump * ((i + 1) / action.rampMonths));
+      const upsideComposite = Math.max(0, Math.min(PILLAR_MAX, fp.baselineValue + bumpAtMonth));
+      const upsideTier = getTier(upsideComposite);
+      const upsideDirectRate = lookupUpliftRate(fromTier.id, upsideTier.id);
+      // Spec: if no tier crossing in upside, apply partial uplift (half the next band's rate).
+      const upsideRate = upsideDirectRate > 0 ? upsideDirectRate : nextBandPartialRate(fromTier.id);
+      upsideArrMid = Math.round(arrMid * (1 + upsideRate * (monthIndex / 12)));
+
+      upsideTooltip = {
+        tierMovement:
+          upsideTier.id > fromTier.id
+            ? `T${fromTier.id} → T${upsideTier.id}`
+            : `T${fromTier.id} (partial progress, no crossing)`,
+        benchmarkPct:
+          upsideDirectRate > 0
+            ? `+${Math.round(upsideDirectRate * 100)}% annualized benchmark`
+            : `+${Math.round(upsideRate * 100)}% partial (half next-band rate)`,
+        actionNote: `${action.label} — modeled impact M1–M${action.rampMonths}`,
+      };
+    }
+
+    return { period: fp.period, sortKey: fp.sortKey, baselineArrMid, upsideArrMid, baselineTooltip, upsideTooltip };
+  });
+}
+
+/**
+ * Aggregate per-company ARR forecasts into a portfolio-level ARR outlook.
+ * Only companies with disclosed ARR (arrForRollup != null) contribute.
+ */
+export function computePortfolioArrForecast(
+  firmSlug: string,
+  action: (typeof FORECAST_ACTIONS)[number] | undefined,
+): ArrForecastPoint[] {
+  const companies = FIRM_COMPANIES.get(firmSlug) ?? [];
+  const periodMap = new Map<
+    string,
+    { period: string; sortKey: string; baselineSum: number; upsideSum: number }
+  >();
+
+  for (const company of companies) {
+    if (!company.arrForRollup) continue;
+    const fps = computeCompanyForecast(company.assessmentPoints);
+    const arrPts = computeCompanyArrForecast(company, fps, action);
+    for (const pt of arrPts) {
+      const existing = periodMap.get(pt.sortKey);
+      if (existing) {
+        existing.baselineSum += pt.baselineArrMid;
+        existing.upsideSum += pt.upsideArrMid ?? pt.baselineArrMid;
+      } else {
+        periodMap.set(pt.sortKey, {
+          period: pt.period,
+          sortKey: pt.sortKey,
+          baselineSum: pt.baselineArrMid,
+          upsideSum: pt.upsideArrMid ?? pt.baselineArrMid,
+        });
+      }
+    }
+  }
+
+  return [...periodMap.values()]
+    .sort((a, b) => a.sortKey.localeCompare(b.sortKey))
+    .map((pt) => ({
+      period: pt.period,
+      sortKey: pt.sortKey,
+      baselineArrMid: pt.baselineSum,
+      upsideArrMid: action != null ? pt.upsideSum : null,
+      baselineTooltip: {
+        tierMovement: "Portfolio aggregate",
+        benchmarkPct: "Tier-based benchmark applied per company",
+        actionNote: "No additional action assumed — trend continuation only",
+      },
+      upsideTooltip:
+        action != null
+          ? {
+              tierMovement: "Portfolio aggregate",
+              benchmarkPct: "Tier-based benchmark applied per company",
+              actionNote: `${action.label} — applied portfolio-wide`,
+            }
+          : null,
+    }));
+}

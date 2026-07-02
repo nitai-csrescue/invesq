@@ -51,4 +51,10 @@ export {
   FORECAST_ACTIONS,
   type ForecastPoint,
   type ForecastActionId,
+  // ARR Forecast (Raviga sandbox A/B feature)
+  ARR_UPLIFT_BENCHMARKS,
+  computeCompanyArrForecast,
+  computePortfolioArrForecast,
+  type ArrTooltipData,
+  type ArrForecastPoint,
 } from "./engine";
