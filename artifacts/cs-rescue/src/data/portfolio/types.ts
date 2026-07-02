@@ -5,6 +5,30 @@
 // 0 = Infrastructure Gap · 1 = Partial/Developing · 2 = Optimized · null = Insufficient Data (NA)
 export type PillarScore = 0 | 1 | 2 | null;
 
+// ---------------------------------------------------------------------------
+// Assessment — a single diagnostic run for a company.
+// The company's current state always derives from the LATEST assessment.
+// Appending a new assessment = performing a re-run.
+// ---------------------------------------------------------------------------
+export interface Assessment {
+  date: string;                              // ISO date string e.g. "2026-06-04"
+  pillarScores: Record<string, PillarScore>; // all 8 pillars must be present
+  note?: string;                             // optional narrative for this diagnostic run
+}
+
+// A single data point on the company's composite trend — one per assessment,
+// normalized to the 0–16 scale so denominators are comparable across runs
+// (NA pillar counts may change between diagnostics).
+export interface AssessmentPoint {
+  date: string;
+  composite: number;           // raw composite for this assessment (scored pillars only)
+  displayMax: number;          // denominator for this assessment (16 − 2 × naCount)
+  normalizedComposite: number; // (composite / displayMax) × PILLAR_MAX — cross-run comparable
+}
+
+// ---------------------------------------------------------------------------
+// Pillar definition
+// ---------------------------------------------------------------------------
 export interface Pillar {
   id: string;
   name: string;
@@ -15,6 +39,9 @@ export interface Pillar {
   gapNote: string;   // shown when this pillar is a company's top gap (generic fallback)
 }
 
+// ---------------------------------------------------------------------------
+// Engagement tier
+// ---------------------------------------------------------------------------
 export interface Tier {
   id: 1 | 2 | 3 | 4;
   label: string;
@@ -27,15 +54,19 @@ export interface Tier {
   riskMidpoint: number; // used to estimate ARR at risk
 }
 
+// ---------------------------------------------------------------------------
+// Firm (tenant)
+// ---------------------------------------------------------------------------
 export interface Firm {
   slug: string;
   displayName: string;
-  statusLabel: string;   // e.g. "Design-partner preview" or "Internal preview — not cleared for external distribution"
+  statusLabel: string;   // e.g. "Design-partner preview"
   internalOnly: boolean; // when true, the rose "internal" pill is shown on the dashboard
 }
 
 // ---------------------------------------------------------------------------
 // Raw company record — ONLY raw inputs, never derived values.
+// scores, lastDiagnostic, and trend are now DERIVED from assessments.
 // ---------------------------------------------------------------------------
 export interface RawCompany {
   id: string;
@@ -46,7 +77,6 @@ export interface RawCompany {
   arrDisplay: string;          // human-readable ARR ("$10M–$20M", "Undisclosed")
   // ARR range in dollars used for portfolio rollups.
   // null = undisclosed — excluded from Total ARR and Est. ARR at Risk.
-  // Ranges are summed as ranges; a point figure is never fabricated.
   arrForRollup: [number, number] | null;
   confidence: "High" | "Medium"; // assessment confidence from external signals
   engagement: string;           // per-company engagement recommendation
@@ -54,13 +84,14 @@ export interface RawCompany {
   // When a company has no CS leader at all, leadership copy is framed as
   // "establish" (never anything implying replacement of an incumbent).
   leadershipFraming?: "establish";
-  lastDiagnostic: string;       // ISO date string, e.g. "2026-06-04"
   summary: string;              // executive summary paragraph
-  scores: Record<string, PillarScore>; // keyed by pillar id
-  // Company-specific gap findings, keyed by pillar id.
+  // Assessment history — must contain at least one entry, sorted ascending by date.
+  // The LATEST entry determines current scores, tier, composite, and rollups.
+  // Append a new entry to perform a re-run (no UI changes required).
+  assessments: Assessment[];
+  // Company-level gap-note overrides, keyed by pillar id.
   // Falls back to the pillar's generic gapNote when not present here.
   gapNotes?: Record<string, string>;
-  trend: number[];              // illustrative composite history (Phase 1 scale)
 }
 
 // ---------------------------------------------------------------------------
@@ -74,6 +105,12 @@ export interface GapItem {
 }
 
 export interface Company extends RawCompany {
+  // Derived from the latest assessment:
+  scores: Record<string, PillarScore>; // convenience alias for latest assessment pillarScores
+  lastDiagnostic: string;              // date of the latest assessment
+  assessmentPoints: AssessmentPoint[]; // one point per assessment, normalized to 0–16
+
+  // Derived from latest scores:
   composite: number;         // Phase 1 unweighted — scored pillars only (NA excluded)
   displayMax: number;        // max for the displayed composite (scoredCount × 2)
   tierComposite: number;     // composite with NA substituted as 1 — for TIER ASSIGNMENT ONLY
@@ -105,4 +142,13 @@ export interface PortfolioSummary {
   arrUndisclosedNames: string[];
   avgComposite: number;      // normalized to PILLAR_MAX scale
   tierCounts: TierCount[];
+}
+
+// Portfolio-level trend — average normalized composite across companies,
+// aggregated by assessment period (month granularity).
+export interface PortfolioTrendPoint {
+  period: string;          // e.g. "Jun '26"
+  sortKey: string;         // ISO date for sort ordering (earliest date in period)
+  avgNormalized: number;   // average normalized composite (0–16 scale)
+  companyCount: number;    // how many companies contributed to this period
 }

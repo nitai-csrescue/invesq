@@ -1,5 +1,13 @@
 import { Link, useRoute } from "wouter";
 import { TrendingDown, Building2, Wallet, Gauge, AlertTriangle, ShieldAlert } from "lucide-react";
+import {
+  LineChart,
+  Line,
+  XAxis,
+  YAxis,
+  Tooltip,
+  ResponsiveContainer,
+} from "recharts";
 import { PortfolioLayout, ConfidenceBadge } from "@/components/portfolio/PortfolioLayout";
 import {
   PILLARS,
@@ -13,8 +21,10 @@ import {
   getFirm,
   getFirmCompanies,
   getFirmSummary,
+  getPortfolioTrendPoints,
   type Company,
   type Firm,
+  type PortfolioTrendPoint,
 } from "@/data/portfolio";
 
 function KpiCard({
@@ -126,6 +136,132 @@ function CompanyCard({ company, firmSlug }: { company: Company; firmSlug: string
   );
 }
 
+// ---------------------------------------------------------------------------
+// Portfolio-level trend widget
+// ---------------------------------------------------------------------------
+
+function portfolioFutureLabel(baseIso: string, quartersAhead: number): string {
+  const d = new Date(baseIso + "T00:00:00");
+  d.setDate(d.getDate() + quartersAhead * 91);
+  const mon = d.toLocaleDateString("en-US", { month: "short" });
+  const yr = String(d.getFullYear()).slice(2);
+  return `${mon} '${yr}`;
+}
+
+function PortfolioTrendWidget({
+  firmSlug,
+  companyCount,
+}: {
+  firmSlug: string;
+  companyCount: number;
+}) {
+  const realPoints = getPortfolioTrendPoints(firmSlug);
+  if (realPoints.length === 0) return null;
+
+  const needsProjection = realPoints.length < 3;
+  const last = realPoints[realPoints.length - 1];
+
+  // Build chart data — real points, plus dashed projection if < 3 assessments
+  const chartData: { period: string; actual: number | null; projected: number | null }[] =
+    realPoints.map((p, i) => ({
+      period: p.period,
+      actual: p.avgNormalized,
+      // bridge: last real point is also the start of the projected line
+      projected: i === realPoints.length - 1 && needsProjection ? p.avgNormalized : null,
+    }));
+
+  if (needsProjection) {
+    chartData.push(
+      {
+        period: portfolioFutureLabel(last.sortKey, 1),
+        actual: null,
+        projected: Math.min(PILLAR_MAX, Math.round((last.avgNormalized + 0.5) * 10) / 10),
+      },
+      {
+        period: portfolioFutureLabel(last.sortKey, 2),
+        actual: null,
+        projected: Math.min(PILLAR_MAX, Math.round((last.avgNormalized + 1.0) * 10) / 10),
+      },
+    );
+  }
+
+  return (
+    <div className="mt-4 rounded-xl border border-border bg-card px-5 py-4">
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-2">
+          <h2 className="text-xs font-semibold text-foreground">Portfolio trend</h2>
+          <span className="text-[10px] text-muted-foreground">avg normalized composite · 0–{PILLAR_MAX}</span>
+        </div>
+        <div className="flex items-center gap-4 text-[11px] text-muted-foreground">
+          <div className="flex items-center gap-1.5">
+            <div className="h-0.5 w-4 rounded bg-primary/70" />
+            <span>
+              Actual ({realPoints.length} {realPoints.length === 1 ? "period" : "periods"} · {companyCount}{" "}
+              {companyCount === 1 ? "company" : "companies"})
+            </span>
+          </div>
+          {needsProjection && (
+            <div className="flex items-center gap-1.5">
+              <svg width="16" height="4" className="shrink-0">
+                <line x1="0" y1="2" x2="16" y2="2" stroke="#6b7280" strokeWidth="1.5" strokeDasharray="4 3" />
+              </svg>
+              <span>Projection</span>
+            </div>
+          )}
+        </div>
+      </div>
+      <div className="mt-2">
+        <ResponsiveContainer width="100%" height={90}>
+          <LineChart data={chartData} margin={{ top: 6, right: 8, left: -28, bottom: 0 }}>
+            <XAxis dataKey="period" stroke="hsl(var(--muted-foreground))" fontSize={10} tickLine={false} axisLine={false} />
+            <YAxis domain={[0, PILLAR_MAX]} stroke="hsl(var(--muted-foreground))" fontSize={10} tickLine={false} axisLine={false} tickCount={3} />
+            <Tooltip
+              contentStyle={{
+                backgroundColor: "hsl(var(--popover))",
+                border: "1px solid hsl(var(--border))",
+                borderRadius: 6,
+                fontSize: 11,
+                color: "hsl(var(--foreground))",
+              }}
+              formatter={(value: number, name: string) => [
+                value.toFixed(1),
+                name === "actual" ? "Avg composite (actual)" : "Illustrative projection",
+              ]}
+            />
+            <Line
+              type="monotone"
+              dataKey="actual"
+              stroke="hsl(var(--primary))"
+              strokeOpacity={0.7}
+              strokeWidth={2}
+              dot={{ r: 4, fill: "hsl(var(--primary))", strokeWidth: 0, fillOpacity: 0.8 }}
+              connectNulls={false}
+            />
+            {needsProjection && (
+              <Line
+                type="monotone"
+                dataKey="projected"
+                stroke="#6b7280"
+                strokeWidth={1.5}
+                strokeDasharray="5 4"
+                dot={{ r: 2.5, fill: "#6b7280", strokeWidth: 0 }}
+                connectNulls={false}
+              />
+            )}
+          </LineChart>
+        </ResponsiveContainer>
+      </div>
+      {needsProjection && (
+        <p className="mt-1 text-[10px] text-muted-foreground">
+          {realPoints.length === 1
+            ? `1 assessment period on record — trend builds as re-runs are added`
+            : `${realPoints.length} assessment periods — projection shown until 3+ exist`}
+        </p>
+      )}
+    </div>
+  );
+}
+
 function FirmNotFound() {
   return (
     <div className="flex min-h-screen items-center justify-center bg-background text-foreground">
@@ -168,7 +304,7 @@ export default function PortfolioDashboard() {
             </span>
           )}
           <span className="inline-flex w-fit items-center gap-1.5 rounded-md border border-amber-500/30 bg-amber-500/10 px-2.5 py-1 text-[11px] text-amber-300">
-            <AlertTriangle className="h-3 w-3" /> Phase 1 external-signal scoring · trend data illustrative
+            <AlertTriangle className="h-3 w-3" /> Phase 1 external-signal scoring · trend projections illustrative
           </span>
         </div>
       </div>
@@ -211,6 +347,9 @@ export default function PortfolioDashboard() {
           illustrative
         />
       </div>
+
+      {/* Portfolio trend */}
+      <PortfolioTrendWidget firmSlug={firmSlug} companyCount={summary.companyCount} />
 
       {/* Tier distribution */}
       <div className="mt-4 rounded-xl border border-border bg-card p-5">

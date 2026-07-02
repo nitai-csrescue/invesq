@@ -31,6 +31,7 @@ import {
   AS_OF_DATE,
   type Company,
   type Firm,
+  type AssessmentPoint,
 } from "@/data/portfolio";
 
 function Meta({ icon: Icon, label, value }: { icon: typeof Building2; label: string; value: string }) {
@@ -73,35 +74,127 @@ function CompositeRing({ company }: { company: Company }) {
   );
 }
 
+// ---------------------------------------------------------------------------
+// Assessment-driven trend chart
+// ---------------------------------------------------------------------------
+
+function periodLabel(iso: string): string {
+  const d = new Date(iso + "T00:00:00");
+  return d.toLocaleDateString("en-US", { month: "short" }) + " '" + String(d.getFullYear()).slice(2);
+}
+
+function futureLabel(baseIso: string, quartersAhead: number): string {
+  const d = new Date(baseIso + "T00:00:00");
+  d.setDate(d.getDate() + quartersAhead * 91);
+  const iso = d.toISOString().slice(0, 10);
+  return periodLabel(iso);
+}
+
+function buildTrendChartData(
+  points: AssessmentPoint[],
+  tierColor: string,
+): { data: { period: string; actual: number | null; projected: number | null }[]; needsProjection: boolean } {
+  const needsProjection = points.length < 3;
+  const lastPt = points[points.length - 1];
+  const lastNorm = lastPt.normalizedComposite;
+  const lastIso = lastPt.date;
+
+  // Real assessment points — also set `projected` on the last point so the
+  // two Recharts Lines share that coordinate and visually connect.
+  const data: { period: string; actual: number | null; projected: number | null }[] = points.map((p, i) => ({
+    period: periodLabel(p.date),
+    actual: p.normalizedComposite,
+    projected: i === points.length - 1 && needsProjection ? p.normalizedComposite : null,
+  }));
+
+  if (needsProjection) {
+    data.push(
+      {
+        period: futureLabel(lastIso, 1),
+        actual: null,
+        projected: Math.min(PILLAR_MAX, Math.round((lastNorm + 0.75) * 10) / 10),
+      },
+      {
+        period: futureLabel(lastIso, 2),
+        actual: null,
+        projected: Math.min(PILLAR_MAX, Math.round((lastNorm + 1.5) * 10) / 10),
+      },
+    );
+  }
+
+  return { data, needsProjection };
+}
+
 function TrendChart({ company }: { company: Company }) {
-  const labels = ["Q2 '25", "Q3 '25", "Q4 '25", "Q1 '26", "Q2 '26"];
-  const data = company.trend.map((v, i) => ({ period: labels[i] ?? `P${i + 1}`, composite: v }));
+  const { data, needsProjection } = buildTrendChartData(
+    company.assessmentPoints,
+    company.tier.color,
+  );
+  const count = company.assessmentPoints.length;
+
   return (
-    <ResponsiveContainer width="100%" height={200}>
-      <LineChart data={data} margin={{ top: 10, right: 12, left: -20, bottom: 0 }}>
-        <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
-        <XAxis dataKey="period" stroke="hsl(var(--muted-foreground))" fontSize={11} tickLine={false} />
-        <YAxis domain={[0, PILLAR_MAX]} stroke="hsl(var(--muted-foreground))" fontSize={11} tickLine={false} />
-        <Tooltip
-          contentStyle={{
-            backgroundColor: "hsl(var(--popover))",
-            border: "1px solid hsl(var(--border))",
-            borderRadius: 8,
-            fontSize: 12,
-            color: "hsl(var(--foreground))",
-          }}
-          labelStyle={{ color: "hsl(var(--muted-foreground))" }}
-        />
-        <Line
-          type="monotone"
-          dataKey="composite"
-          stroke={company.tier.color}
-          strokeWidth={2.5}
-          dot={{ r: 3, fill: company.tier.color }}
-          activeDot={{ r: 5 }}
-        />
-      </LineChart>
-    </ResponsiveContainer>
+    <div>
+      <ResponsiveContainer width="100%" height={190}>
+        <LineChart data={data} margin={{ top: 10, right: 12, left: -20, bottom: 0 }}>
+          <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
+          <XAxis dataKey="period" stroke="hsl(var(--muted-foreground))" fontSize={11} tickLine={false} />
+          <YAxis domain={[0, PILLAR_MAX]} stroke="hsl(var(--muted-foreground))" fontSize={11} tickLine={false} />
+          <Tooltip
+            contentStyle={{
+              backgroundColor: "hsl(var(--popover))",
+              border: "1px solid hsl(var(--border))",
+              borderRadius: 8,
+              fontSize: 12,
+              color: "hsl(var(--foreground))",
+            }}
+            labelStyle={{ color: "hsl(var(--muted-foreground))" }}
+            formatter={(value: number, name: string) => [
+              value.toFixed(1),
+              name === "actual" ? "Actual (normalized)" : "Illustrative projection",
+            ]}
+          />
+          <Line
+            type="monotone"
+            dataKey="actual"
+            stroke={company.tier.color}
+            strokeWidth={2.5}
+            dot={{ r: 4, fill: company.tier.color, strokeWidth: 0 }}
+            activeDot={{ r: 5 }}
+            connectNulls={false}
+          />
+          {needsProjection && (
+            <Line
+              type="monotone"
+              dataKey="projected"
+              stroke="#6b7280"
+              strokeWidth={1.5}
+              strokeDasharray="5 4"
+              dot={{ r: 3, fill: "#6b7280", strokeWidth: 0 }}
+              activeDot={{ r: 4 }}
+              connectNulls={false}
+            />
+          )}
+        </LineChart>
+      </ResponsiveContainer>
+
+      {/* Legend */}
+      <div className="mt-1.5 flex flex-wrap items-center gap-4 text-[11px] text-muted-foreground">
+        <div className="flex items-center gap-1.5">
+          <div className="h-0.5 w-5 rounded" style={{ backgroundColor: company.tier.color }} />
+          <span>
+            Actual ({count} {count === 1 ? "assessment" : "assessments"})
+          </span>
+        </div>
+        {needsProjection && (
+          <div className="flex items-center gap-1.5">
+            <svg width="20" height="4" className="shrink-0">
+              <line x1="0" y1="2" x2="20" y2="2" stroke="#6b7280" strokeWidth="1.5" strokeDasharray="5 4" />
+            </svg>
+            <span>Illustrative projection</span>
+          </div>
+        )}
+      </div>
+    </div>
   );
 }
 
@@ -333,15 +426,21 @@ export default function PortfolioCompany() {
           <div className="rounded-xl border border-border bg-card p-6">
             <div className="flex items-center justify-between">
               <h2 className="text-sm font-semibold text-foreground">Composite trend</h2>
-              <span className="flex items-center gap-1 text-[10px] text-amber-300/80">
-                <Info className="h-3 w-3" /> Illustrative
-              </span>
+              {company.assessmentPoints.length < 3 && (
+                <span className="flex items-center gap-1 text-[10px] text-amber-300/80">
+                  <Info className="h-3 w-3" /> Projection illustrative
+                </span>
+              )}
             </div>
             <div className="mt-3">
               <TrendChart company={company} />
             </div>
             <p className="mt-2 text-[11px] text-muted-foreground">
-              Placeholder history pending periodic re-runs.
+              {company.assessmentPoints.length === 1
+                ? "1 assessment on record — trend builds as diagnostics re-run"
+                : company.assessmentPoints.length === 2
+                  ? "2 assessments on record — projection shown until 3+ diagnostics exist"
+                  : `${company.assessmentPoints.length} assessments · projection hidden once 3+ real data points exist`}
             </p>
           </div>
         </div>
