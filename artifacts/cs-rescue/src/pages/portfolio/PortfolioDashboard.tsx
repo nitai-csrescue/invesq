@@ -1,6 +1,6 @@
-import { useState } from "react";
+import { useState, useEffect, type ReactNode } from "react";
 import { Link, useRoute } from "wouter";
-import { TrendingDown, Building2, Wallet, Gauge, AlertTriangle, ShieldAlert, Info } from "lucide-react";
+import { TrendingDown, Building2, Wallet, Gauge, AlertTriangle, ShieldAlert, Info, X, ChevronRight } from "lucide-react";
 import {
   LineChart,
   Line,
@@ -33,6 +33,331 @@ import {
   type ArrForecastPoint,
   type ArrTooltipData,
 } from "@/data/portfolio";
+
+// ---------------------------------------------------------------------------
+// Phase 2 connector list — used in quick-look drawer
+// ---------------------------------------------------------------------------
+
+const DASH_PHASE2_CONNECTORS = [
+  { label: "CRM", example: "Salesforce / HubSpot" },
+  { label: "CS Platform", example: "Gainsight / Planhat" },
+  { label: "Conversation Intel", example: "Gong / Chorus" },
+  { label: "Product Telemetry", example: "" },
+] as const;
+
+// ---------------------------------------------------------------------------
+// Drawer — slide-in panel (right on desktop, bottom sheet on mobile)
+// ---------------------------------------------------------------------------
+
+function Drawer({
+  open,
+  onClose,
+  title,
+  children,
+}: {
+  open: boolean;
+  onClose: () => void;
+  title: string;
+  children: ReactNode;
+}) {
+  useEffect(() => {
+    document.body.style.overflow = open ? "hidden" : "";
+    return () => {
+      document.body.style.overflow = "";
+    };
+  }, [open]);
+
+  return (
+    <>
+      <div
+        onClick={onClose}
+        className={`fixed inset-0 z-40 bg-black/60 transition-opacity duration-300 ${
+          open ? "opacity-100" : "pointer-events-none opacity-0"
+        }`}
+      />
+      <div
+        className={`fixed bottom-0 right-0 z-50 flex flex-col overflow-hidden border-border bg-background transition-transform duration-300 h-[88vh] w-full rounded-t-xl border-t sm:top-0 sm:h-full sm:w-[440px] sm:rounded-none sm:border-l sm:border-t-0 ${
+          open ? "translate-y-0 sm:translate-x-0" : "translate-y-full sm:translate-y-0 sm:translate-x-full"
+        }`}
+      >
+        <div className="flex shrink-0 justify-center py-3 sm:hidden">
+          <div className="h-1 w-10 rounded-full bg-border" />
+        </div>
+        <div className="flex shrink-0 items-center justify-between border-b border-border px-5 py-4">
+          <h2 className="font-semibold text-foreground">{title}</h2>
+          <button
+            type="button"
+            onClick={onClose}
+            className="rounded-md p-1 text-muted-foreground transition-colors hover:text-foreground"
+            aria-label="Close"
+          >
+            <X className="h-5 w-5" />
+          </button>
+        </div>
+        <div className="flex-1 overflow-y-auto px-5 py-5">{children}</div>
+      </div>
+    </>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Raviga compact card — composite score + ARR as visual heroes
+// ---------------------------------------------------------------------------
+
+function RavigaCompanyCard({ company, firmSlug }: { company: Company; firmSlug: string }) {
+  const [drawerOpen, setDrawerOpen] = useState(false);
+  const { tier } = company;
+
+  const statusLine = company.topGap
+    ? `${gapTitle(company, company.topGap)} · ${scoreLevel(company.topGap.score).label}`
+    : "No priority gaps";
+
+  return (
+    <>
+      <div className="group relative flex h-full flex-col overflow-hidden rounded-xl border border-border bg-card transition-all duration-200 hover:border-primary/20 hover:shadow-lg hover:shadow-primary/5">
+        <div className="h-[3px] w-full shrink-0" style={{ backgroundColor: tier.color }} />
+        <div className="flex flex-1 flex-col p-5">
+          <div className="flex items-start justify-between gap-3">
+            <Link
+              href={`/${firmSlug}/portfolio/${company.id}`}
+              className="group/link min-w-0 flex-1"
+              aria-label={`Open ${company.name} profile`}
+            >
+              <h3 className="truncate text-base font-semibold text-foreground transition-colors group-hover/link:text-primary">
+                {company.name}
+              </h3>
+              <p className="mt-0.5 truncate text-xs text-muted-foreground">{company.sector}</p>
+            </Link>
+            <div className="shrink-0 text-right">
+              <div className="font-mono text-5xl font-black leading-none" style={{ color: tier.color }}>
+                {company.composite}
+              </div>
+              <div className="mt-0.5 text-[10px] text-muted-foreground">/ {company.displayMax}</div>
+            </div>
+          </div>
+
+          <div className="mt-3">
+            <span
+              className="inline-flex items-center rounded-md px-2.5 py-1 text-xs font-semibold tracking-wide"
+              style={{
+                backgroundColor: `${tier.color}22`,
+                color: tier.color,
+                border: `1px solid ${tier.color}50`,
+              }}
+            >
+              Tier {tier.id} · {tier.label}
+            </span>
+          </div>
+
+          <div className="mt-4 flex-1">
+            <div className="text-xl font-semibold tabular-nums text-foreground">
+              {company.arrDisplay}{" "}
+              <span className="text-sm font-normal text-muted-foreground">ARR</span>
+            </div>
+            <p className="mt-1 text-xs text-muted-foreground">{statusLine}</p>
+          </div>
+
+          <div className="mt-4 flex items-center justify-between border-t border-border pt-3">
+            <span className="text-[11px] text-muted-foreground">{formatDate(company.lastDiagnostic)}</span>
+            <button
+              type="button"
+              onClick={() => setDrawerOpen(true)}
+              className="inline-flex items-center gap-1 rounded border border-border bg-background/50 px-2.5 py-1 text-[11px] text-muted-foreground transition-colors hover:border-primary/40 hover:text-foreground"
+            >
+              Details <ChevronRight className="h-3 w-3" />
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <Drawer open={drawerOpen} onClose={() => setDrawerOpen(false)} title={company.name}>
+        <div className="flex items-center justify-between rounded-lg border border-border bg-background/40 px-4 py-3">
+          <div>
+            <span
+              className="inline-flex items-center rounded-md px-2.5 py-1 text-xs font-semibold"
+              style={{
+                backgroundColor: `${tier.color}22`,
+                color: tier.color,
+                border: `1px solid ${tier.color}50`,
+              }}
+            >
+              Tier {tier.id} · {tier.label}
+            </span>
+            <div className="mt-1.5 text-xs text-muted-foreground">{company.arrDisplay} ARR</div>
+          </div>
+          <div className="text-right">
+            <div className="font-mono text-4xl font-black" style={{ color: tier.color }}>
+              {company.composite}
+            </div>
+            <div className="text-[10px] text-muted-foreground">/ {company.displayMax}</div>
+          </div>
+        </div>
+
+        <div className="mt-6">
+          <h3 className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">Priority gaps</h3>
+          {company.gaps.length === 0 ? (
+            <p className="mt-2 text-sm text-muted-foreground">No material gaps — all pillars optimized.</p>
+          ) : (
+            <div className="mt-3 space-y-3">
+              {company.gaps.slice(0, 3).map((g) => (
+                <div key={g.pillar.id} className="rounded-lg border border-border bg-background/40 p-3">
+                  <div className="flex items-center justify-between">
+                    <span className="text-sm font-medium text-foreground">{gapTitle(company, g)}</span>
+                    <span className={`text-xs font-medium ${scoreLevel(g.score).textClass}`}>
+                      {scoreLevel(g.score).label}
+                    </span>
+                  </div>
+                  <p className="mt-1.5 text-xs text-muted-foreground">{g.note}</p>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+
+        <div className="mt-6">
+          <h3 className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">Pillar scores</h3>
+          <div className="mt-3 space-y-2">
+            {PILLARS.map((p) => {
+              const score = company.scores[p.id];
+              const lvl = scoreLevel(score);
+              return (
+                <div key={p.id} className="flex items-center gap-3">
+                  <div className={`h-2 w-2 shrink-0 rounded-full ${lvl.dotClass}`} />
+                  <span className="flex-1 text-sm text-foreground">{p.name}</span>
+                  <span className={`text-xs font-medium ${lvl.textClass}`}>
+                    {score === null ? "N/A" : `${score} · ${lvl.label}`}
+                  </span>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+
+        {(company.actionsLog ?? []).length > 0 && (
+          <div className="mt-6">
+            <h3 className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">Actions log</h3>
+            <div className="mt-3 space-y-2">
+              {(company.actionsLog ?? []).map((entry) => (
+                <div key={entry.date} className="flex items-start gap-3">
+                  <span className="mt-0.5 shrink-0 text-[11px] tabular-nums text-muted-foreground">
+                    {formatDate(entry.date)}
+                  </span>
+                  <span className="text-sm text-foreground">{entry.label}</span>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        <div className="mt-6">
+          <h3 className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
+            Phase 2 integrations
+          </h3>
+          <p className="mt-1.5 text-xs text-muted-foreground">
+            Activate to unlock the weighted model (max 19.5).
+          </p>
+          <div className="mt-3 grid grid-cols-2 gap-2">
+            {DASH_PHASE2_CONNECTORS.map((conn) => (
+              <div key={conn.label} className="rounded-lg border border-border bg-background/40 px-3 py-2.5">
+                <div className="text-xs font-medium text-foreground">{conn.label}</div>
+                {conn.example && (
+                  <div className="mt-0.5 text-[11px] text-muted-foreground">{conn.example}</div>
+                )}
+                <div className="mt-2 text-[11px] text-muted-foreground">Not connected</div>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        <div className="mt-6 border-t border-border pt-5">
+          <Link
+            href={`/${firmSlug}/portfolio/${company.id}`}
+            onClick={() => setDrawerOpen(false)}
+            className="inline-flex items-center gap-1.5 text-sm font-medium text-primary hover:underline"
+          >
+            Full diagnostic profile <ChevronRight className="h-4 w-4" />
+          </Link>
+        </div>
+      </Drawer>
+    </>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Scoring model drawer — raviga only; full methodology in a slide-in panel
+// ---------------------------------------------------------------------------
+
+function ScoringModelDrawer() {
+  const [open, setOpen] = useState(false);
+  return (
+    <>
+      <button
+        type="button"
+        onClick={() => setOpen(true)}
+        className="inline-flex items-center gap-1 text-xs text-muted-foreground/70 transition-colors hover:text-muted-foreground"
+      >
+        <Info className="h-3.5 w-3.5" /> Scoring model
+      </button>
+      <Drawer open={open} onClose={() => setOpen(false)} title="How scoring works">
+        <div className="space-y-6 text-sm">
+          <div>
+            <h3 className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
+              8 pillars · scored 0–2
+            </h3>
+            <ul className="mt-3 space-y-1.5">
+              {PILLARS.map((p) => (
+                <li key={p.id} className="flex items-center justify-between text-foreground">
+                  <span>{p.name}</span>
+                  <span className="font-mono text-muted-foreground">×{p.weight.toFixed(2)}</span>
+                </li>
+              ))}
+            </ul>
+          </div>
+          <div>
+            <h3 className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
+              Pillar score scale
+            </h3>
+            <ul className="mt-3 space-y-2">
+              {["2", "1", "0", "na"].map((k) => {
+                const lvl = SCORE_LEVELS[k];
+                return (
+                  <li key={k} className="flex items-center gap-2 text-foreground">
+                    <span className={`h-2.5 w-2.5 rounded-full ${lvl.dotClass}`} />
+                    <span className="w-6 font-mono text-muted-foreground">{k === "na" ? "N/A" : k}</span>
+                    <span>{lvl.label}</span>
+                  </li>
+                );
+              })}
+            </ul>
+          </div>
+          <div>
+            <h3 className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
+              Engagement tiers
+            </h3>
+            <ul className="mt-3 space-y-2">
+              {TIERS.map((t) => (
+                <li key={t.id} className="flex items-center gap-2 text-foreground">
+                  <span className="h-2.5 w-2.5 rounded-full" style={{ backgroundColor: t.color }} />
+                  <span className="w-12 font-mono text-muted-foreground">
+                    {t.range[0]}–{t.range[1]}
+                  </span>
+                  <span>
+                    Tier {t.id} · {t.label}
+                  </span>
+                </li>
+              ))}
+            </ul>
+          </div>
+          <div className="rounded-lg border border-border bg-background/50 p-3 text-xs text-muted-foreground">
+            Phase 1 scores use external public signals only (LinkedIn, G2/Capterra, job postings, press) and are
+            illustrative for this preview. Phase 2 layers in proprietary data (CRM, Gainsight, Gong, product
+            telemetry) once INVESQ is engaged, producing a weighted composite (max 19.5).
+          </div>
+        </div>
+      </Drawer>
+    </>
+  );
+}
 
 function KpiCard({
   icon: Icon,
@@ -841,12 +1166,19 @@ export default function PortfolioDashboard() {
         <h2 className="text-sm font-semibold text-foreground">
           Portfolio companies <span className="text-muted-foreground">· ranked by opportunity</span>
         </h2>
-        <span className="text-xs text-muted-foreground">Lowest composite first</span>
+        <div className="flex items-center gap-3">
+          {firmSlug === "raviga" && <ScoringModelDrawer />}
+          <span className="text-xs text-muted-foreground">Lowest composite first</span>
+        </div>
       </div>
       <div className="mt-4 grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">
-        {companies.map((c) => (
-          <CompanyCard key={c.id} company={c} firmSlug={firmSlug} />
-        ))}
+        {companies.map((c) =>
+          firmSlug === "raviga" ? (
+            <RavigaCompanyCard key={c.id} company={c} firmSlug={firmSlug} />
+          ) : (
+            <CompanyCard key={c.id} company={c} firmSlug={firmSlug} />
+          )
+        )}
       </div>
       {summary.arrUndisclosedCount > 0 && (
         <p className="mt-3 text-[11px] text-muted-foreground">
@@ -855,63 +1187,67 @@ export default function PortfolioDashboard() {
         </p>
       )}
 
-      {/* Legend / scoring model */}
-      <div className="mt-8 rounded-xl border border-border bg-card p-5">
-        <h2 className="text-sm font-semibold text-foreground">How scoring works</h2>
-        <div className="mt-4 grid grid-cols-1 gap-6 lg:grid-cols-3">
-          <div>
-            <div className="text-xs font-medium uppercase tracking-wider text-muted-foreground">
-              8 pillars · scored 0–2
-            </div>
-            <ul className="mt-2 space-y-1">
-              {PILLARS.map((p) => (
-                <li key={p.id} className="flex items-center justify-between text-xs text-foreground">
-                  <span>{p.name}</span>
-                  <span className="font-mono text-muted-foreground">×{p.weight.toFixed(2)}</span>
-                </li>
-              ))}
-            </ul>
-          </div>
-          <div>
-            <div className="text-xs font-medium uppercase tracking-wider text-muted-foreground">Pillar score scale</div>
-            <ul className="mt-2 space-y-2">
-              {["2", "1", "0", "na"].map((k) => {
-                const lvl = SCORE_LEVELS[k];
-                return (
-                  <li key={k} className="flex items-center gap-2 text-xs text-foreground">
-                    <span className={`h-2.5 w-2.5 rounded-full ${lvl.dotClass}`} />
-                    <span className="font-mono w-6 text-muted-foreground">{k === "na" ? "N/A" : k}</span>
-                    <span>{lvl.label}</span>
+      {/* Legend / scoring model — hidden for raviga (accessible via "Scoring model" drawer) */}
+      {firmSlug !== "raviga" && (
+        <div className="mt-8 rounded-xl border border-border bg-card p-5">
+          <h2 className="text-sm font-semibold text-foreground">How scoring works</h2>
+          <div className="mt-4 grid grid-cols-1 gap-6 lg:grid-cols-3">
+            <div>
+              <div className="text-xs font-medium uppercase tracking-wider text-muted-foreground">
+                8 pillars · scored 0–2
+              </div>
+              <ul className="mt-2 space-y-1">
+                {PILLARS.map((p) => (
+                  <li key={p.id} className="flex items-center justify-between text-xs text-foreground">
+                    <span>{p.name}</span>
+                    <span className="font-mono text-muted-foreground">×{p.weight.toFixed(2)}</span>
                   </li>
-                );
-              })}
-            </ul>
-          </div>
-          <div>
-            <div className="text-xs font-medium uppercase tracking-wider text-muted-foreground">
-              Engagement tiers
+                ))}
+              </ul>
             </div>
-            <ul className="mt-2 space-y-2">
-              {TIERS.map((t) => (
-                <li key={t.id} className="flex items-center gap-2 text-xs text-foreground">
-                  <span className="h-2.5 w-2.5 rounded-full" style={{ backgroundColor: t.color }} />
-                  <span className="font-mono w-12 text-muted-foreground">
-                    {t.range[0]}–{t.range[1]}
-                  </span>
-                  <span>
-                    Tier {t.id} · {t.label}
-                  </span>
-                </li>
-              ))}
-            </ul>
+            <div>
+              <div className="text-xs font-medium uppercase tracking-wider text-muted-foreground">
+                Pillar score scale
+              </div>
+              <ul className="mt-2 space-y-2">
+                {["2", "1", "0", "na"].map((k) => {
+                  const lvl = SCORE_LEVELS[k];
+                  return (
+                    <li key={k} className="flex items-center gap-2 text-xs text-foreground">
+                      <span className={`h-2.5 w-2.5 rounded-full ${lvl.dotClass}`} />
+                      <span className="font-mono w-6 text-muted-foreground">{k === "na" ? "N/A" : k}</span>
+                      <span>{lvl.label}</span>
+                    </li>
+                  );
+                })}
+              </ul>
+            </div>
+            <div>
+              <div className="text-xs font-medium uppercase tracking-wider text-muted-foreground">
+                Engagement tiers
+              </div>
+              <ul className="mt-2 space-y-2">
+                {TIERS.map((t) => (
+                  <li key={t.id} className="flex items-center gap-2 text-xs text-foreground">
+                    <span className="h-2.5 w-2.5 rounded-full" style={{ backgroundColor: t.color }} />
+                    <span className="font-mono w-12 text-muted-foreground">
+                      {t.range[0]}–{t.range[1]}
+                    </span>
+                    <span>
+                      Tier {t.id} · {t.label}
+                    </span>
+                  </li>
+                ))}
+              </ul>
+            </div>
           </div>
+          <p className="mt-4 border-t border-border pt-3 text-[11px] text-muted-foreground">
+            Phase 1 scores use external public signals only (LinkedIn, G2/Capterra, job postings, press) and are
+            illustrative for this preview. Phase 2 layers in proprietary data (CRM, Gainsight, Gong, product telemetry)
+            once INVESQ is engaged, producing a weighted composite (max 19.5).
+          </p>
         </div>
-        <p className="mt-4 border-t border-border pt-3 text-[11px] text-muted-foreground">
-          Phase 1 scores use external public signals only (LinkedIn, G2/Capterra, job postings, press) and are
-          illustrative for this preview. Phase 2 layers in proprietary data (CRM, Gainsight, Gong, product telemetry)
-          once INVESQ is engaged, producing a weighted composite (max 19.5).
-        </p>
-      </div>
+      )}
     </PortfolioLayout>
   );
 }

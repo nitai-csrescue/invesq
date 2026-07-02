@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect, type ReactNode } from "react";
 import { Link, useRoute } from "wouter";
 import {
   ArrowLeft,
@@ -10,6 +10,7 @@ import {
   FileText,
   Info,
   Plug,
+  X,
 } from "lucide-react";
 import {
   LineChart,
@@ -309,12 +310,110 @@ function ArrChartTooltipContent({
 }
 
 // ---------------------------------------------------------------------------
+// Drawer — slide-in panel (right on desktop, bottom sheet on mobile)
+// ---------------------------------------------------------------------------
+
+function Drawer({
+  open,
+  onClose,
+  title,
+  children,
+}: {
+  open: boolean;
+  onClose: () => void;
+  title: string;
+  children: ReactNode;
+}) {
+  useEffect(() => {
+    document.body.style.overflow = open ? "hidden" : "";
+    return () => {
+      document.body.style.overflow = "";
+    };
+  }, [open]);
+
+  return (
+    <>
+      <div
+        onClick={onClose}
+        className={`fixed inset-0 z-40 bg-black/60 transition-opacity duration-300 ${
+          open ? "opacity-100" : "pointer-events-none opacity-0"
+        }`}
+      />
+      <div
+        className={`fixed bottom-0 right-0 z-50 flex flex-col overflow-hidden border-border bg-background transition-transform duration-300 h-[88vh] w-full rounded-t-xl border-t sm:top-0 sm:h-full sm:w-[480px] sm:rounded-none sm:border-l sm:border-t-0 ${
+          open ? "translate-y-0 sm:translate-x-0" : "translate-y-full sm:translate-y-0 sm:translate-x-full"
+        }`}
+      >
+        <div className="flex shrink-0 justify-center py-3 sm:hidden">
+          <div className="h-1 w-10 rounded-full bg-border" />
+        </div>
+        <div className="flex shrink-0 items-center justify-between border-b border-border px-5 py-4">
+          <h2 className="font-semibold text-foreground">{title}</h2>
+          <button
+            type="button"
+            onClick={onClose}
+            className="rounded-md p-1 text-muted-foreground transition-colors hover:text-foreground"
+            aria-label="Close"
+          >
+            <X className="h-5 w-5" />
+          </button>
+        </div>
+        <div className="flex-1 overflow-y-auto px-5 py-5">{children}</div>
+      </div>
+    </>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Pillar methodology drawer — raviga only; surfaces measures/signals/PE value
+// ---------------------------------------------------------------------------
+
+function PillarMethodologyDrawer() {
+  const [open, setOpen] = useState(false);
+  return (
+    <>
+      <button
+        type="button"
+        onClick={() => setOpen(true)}
+        className="inline-flex items-center gap-1 text-xs text-muted-foreground/70 transition-colors hover:text-muted-foreground"
+      >
+        <Info className="h-3.5 w-3.5" /> Methodology
+      </button>
+      <Drawer open={open} onClose={() => setOpen(false)} title="Pillar methodology">
+        <div className="space-y-5">
+          {PILLARS.map((p) => (
+            <div key={p.id} className="border-b border-border pb-5 last:border-0 last:pb-0">
+              <div className="flex items-center justify-between gap-2">
+                <span className="font-semibold text-foreground">{p.name}</span>
+                <span className="font-mono text-xs text-muted-foreground">×{p.weight.toFixed(2)}</span>
+              </div>
+              <p className="mt-1.5 text-sm text-muted-foreground">{p.measures}</p>
+              <div className="mt-2 space-y-1 text-xs text-muted-foreground">
+                <div>
+                  <span className="text-foreground/70">Signals: </span>
+                  {p.signals}
+                </div>
+                <div>
+                  <span className="text-foreground/70">PE value: </span>
+                  {p.peValue}
+                </div>
+              </div>
+            </div>
+          ))}
+        </div>
+      </Drawer>
+    </>
+  );
+}
+
+// ---------------------------------------------------------------------------
 // Forecast section — interactive 6-month outlook shown when ≥ 2 real data pts
 // ---------------------------------------------------------------------------
 
 function ForecastSection({ company, firmSlug }: { company: Company; firmSlug: string }) {
   const [selectedAction, setSelectedAction] = useState("none");
   const [viewB, setViewB] = useState(false);
+  const [disclaimerOpen, setDisclaimerOpen] = useState(false);
 
   const isRaviga = firmSlug === "raviga";
   const forecastPts = computeCompanyForecast(company.assessmentPoints);
@@ -660,11 +759,70 @@ function ForecastSection({ company, firmSlug }: { company: Company; firmSlug: st
       )}
 
       {/* Composite forecast disclaimer */}
-      <p className="mt-3 border-t border-border pt-2 text-[10px] italic text-muted-foreground/70">
-        Forecasts are illustrative projections, not guarantees.
-        {action != null &&
-          ` Modeled upside assumes a linear ramp over ${action.rampMonths} months once the selected action is taken.`}
-      </p>
+      {isRaviga ? (
+        <>
+          <button
+            type="button"
+            onClick={() => setDisclaimerOpen(true)}
+            className="mt-3 inline-flex items-center gap-1 border-t border-border pt-2 text-[10px] text-muted-foreground/60 transition-colors hover:text-muted-foreground"
+          >
+            <Info className="h-3 w-3" /> Methodology &amp; disclaimer
+          </button>
+          <Drawer
+            open={disclaimerOpen}
+            onClose={() => setDisclaimerOpen(false)}
+            title="Forecast methodology"
+          >
+            <div className="space-y-5 text-sm">
+              <div>
+                <h3 className="font-semibold text-foreground">Composite forecast</h3>
+                <p className="mt-1.5 text-muted-foreground">
+                  Linear regression on real assessment data, extrapolated 6 months forward. Projections are
+                  illustrative — actual results depend on execution and market conditions.
+                </p>
+                {action != null && (
+                  <p className="mt-1.5 text-muted-foreground">
+                    Modeled upside assumes a linear ramp over {action.rampMonths} months once the selected action
+                    is taken.
+                  </p>
+                )}
+              </div>
+              <div>
+                <h3 className="font-semibold text-foreground">ARR uplift benchmarks (View B)</h3>
+                <p className="mt-1.5 text-muted-foreground">Tier-based directional benchmarks, annualized:</p>
+                <ul className="mt-2 space-y-1.5 text-muted-foreground">
+                  <li className="flex items-center gap-3">
+                    <span className="w-16 font-mono text-xs text-foreground">T1 → T2</span>
+                    <span>+9% ARR</span>
+                  </li>
+                  <li className="flex items-center gap-3">
+                    <span className="w-16 font-mono text-xs text-foreground">T2 → T3</span>
+                    <span>+15% ARR</span>
+                  </li>
+                  <li className="flex items-center gap-3">
+                    <span className="w-16 font-mono text-xs text-foreground">T3 → T4</span>
+                    <span>+20% ARR</span>
+                  </li>
+                </ul>
+                <p className="mt-2 text-muted-foreground">
+                  When composite progress doesn't cross a tier boundary, half the next band's rate applies.
+                  Phased in linearly over 6 months.
+                </p>
+              </div>
+              <div className="rounded-lg border border-amber-500/20 bg-amber-500/5 p-3 text-xs text-amber-300/80">
+                Modeled ARR uplift is an illustrative benchmark, not a guarantee. Actual results vary by company
+                and execution.
+              </div>
+            </div>
+          </Drawer>
+        </>
+      ) : (
+        <p className="mt-3 border-t border-border pt-2 text-[10px] italic text-muted-foreground/70">
+          Forecasts are illustrative projections, not guarantees.
+          {action != null &&
+            ` Modeled upside assumes a linear ramp over ${action.rampMonths} months once the selected action is taken.`}
+        </p>
+      )}
     </div>
   );
 }
@@ -755,6 +913,7 @@ export default function PortfolioCompany() {
   if (!company) return <CompanyNotFound firm={firm} />;
 
   const { tier } = company;
+  const isRaviga = firmSlug === "raviga";
 
   return (
     <PortfolioLayout firm={firm}>
@@ -791,14 +950,23 @@ export default function PortfolioCompany() {
           </div>
         </div>
         <p className="mt-5 border-t border-border pt-4 text-sm text-muted-foreground">{company.summary}</p>
-        {company.insufficientCount > 0 && (
-          <p className="mt-3 flex items-start gap-2 text-[11px] text-amber-300/90">
-            <Info className="mt-0.5 h-3 w-3 shrink-0" />
-            {company.insufficientCount} pillar{company.insufficientCount > 1 ? "s" : ""} marked{" "}
-            <span className="font-medium">Insufficient Data</span> — excluded from the displayed composite; tier is
-            assigned using a neutral baseline.
-          </p>
-        )}
+        {company.insufficientCount > 0 &&
+          (isRaviga ? (
+            <p
+              title={`${company.insufficientCount} pillar${company.insufficientCount > 1 ? "s" : ""} marked Insufficient Data — excluded from composite; tier uses a neutral baseline.`}
+              className="mt-3 flex cursor-help items-center gap-1.5 text-[11px] text-amber-300/80"
+            >
+              <Info className="h-3 w-3 shrink-0" />
+              {company.insufficientCount} N/A pillar{company.insufficientCount > 1 ? "s" : ""}
+            </p>
+          ) : (
+            <p className="mt-3 flex items-start gap-2 text-[11px] text-amber-300/90">
+              <Info className="mt-0.5 h-3 w-3 shrink-0" />
+              {company.insufficientCount} pillar{company.insufficientCount > 1 ? "s" : ""} marked{" "}
+              <span className="font-medium">Insufficient Data</span> — excluded from the displayed composite; tier is
+              assigned using a neutral baseline.
+            </p>
+          ))}
       </div>
 
       {/* Recommendation band */}
@@ -829,8 +997,13 @@ export default function PortfolioCompany() {
       <div className="mt-4 grid grid-cols-1 gap-4 lg:grid-cols-3">
         {/* Pillar breakdown */}
         <div className="lg:col-span-2 rounded-xl border border-border bg-card p-6">
-          <h2 className="text-sm font-semibold text-foreground">8-pillar breakdown</h2>
-          <p className="mt-0.5 text-xs text-muted-foreground">Each pillar scored 0–2 · weight applied in Phase 2</p>
+          <div className="flex items-center justify-between">
+            <div>
+              <h2 className="text-sm font-semibold text-foreground">8-pillar breakdown</h2>
+              <p className="mt-0.5 text-xs text-muted-foreground">Each pillar scored 0–2 · weight applied in Phase 2</p>
+            </div>
+            {isRaviga && <PillarMethodologyDrawer />}
+          </div>
           <div className="mt-4 space-y-4">
             {PILLARS.map((p) => {
               const score = company.scores[p.id];
@@ -855,15 +1028,19 @@ export default function PortfolioCompany() {
                       style={{ width: `${score === null ? 100 : fill}%` }}
                     />
                   </div>
-                  <p className="mt-2 text-xs text-muted-foreground">{p.measures}</p>
-                  <div className="mt-1.5 flex flex-wrap gap-x-4 gap-y-1 text-[11px] text-muted-foreground/80">
-                    <span>
-                      <span className="text-muted-foreground">Signals:</span> {p.signals}
-                    </span>
-                    <span>
-                      <span className="text-muted-foreground">PE value:</span> {p.peValue}
-                    </span>
-                  </div>
+                  {!isRaviga && (
+                    <>
+                      <p className="mt-2 text-xs text-muted-foreground">{p.measures}</p>
+                      <div className="mt-1.5 flex flex-wrap gap-x-4 gap-y-1 text-[11px] text-muted-foreground/80">
+                        <span>
+                          <span className="text-muted-foreground">Signals:</span> {p.signals}
+                        </span>
+                        <span>
+                          <span className="text-muted-foreground">PE value:</span> {p.peValue}
+                        </span>
+                      </div>
+                    </>
+                  )}
                 </div>
               );
             })}
