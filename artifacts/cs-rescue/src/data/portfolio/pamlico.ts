@@ -88,6 +88,53 @@ const PAMLICO_COMPANIES: RawCompany[] = [
         "Escalation management is a standout strength — G2 #1 ranking in Relationship and Implementation reflects a team that resolves issues effectively and maintains strong customer sentiment.",
     },
   },
+  {
+    id: "ceati",
+    name: "CEATI International",
+    sector: "B2B Membership / Information Services (Electric Utilities)",
+    hq: "—",
+    employeesDisplay: "35",
+    arrDisplay: "$10M–$20M",
+    arrForRollup: [10_000_000, 20_000_000],
+    confidence: "High",
+    engagement:
+      "Infrastructure build — scalable member-onboarding cadence, proactive account planning, and AI-assisted workflows so a two-person team can cover 157 member companies systematically. 90-day engagement.",
+    invesqSignal:
+      "A two-person post-sales team covering 157 member companies with a fully manual motion — tooling and process are the binding constraint, and the team has already articulated exactly what it needs.",
+    summary:
+      "A membership business with genuine land-and-expand economics — 21 programs across 157 member companies — served by a post-sales team of two. The customer success function is roughly six months old and being built from scratch: member onboarding is a manual task-creation process with no time-to-value framework, engagement is reactive and event-driven, and every account review requires 30–60 minutes of manual CRM research. The infrastructure build here is unusually well-defined because the team itself has already named the gaps.",
+    assessments: [
+      {
+        date: "2026-06-25",
+        pillarScores: {
+          org: 1,
+          onboarding: 0,
+          health: 1,
+          escalation: null,
+          revenue: 1,
+          leadership: 1,
+          planning: 0,
+          ai: 0,
+        },
+      },
+    ],
+    gapNotes: {
+      onboarding:
+        "Member onboarding is a fully manual task-creation process with no scalable cadence — new members risk reaching their first renewal conversation before they've activated.",
+      planning:
+        "No structured account planning cadence — 157 member companies are covered reactively with no documented success plans or review cycle. A systematic planning layer is the enabling infrastructure for proactive engagement at this scale.",
+      ai:
+        "Every account review requires 30–60 minutes of manual CRM research — AI-assisted workflows are the highest-leverage efficiency gain available to a two-person team covering this many accounts.",
+      health:
+        "Member health is tracked manually through event attendance and ad hoc check-ins rather than systematic signals. A lightweight health-scoring model would give the team early warning on at-risk accounts before renewal conversations.",
+      revenue:
+        "Revenue motion is developing — the land-and-expand economics are in place across 21 programs, but the commercial playbook for converting member engagement into program expansion is not yet systematized.",
+      leadership:
+        "Commercial leadership is in place with genuine CS platform awareness, and a founding CSM is six months into building the function. The gap is a missing layer, not a person: there is no experienced CS operator between strategy and day-to-day execution. Augmenting with operator capacity lets the existing team build infrastructure at pace instead of triaging manually.",
+      org:
+        "CS org design is developing — a dedicated post-sales function exists and is actively being built. The gap is structure and process rather than headcount.",
+    },
+  },
 ];
 
 export default PAMLICO_COMPANIES;
