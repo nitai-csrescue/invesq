@@ -30,6 +30,7 @@ import PrenaxCustomerDetail from "@/pages/prenax/CustomerDetail";
 import PrenaxMethodology from "@/pages/prenax/Methodology";
 import PortfolioDashboard from "@/pages/portfolio/PortfolioDashboard";
 import PortfolioCompany from "@/pages/portfolio/PortfolioCompany";
+import PortfolioReport from "@/pages/portfolio/PortfolioReport";
 
 const queryClient = new QueryClient();
 
@@ -75,6 +76,7 @@ function Router() {
 
         {/* Portfolio Rollup — self-contained STG client portal */}
         <Route path="/portfolio" component={PortfolioDashboard} />
+        <Route path="/portfolio/:companyId/report" component={PortfolioReport} />
         <Route path="/portfolio/:companyId" component={PortfolioCompany} />
 
         {/* Prenax Customer Health Intelligence — self-contained prototype */}

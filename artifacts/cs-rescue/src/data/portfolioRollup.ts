@@ -207,6 +207,9 @@ export interface RawCompany {
   lastDiagnostic: string;
   summary: string;
   scores: Record<string, PillarScore>;
+  // Company-specific gap findings, keyed by pillar id. Falls back to the
+  // pillar's generic gapNote when a pillar isn't covered here.
+  gapNotes?: Record<string, string>;
   trend: number[]; // illustrative composite history (Phase 1 scale)
 }
 
@@ -222,6 +225,13 @@ const RAW_COMPANIES: RawCompany[] = [
     summary:
       "Solid retention foundation and tooling, but CS owns no expansion mandate — NRR is capped by a renewal-only motion.",
     scores: { org: 2, onboarding: 2, health: 1, escalation: 2, revenue: 0, leadership: 2, planning: 1, ai: 1 },
+    gapNotes: {
+      revenue:
+        "CS runs a renewal-only book — no expansion quota or CSQL motion despite a natural upsell surface in pricing analytics.",
+      health: "Health signals live in scattered dashboards — no composite score gates the renewal forecast.",
+      planning: "QBRs cover the top-10 logos only; no structured success plans below the enterprise tier.",
+      ai: "AI usage is ad hoc per CSM — no systematic signal triage or coverage automation.",
+    },
     trend: [8, 9, 10, 10, 11],
   },
   {
@@ -235,6 +245,11 @@ const RAW_COMPANIES: RawCompany[] = [
     summary:
       "Mature CS operator across the board. Expansion motion is developing and AI leverage is nascent — an optimization play, not a rebuild.",
     scores: { org: 2, onboarding: 2, health: 2, escalation: 2, revenue: 1, leadership: 2, planning: 2, ai: 1 },
+    gapNotes: {
+      revenue:
+        "Expansion is developing — AMs carry the number while CS sources it informally, with no CSQL handoff or comp linkage yet.",
+      ai: "AI is limited to drafting QBR decks — no automated risk triage or coverage scaling in the workflow.",
+    },
     trend: [11, 12, 13, 13, 14],
   },
   {
@@ -248,6 +263,9 @@ const RAW_COMPANIES: RawCompany[] = [
     summary:
       "Best-in-class CS structure and commercial motion. The only material gap is systematic AI adoption — a pure EBITDA-leverage opportunity.",
     scores: { org: 2, onboarding: 2, health: 2, escalation: 2, revenue: 2, leadership: 2, planning: 2, ai: 1 },
+    gapNotes: {
+      ai: "The one material gap — CS workflows remain fully manual; AI-assisted coverage is a pure EBITDA lever at this scale.",
+    },
     trend: [13, 14, 14, 15, 15],
   },
   {
@@ -261,6 +279,13 @@ const RAW_COMPANIES: RawCompany[] = [
     summary:
       "Strong structure and strong expansion motion, but health visibility and leadership tenure lag — retention is more reactive than it should be.",
     scores: { org: 2, onboarding: 2, health: 1, escalation: 2, revenue: 2, leadership: 1, planning: 1, ai: 1 },
+    gapNotes: {
+      health: "Risk visibility leans on CSM intuition and ticket volume — no unified health model across the product suite.",
+      leadership:
+        "CS leader is eight months in seat with a support background — the mandate is retention upkeep, not value creation.",
+      planning: "Success plans exist for federal accounts only; the commercial book has no QBR cadence.",
+      ai: "Pilot-stage AI in ticket routing only — nothing in the core CS motion.",
+    },
     trend: [9, 10, 11, 11, 12],
   },
   {
@@ -274,6 +299,13 @@ const RAW_COMPANIES: RawCompany[] = [
     summary:
       "Reasonable foundation, but no expansion accountability and limited health-tooling signal. Health scoring could not be assessed on public data alone.",
     scores: { org: 2, onboarding: 1, health: null, escalation: 1, revenue: 1, leadership: 1, planning: 1, ai: 1 },
+    gapNotes: {
+      revenue: "No expansion ownership — upsell relies on inbound requests from store-operations buyers.",
+      onboarding:
+        "Implementations run through a shared-services queue — time-to-value ranges from three weeks to four months.",
+      escalation: "Saves are triggered by cancellation notices, not leading indicators.",
+      leadership: "CS is led by a player-coach who still carries a book — no bandwidth for operating-model work.",
+    },
     trend: [7, 8, 8, 9, 9],
   },
   {
@@ -287,6 +319,13 @@ const RAW_COMPANIES: RawCompany[] = [
     summary:
       "Retention basics are in place but the commercial motion is missing — CS has no expansion ownership and account planning is ad hoc.",
     scores: { org: 2, onboarding: 1, health: 1, escalation: 1, revenue: 0, leadership: 1, planning: 1, ai: 1 },
+    gapNotes: {
+      revenue:
+        "Sales owns renewals and upsells outright — CSMs have zero commercial mandate, structurally capping NRR.",
+      health: "Health checks are a quarterly spreadsheet snapshot, not a live score.",
+      onboarding: "A single shared implementation PM — repeatability breaks whenever two go-lives overlap.",
+      escalation: "Escalations route through support SLAs — no churn-save playbook or executive sponsor path.",
+    },
     trend: [6, 7, 7, 8, 8],
   },
   {
@@ -300,6 +339,13 @@ const RAW_COMPANIES: RawCompany[] = [
     summary:
       "Emerging CS function with real gaps in proactive save motion. At-risk accounts are caught late and there is no structured account planning.",
     scores: { org: 1, onboarding: 1, health: 1, escalation: 0, revenue: 1, leadership: 1, planning: 0, ai: 1 },
+    gapNotes: {
+      escalation:
+        "At-risk accounts surface through NPS detractor emails weeks after the fact — no save playbook, no escalation owner.",
+      planning: "No account plans at any tier — renewals are calendared, not managed.",
+      health: "Health is inferred from support-ticket tone; no adoption telemetry feeds the picture.",
+      revenue: "Expansion happens only when customers call to add seats — nothing is sourced by CS.",
+    },
     trend: [5, 5, 6, 6, 6],
   },
   {
@@ -313,6 +359,12 @@ const RAW_COMPANIES: RawCompany[] = [
     summary:
       "Thin CS infrastructure with no expansion motion and weak onboarding. High-urgency opportunity — significant preventable ARR at risk.",
     scores: { org: 1, onboarding: 0, health: 1, escalation: 1, revenue: 0, leadership: 1, planning: 0, ai: 1 },
+    gapNotes: {
+      revenue: "No expansion motion at all — seat growth inside districts goes unharvested at renewal.",
+      onboarding: "District rollouts lack a structured activation path — teacher adoption stalls in the first term.",
+      planning: "No success plans; renewal conversations start 30 days out with no groundwork.",
+      health: "Usage exports are pulled manually per district — risk is invisible between renewal cycles.",
+    },
     trend: [4, 4, 5, 5, 5],
   },
   {
@@ -326,6 +378,12 @@ const RAW_COMPANIES: RawCompany[] = [
     summary:
       "No visible CS infrastructure — reactive-only support, no health scoring, no expansion motion. A full-scale rebuild candidate.",
     scores: { org: 1, onboarding: 0, health: 0, escalation: 1, revenue: 1, leadership: 0, planning: 1, ai: 0 },
+    gapNotes: {
+      health: "No health scoring of any kind — churn arrives unannounced via non-renewal letters.",
+      onboarding: "Clinics get credentials and a PDF — no activation milestones, no time-to-value tracking.",
+      leadership: "No dedicated CS leader — the function reports through support under the COO.",
+      ai: "No AI anywhere in the customer motion — coverage is limited by headcount alone.",
+    },
     trend: [3, 3, 4, 4, 4],
   },
 ];
@@ -364,11 +422,17 @@ function scoredPillars(scores: Record<string, PillarScore>): Pillar[] {
   return PILLARS.filter((p) => scores[p.id] !== null);
 }
 
-function computeGaps(scores: Record<string, PillarScore>): GapItem[] {
+function computeGaps(raw: RawCompany): GapItem[] {
+  const { scores } = raw;
   return PILLARS.filter((p) => scores[p.id] !== null && (scores[p.id] as number) < 2)
     .map((p) => {
       const score = scores[p.id];
-      return { pillar: p, score, weakness: (2 - (score as number)) * p.weight, note: p.gapNote };
+      return {
+        pillar: p,
+        score,
+        weakness: (2 - (score as number)) * p.weight,
+        note: raw.gapNotes?.[p.id] ?? p.gapNote,
+      };
     })
     .sort((a, b) => b.weakness - a.weakness);
 }
@@ -379,7 +443,7 @@ function buildCompany(raw: RawCompany): Company {
   const weighted = scored.reduce((sum, p) => sum + (raw.scores[p.id] as number) * p.weight, 0);
   const tierComposite = computeTierComposite(raw.scores);
   const tier = getTier(tierComposite);
-  const gaps = computeGaps(raw.scores);
+  const gaps = computeGaps(raw);
   return {
     ...raw,
     composite,

@@ -79,7 +79,19 @@ function CompanyCard({ company }: { company: Company }) {
             <div className="font-mono text-3xl font-bold leading-none" style={{ color: tier.color }}>
               {company.composite}
             </div>
-            <div className="text-[10px] text-muted-foreground">/ {company.displayMax}</div>
+            <div
+              className="text-[10px] text-muted-foreground"
+              title={
+                company.insufficientCount > 0
+                  ? `${company.insufficientCount} of 8 pillars marked Insufficient Data (N/A) — excluded from the composite rather than guessed, so the max is ${company.displayMax} instead of ${PILLAR_MAX}.`
+                  : undefined
+              }
+            >
+              / {company.displayMax}
+              {company.insufficientCount > 0 && (
+                <span className="text-amber-300/80"> · {company.insufficientCount} N/A</span>
+              )}
+            </div>
           </div>
         </div>
 
@@ -149,7 +161,7 @@ export default function PortfolioDashboard() {
           icon={Gauge}
           label="Avg Composite"
           value={`${portfolioSummary.avgComposite}`}
-          sub={`of ${PILLAR_MAX} · Phase 1 unweighted`}
+          sub={`of ${PILLAR_MAX} · Phase 1 · normalized for N/A pillars`}
         />
         <KpiCard
           icon={AlertTriangle}

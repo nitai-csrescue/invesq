@@ -1,9 +1,15 @@
-import { ReactNode } from "react";
-import { Link } from "wouter";
+import { ReactNode, useEffect } from "react";
+import { Link, useLocation } from "wouter";
 import { ShieldCheck, ChevronDown } from "lucide-react";
 import { FIRM_NAME } from "@/data/portfolioRollup";
 
 export function PortfolioLayout({ children }: { children: ReactNode }) {
+  const [location] = useLocation();
+
+  useEffect(() => {
+    window.scrollTo(0, 0);
+  }, [location]);
+
   return (
     <div className="min-h-screen bg-background text-foreground font-sans flex flex-col">
       <header className="sticky top-0 z-30 bg-background/85 backdrop-blur-md border-b border-border">
