@@ -202,8 +202,18 @@ export interface RawCompany {
   name: string;
   sector: string;
   hq: string;
-  employees: number;
-  arr: number;
+  employeesDisplay: string; // "77", "102", or "Unconfirmed" — never a fabricated point figure
+  arrDisplay: string; // human-readable ARR ("$20M–$30M", "Undisclosed")
+  // ARR range in dollars used for portfolio rollups. null = undisclosed —
+  // excluded from Total ARR and Est. ARR at Risk. Ranges are summed as
+  // ranges; a point figure is never fabricated.
+  arrForRollup: [number, number] | null;
+  confidence: "High" | "Medium"; // assessment confidence from external signals
+  engagement: string; // per-company engagement recommendation (overrides tier default)
+  invesqSignal: string; // per-company INVESQ signal (overrides tier default)
+  // TaxCalc special case: no CS leader exists yet, so leadership copy is
+  // framed as "establish" rather than anything implying replacement.
+  leadershipFraming?: "establish";
   lastDiagnostic: string;
   summary: string;
   scores: Record<string, PillarScore>;
@@ -217,174 +227,166 @@ const RAW_COMPANIES: RawCompany[] = [
   {
     id: "nomis-solutions",
     name: "Nomis Solutions",
-    sector: "Pricing & Profitability Analytics",
+    sector: "AI-native pricing optimization, Financial Services SaaS",
     hq: "San Bruno, CA",
-    employees: 210,
-    arr: 48_000_000,
+    employeesDisplay: "77",
+    arrDisplay: "$20M–$30M",
+    arrForRollup: [20_000_000, 30_000_000],
+    confidence: "High",
+    engagement:
+      "Full CS function build — commercial motion, health scoring, and account planning all need to be established. 90–180 day engagement.",
+    invesqSignal:
+      "High-value, early-stage opportunity — the recent CCO hire (Jan 2026) and VP Strategic Account Management creation (Mar 2026) show STG is already investing here. A structured build now compounds that momentum.",
     lastDiagnostic: "2026-06-04",
     summary:
-      "Solid retention foundation and tooling, but CS owns no expansion mandate — NRR is capped by a renewal-only motion.",
-    scores: { org: 2, onboarding: 2, health: 1, escalation: 2, revenue: 0, leadership: 2, planning: 1, ai: 1 },
+      "Strong pricing-science IP and a sticky enterprise install base — the CS infrastructure to protect and grow that ARR is still being built. A structured CS function build now compounds the momentum already started with the CCO hire in January 2026.",
+    scores: { org: 1, onboarding: 0, health: 0, escalation: null, revenue: 0, leadership: 1, planning: 0, ai: 1 },
     gapNotes: {
       revenue:
-        "CS runs a renewal-only book — no expansion quota or CSQL motion despite a natural upsell surface in pricing analytics.",
-      health: "Health signals live in scattered dashboards — no composite score gates the renewal forecast.",
-      planning: "QBRs cover the top-10 logos only; no structured success plans below the enterprise tier.",
-      ai: "AI usage is ad hoc per CSM — no systematic signal triage or coverage automation.",
-    },
-    trend: [8, 9, 10, 10, 11],
-  },
-  {
-    id: "meridian-finops",
-    name: "Meridian FinOps",
-    sector: "Cloud Spend Management",
-    hq: "Austin, TX",
-    employees: 340,
-    arr: 96_000_000,
-    lastDiagnostic: "2026-06-09",
-    summary:
-      "Mature CS operator across the board. Expansion motion is developing and AI leverage is nascent — an optimization play, not a rebuild.",
-    scores: { org: 2, onboarding: 2, health: 2, escalation: 2, revenue: 1, leadership: 2, planning: 2, ai: 1 },
-    gapNotes: {
-      revenue:
-        "Expansion is developing — AMs carry the number while CS sources it informally, with no CSQL handoff or comp linkage yet.",
-      ai: "AI is limited to drafting QBR decks — no automated risk triage or coverage scaling in the workflow.",
-    },
-    trend: [11, 12, 13, 13, 14],
-  },
-  {
-    id: "continuum-data",
-    name: "Continuum Data Platform",
-    sector: "Data Infrastructure",
-    hq: "Seattle, WA",
-    employees: 520,
-    arr: 220_000_000,
-    lastDiagnostic: "2026-06-11",
-    summary:
-      "Best-in-class CS structure and commercial motion. The only material gap is systematic AI adoption — a pure EBITDA-leverage opportunity.",
-    scores: { org: 2, onboarding: 2, health: 2, escalation: 2, revenue: 2, leadership: 2, planning: 2, ai: 1 },
-    gapNotes: {
-      ai: "The one material gap — CS workflows remain fully manual; AI-assisted coverage is a pure EBITDA lever at this scale.",
-    },
-    trend: [13, 14, 14, 15, 15],
-  },
-  {
-    id: "helios-security",
-    name: "Helios Security",
-    sector: "Cybersecurity",
-    hq: "Boston, MA",
-    employees: 410,
-    arr: 130_000_000,
-    lastDiagnostic: "2026-05-28",
-    summary:
-      "Strong structure and strong expansion motion, but health visibility and leadership tenure lag — retention is more reactive than it should be.",
-    scores: { org: 2, onboarding: 2, health: 1, escalation: 2, revenue: 2, leadership: 1, planning: 1, ai: 1 },
-    gapNotes: {
-      health: "Risk visibility leans on CSM intuition and ticket volume — no unified health model across the product suite.",
-      leadership:
-        "CS leader is eight months in seat with a support background — the mandate is retention upkeep, not value creation.",
-      planning: "Success plans exist for federal accounts only; the commercial book has no QBR cadence.",
-      ai: "Pilot-stage AI in ticket routing only — nothing in the core CS motion.",
-    },
-    trend: [9, 10, 11, 11, 12],
-  },
-  {
-    id: "orchard-retail",
-    name: "Orchard Retail Cloud",
-    sector: "Retail SaaS",
-    hq: "Chicago, IL",
-    employees: 180,
-    arr: 34_000_000,
-    lastDiagnostic: "2026-06-02",
-    summary:
-      "Reasonable foundation, but no expansion accountability and limited health-tooling signal. Health scoring could not be assessed on public data alone.",
-    scores: { org: 2, onboarding: 1, health: null, escalation: 1, revenue: 1, leadership: 1, planning: 1, ai: 1 },
-    gapNotes: {
-      revenue: "No expansion ownership — upsell relies on inbound requests from store-operations buyers.",
+        "CS carries no expansion accountability — the commercial motion runs entirely through the pricing-science relationship, with no NRR ownership or CSQL motion.",
+      health:
+        "No systematic health scoring — risk is surfaced through reactive account conversations, not data-driven signals.",
+      planning:
+        "No structured success plans or QBR cadence — high-value accounts aren't getting the attention needed to drive expansion.",
       onboarding:
-        "Implementations run through a shared-services queue — time-to-value ranges from three weeks to four months.",
-      escalation: "Saves are triggered by cancellation notices, not leading indicators.",
-      leadership: "CS is led by a player-coach who still carries a book — no bandwidth for operating-model work.",
+        "No repeatable onboarding motion — early time-to-value is inconsistent and activation is relationship-dependent.",
+      leadership:
+        "Amy Chase (CCO, Jan 2026) brings a strong operations and professional-services background — layering in SaaS-native CS frameworks is the near-term opportunity.",
+      ai: "No systematic AI in the CS motion — signal triage and coverage scaling are fully manual.",
+    },
+    trend: [3, 3, 4, 4, 4],
+  },
+  {
+    id: "cadmium",
+    name: "Cadmium",
+    sector: "Events / LMS / Content Management SaaS",
+    hq: "Hunt Valley, MD",
+    employeesDisplay: "Unconfirmed",
+    arrDisplay: "$10M–$20M",
+    arrForRollup: [10_000_000, 20_000_000],
+    confidence: "High",
+    engagement:
+      "Structured build — formalize account planning and revenue motion, clarify CS reporting line. 90-day engagement.",
+    invesqSignal:
+      "Strong support sentiment to build on — the opportunity here is structural (reporting lines, planning cadence), not a trust or satisfaction problem.",
+    lastDiagnostic: "2026-06-10",
+    summary:
+      "Strong customer support and escalation management underpin genuine customer loyalty — the opportunity is structural rather than a satisfaction problem. Formalizing account planning, clarifying the CS reporting line, and activating an expansion motion are the highest-leverage moves.",
+    scores: { org: 1, onboarding: 1, health: null, escalation: 2, revenue: 1, leadership: 1, planning: 0, ai: 0 },
+    gapNotes: {
+      planning:
+        "No account-planning cadence — no QBR structure or success plans on high-value accounts, despite a clearly engaged CS team.",
+      ai: "No systematic AI in the CS motion — coverage cannot scale without adding headcount.",
+      org: "CS reports into operations rather than as a standalone GTM function — the reporting line limits mandate and commercial accountability.",
+      revenue:
+        "CS has no formal expansion ownership — upsell is relationship-driven with no structured CSQL or NRR accountability.",
+      onboarding:
+        "Onboarding is consistent but not yet systematized — time-to-value depends on individual CSM familiarity.",
+      leadership:
+        "Christina Rice (VP CS & Ops) brings strong operational depth — the opportunity is to add a SaaS-native commercial layer to the existing CS foundation.",
+      escalation:
+        "Escalation management is a clear strength — customer sentiment and review data show responsive, effective support.",
+    },
+    trend: [5, 6, 6, 7, 7],
+  },
+  {
+    id: "confience",
+    name: "Confience",
+    sector: "Laboratory Information Management (LIMS) SaaS",
+    hq: "Austin, TX",
+    employeesDisplay: "Unconfirmed",
+    arrDisplay: "Undisclosed",
+    arrForRollup: null,
+    confidence: "Medium",
+    engagement:
+      "Structured build — formalize account planning and a unified commercial motion across the three merged entities. 90-day engagement.",
+    invesqSignal:
+      "Rapid M&A growth (3 acquisitions in under 2 years) has outpaced CS integration — a natural moment to unify retention practices across the combined customer base.",
+    lastDiagnostic: "2026-06-08",
+    summary:
+      "Rapid M&A growth across three acquisitions in under two years has built strong sector coverage but outpaced CS integration — retention practices, reporting structures, and commercial motions vary across the combined entity. Unifying those practices now is the highest-leverage move ahead of the next growth phase.",
+    scores: { org: 2, onboarding: 1, health: null, escalation: 1, revenue: null, leadership: 1, planning: 0, ai: 0 },
+    gapNotes: {
+      planning:
+        "No unified account-planning cadence across the three merged entities — success plans and QBR structures vary by legacy company.",
+      ai: "No systematic AI in the CS motion across any of the three entities — a clear opportunity to establish a consistent capability.",
+      revenue:
+        "Revenue motion couldn't be fully assessed from public data — likely varies significantly across the three legacy businesses.",
+      escalation:
+        "Escalation practices vary across legacy entities — a unified playbook hasn't been established post-merger.",
+      onboarding:
+        "Onboarding processes differ by legacy entity — a unified activation path would reduce time-to-value variance.",
+      leadership:
+        "Camila Leal (Sr. Director CS) and Alex Andrade (EVP Global Customer Operations) bring complementary depth — aligning their scope across the merged entity is the key next step.",
+      org: "CS org design is a clear strength — the most unified element across the merged entities.",
+    },
+    trend: [5, 6, 6, 7, 7],
+  },
+  {
+    id: "mediavalet",
+    name: "MediaValet",
+    sector: "Digital Asset Management SaaS",
+    hq: "Vancouver, BC",
+    employeesDisplay: "102",
+    arrDisplay: "$10M–$20M",
+    arrForRollup: [10_000_000, 20_000_000],
+    confidence: "High",
+    engagement:
+      "Targeted build — formalize account planning cadence, layer SaaS-native CS frameworks onto existing relationship strength. 60–90 day engagement.",
+    invesqSignal:
+      "Strong satisfaction and onboarding foundation already in place — this is optimization, not rebuild.",
+    lastDiagnostic: "2026-06-12",
+    summary:
+      "Strong foundation — high customer satisfaction, structured onboarding, clear role separation across the CS team. The opportunity: no formal account-planning cadence (QBRs, success plans) exists yet, and CS leadership brings deep client-relationship experience from outside core SaaS. Pairing that relationship strength with SaaS-native CS frameworks is the fastest path to the >100% NRR target set at acquisition.",
+    scores: { org: 2, onboarding: 2, health: null, escalation: 2, revenue: 1, leadership: 1, planning: 0, ai: 0 },
+    gapNotes: {
+      planning:
+        "Account Planning: No structured QBR or success-plan cadence yet, despite an active, well-reviewed CS team — a clear near-term build, not a rebuild.",
+      ai: "No systematic AI in the CS motion — coverage at current ARR is manageable, but scaling without it will require proportional headcount adds.",
+      leadership:
+        "CS leadership has strong client-relationship experience from an agency/marketing background. Layering in SaaS-specific CS infrastructure — health scoring, structured QBRs — would help convert that relationship strength into measurable retention gains.",
+      revenue:
+        "Expansion motion is developing — CS sources some upsell informally but there is no structured CSQL process or NRR accountability.",
+      onboarding:
+        "Onboarding is a clear strength — review data consistently highlights fast time-to-value and responsive implementation support.",
+      org: "CS org design is well-structured — clear role separation and a distinct CS team.",
+      escalation:
+        "Escalation management is a clear strength — review data highlights responsive support and effective issue resolution.",
     },
     trend: [7, 8, 8, 9, 9],
   },
   {
-    id: "cirrus-logistics",
-    name: "Cirrus Logistics Cloud",
-    sector: "Supply Chain SaaS",
-    hq: "Denver, CO",
-    employees: 260,
-    arr: 62_000_000,
-    lastDiagnostic: "2026-05-30",
-    summary:
-      "Retention basics are in place but the commercial motion is missing — CS has no expansion ownership and account planning is ad hoc.",
-    scores: { org: 2, onboarding: 1, health: 1, escalation: 1, revenue: 0, leadership: 1, planning: 1, ai: 1 },
-    gapNotes: {
-      revenue:
-        "Sales owns renewals and upsells outright — CSMs have zero commercial mandate, structurally capping NRR.",
-      health: "Health checks are a quarterly spreadsheet snapshot, not a live score.",
-      onboarding: "A single shared implementation PM — repeatability breaks whenever two go-lives overlap.",
-      escalation: "Escalations route through support SLAs — no churn-save playbook or executive sponsor path.",
-    },
-    trend: [6, 7, 7, 8, 8],
-  },
-  {
-    id: "vantage-hr",
-    name: "Vantage HR Suite",
-    sector: "HR Technology",
-    hq: "Atlanta, GA",
-    employees: 150,
-    arr: 28_000_000,
+    id: "taxcalc",
+    name: "TaxCalc",
+    sector: "Tax Compliance / Practice Management SaaS (UK)",
+    hq: "Aylesbury, UK",
+    employeesDisplay: "100",
+    arrDisplay: "Undisclosed",
+    arrForRollup: null,
+    confidence: "High",
+    engagement:
+      "Establish a unified CS function — first CS leadership hire, connecting existing Account Management and Support teams. 90–180 day engagement.",
+    invesqSignal:
+      "Minority growth investment where CS infrastructure doesn't exist yet — directly aligned with STG's stated 'invest in customer success' thesis at close. High-clarity, high-leverage starting point.",
+    leadershipFraming: "establish",
     lastDiagnostic: "2026-06-06",
     summary:
-      "Emerging CS function with real gaps in proactive save motion. At-risk accounts are caught late and there is no structured account planning.",
-    scores: { org: 1, onboarding: 1, health: 1, escalation: 0, revenue: 1, leadership: 1, planning: 0, ai: 1 },
+      "A minority growth investment where customer success hasn't yet been stood up as a unified function — retention is currently split between a commercial account-management team and a separate reactive support team, with no single owner connecting the two. Standing up a dedicated CS function is the single highest-leverage move available, and aligns directly with the investment thesis STG announced at close.",
+    scores: { org: 0, onboarding: 1, health: null, escalation: 1, revenue: 0, leadership: 0, planning: 0, ai: 0 },
     gapNotes: {
-      escalation:
-        "At-risk accounts surface through NPS detractor emails weeks after the fact — no save playbook, no escalation owner.",
-      planning: "No account plans at any tier — renewals are calendared, not managed.",
-      health: "Health is inferred from support-ticket tone; no adoption telemetry feeds the picture.",
-      revenue: "Expansion happens only when customers call to add seats — nothing is sourced by CS.",
+      org: "CS Org Design: Retention responsibility is currently split across two teams with no unifying function — a first CS hire would close this gap directly.",
+      leadership:
+        "No dedicated CS leader is in place today. The opportunity isn't fixing an underperforming leader — it's that the role doesn't exist yet. A first CS leadership hire, unifying account management and support under one retention-accountable owner, is the clearest starting point.",
+      revenue:
+        "No expansion motion — the commercial team focuses on renewals and new logo; CS has no NRR ownership.",
+      planning:
+        "No account-planning cadence of any kind — renewals are calendar-driven, not success-plan-driven.",
+      onboarding:
+        "Onboarding runs through the commercial account-management team — no dedicated activation motion.",
+      escalation: "Escalation routes through support SLAs — no CS-owned save motion.",
+      ai: "No AI in any customer-facing or CS-adjacent workflow.",
     },
-    trend: [5, 5, 6, 6, 6],
-  },
-  {
-    id: "brightwave-edtech",
-    name: "Brightwave EdTech",
-    sector: "Education SaaS",
-    hq: "Raleigh, NC",
-    employees: 120,
-    arr: 21_000_000,
-    lastDiagnostic: "2026-05-22",
-    summary:
-      "Thin CS infrastructure with no expansion motion and weak onboarding. High-urgency opportunity — significant preventable ARR at risk.",
-    scores: { org: 1, onboarding: 0, health: 1, escalation: 1, revenue: 0, leadership: 1, planning: 0, ai: 1 },
-    gapNotes: {
-      revenue: "No expansion motion at all — seat growth inside districts goes unharvested at renewal.",
-      onboarding: "District rollouts lack a structured activation path — teacher adoption stalls in the first term.",
-      planning: "No success plans; renewal conversations start 30 days out with no groundwork.",
-      health: "Usage exports are pulled manually per district — risk is invisible between renewal cycles.",
-    },
-    trend: [4, 4, 5, 5, 5],
-  },
-  {
-    id: "apex-behavioral",
-    name: "Apex Behavioral Health",
-    sector: "Healthcare SaaS",
-    hq: "Nashville, TN",
-    employees: 95,
-    arr: 18_000_000,
-    lastDiagnostic: "2026-05-19",
-    summary:
-      "No visible CS infrastructure — reactive-only support, no health scoring, no expansion motion. A full-scale rebuild candidate.",
-    scores: { org: 1, onboarding: 0, health: 0, escalation: 1, revenue: 1, leadership: 0, planning: 1, ai: 0 },
-    gapNotes: {
-      health: "No health scoring of any kind — churn arrives unannounced via non-renewal letters.",
-      onboarding: "Clinics get credentials and a PDF — no activation milestones, no time-to-value tracking.",
-      leadership: "No dedicated CS leader — the function reports through support under the COO.",
-      ai: "No AI anywhere in the customer motion — coverage is limited by headcount alone.",
-    },
-    trend: [3, 3, 4, 4, 4],
+    trend: [2, 2, 3, 3, 3],
   },
 ];
 
@@ -409,7 +411,10 @@ export interface Company extends RawCompany {
   tier: Tier;
   gaps: GapItem[]; // ranked biggest weighted gap first (excludes N/A pillars)
   topGap: GapItem | null;
-  arrAtRisk: number; // illustrative: arr × tier risk midpoint
+  // Illustrative: ARR range × tier risk midpoint. null when ARR is
+  // undisclosed — no point estimate is ever fabricated.
+  arrAtRiskRange: [number, number] | null;
+  arrAtRiskDisplay: string; // formatted range, or "N/A" when ARR is undisclosed
 }
 
 // Composite used ONLY for tier assignment: N/A substitutes 1 per the framework rules.
@@ -444,6 +449,9 @@ function buildCompany(raw: RawCompany): Company {
   const tierComposite = computeTierComposite(raw.scores);
   const tier = getTier(tierComposite);
   const gaps = computeGaps(raw);
+  const arrAtRiskRange: [number, number] | null = raw.arrForRollup
+    ? [Math.round(raw.arrForRollup[0] * tier.riskMidpoint), Math.round(raw.arrForRollup[1] * tier.riskMidpoint)]
+    : null;
   return {
     ...raw,
     composite,
@@ -455,7 +463,8 @@ function buildCompany(raw: RawCompany): Company {
     tier,
     gaps,
     topGap: gaps[0] ?? null,
-    arrAtRisk: Math.round(raw.arr * tier.riskMidpoint),
+    arrAtRiskRange,
+    arrAtRiskDisplay: arrAtRiskRange ? formatCurrencyRange(arrAtRiskRange) : "N/A",
   };
 }
 
@@ -469,14 +478,35 @@ export function getCompany(id: string): Company | undefined {
   return COMPANIES.find((c) => c.id === id);
 }
 
+// Gap display title. When a company has no CS leader at all (leadershipFraming
+// "establish"), the leadership gap is framed as establishing the function —
+// never as replacing an incumbent.
+export function gapTitle(company: Company, gap: GapItem): string {
+  if (gap.pillar.id === "leadership" && company.leadershipFraming === "establish") {
+    return "Establish CS Leadership";
+  }
+  return gap.pillar.name;
+}
+
 // ---------------------------------------------------------------------------
 // Portfolio-level rollup
 // ---------------------------------------------------------------------------
 
+// ARR rollups only include companies with a disclosed ARR range. Ranges are
+// summed as ranges — a point figure is never fabricated.
+const DISCLOSED = COMPANIES.filter((c) => c.arrForRollup !== null);
+
+function sumRanges(ranges: [number, number][]): [number, number] {
+  return ranges.reduce<[number, number]>((acc, [lo, hi]) => [acc[0] + lo, acc[1] + hi], [0, 0]);
+}
+
 export const portfolioSummary = {
   companyCount: COMPANIES.length,
-  totalArr: COMPANIES.reduce((s, c) => s + c.arr, 0),
-  arrAtRisk: COMPANIES.reduce((s, c) => s + c.arrAtRisk, 0),
+  totalArrDisplay: formatCurrencyRange(sumRanges(DISCLOSED.map((c) => c.arrForRollup as [number, number]))),
+  arrAtRiskDisplay: formatCurrencyRange(sumRanges(DISCLOSED.map((c) => c.arrAtRiskRange as [number, number]))),
+  arrDisclosedCount: DISCLOSED.length,
+  arrUndisclosedCount: COMPANIES.length - DISCLOSED.length,
+  arrUndisclosedNames: COMPANIES.filter((c) => c.arrForRollup === null).map((c) => c.name),
   // Normalized to the full 0–PILLAR_MAX scale so companies with N/A pillars
   // (a smaller displayMax) are compared fairly, without fabricating a score.
   avgComposite:
@@ -498,6 +528,15 @@ export function formatCurrency(value: number): string {
   if (value >= 1_000_000) return `$${(value / 1_000_000).toFixed(1)}M`;
   if (value >= 1_000) return `$${Math.round(value / 1_000)}K`;
   return `$${value}`;
+}
+
+// Like formatCurrency but trims a trailing ".0" ("$5.0M" → "$5M") for tidy ranges.
+export function formatCurrencyCompact(value: number): string {
+  return formatCurrency(value).replace(/\.0(?=[KMB]$)/, "");
+}
+
+export function formatCurrencyRange([lo, hi]: [number, number]): string {
+  return `${formatCurrencyCompact(lo)}–${formatCurrencyCompact(hi)}`;
 }
 
 export function formatDate(iso: string): string {

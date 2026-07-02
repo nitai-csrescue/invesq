@@ -3,6 +3,21 @@ import { Link, useLocation } from "wouter";
 import { ShieldCheck, ChevronDown } from "lucide-react";
 import { FIRM_NAME } from "@/data/portfolioRollup";
 
+export function ConfidenceBadge({ confidence }: { confidence: "High" | "Medium" }) {
+  const cls =
+    confidence === "High"
+      ? "border-cyan-500/30 bg-cyan-500/10 text-cyan-300"
+      : "border-amber-500/30 bg-amber-500/10 text-amber-300";
+  return (
+    <span
+      className={`inline-flex items-center rounded-full border px-2.5 py-0.5 text-[11px] font-medium ${cls}`}
+      title="Assessment confidence based on the breadth and consistency of available external signals"
+    >
+      Confidence: {confidence}
+    </span>
+  );
+}
+
 export function PortfolioLayout({ children }: { children: ReactNode }) {
   const [location] = useLocation();
 

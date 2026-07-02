@@ -1,6 +1,6 @@
 import { Link } from "wouter";
-import { ArrowUpRight, TrendingDown, Building2, Wallet, Gauge, AlertTriangle } from "lucide-react";
-import { PortfolioLayout } from "@/components/portfolio/PortfolioLayout";
+import { TrendingDown, Building2, Wallet, Gauge, AlertTriangle, ShieldAlert } from "lucide-react";
+import { PortfolioLayout, ConfidenceBadge } from "@/components/portfolio/PortfolioLayout";
 import {
   COMPANIES,
   PILLARS,
@@ -8,7 +8,7 @@ import {
   SCORE_LEVELS,
   scoreLevel,
   portfolioSummary,
-  formatCurrency,
+  gapTitle,
   formatDate,
   PILLAR_MAX,
   FIRM_NAME,
@@ -95,10 +95,11 @@ function CompanyCard({ company }: { company: Company }) {
           </div>
         </div>
 
-        <div className="mt-3">
+        <div className="mt-3 flex flex-wrap items-center gap-1.5">
           <span className={`inline-flex items-center rounded-full border px-2.5 py-0.5 text-[11px] font-medium ${tier.badgeClass}`}>
             Tier {tier.id} · {tier.label}
           </span>
+          <ConfidenceBadge confidence={company.confidence} />
         </div>
 
         <div className="mt-4">
@@ -109,14 +110,14 @@ function CompanyCard({ company }: { company: Company }) {
           <div className="mt-4 flex items-start gap-2 rounded-lg border border-border bg-background/40 p-2.5">
             <TrendingDown className="mt-0.5 h-3.5 w-3.5 shrink-0 text-rose-400" />
             <div className="min-w-0">
-              <div className="text-[11px] font-medium text-rose-300">Top gap · {company.topGap.pillar.name}</div>
+              <div className="text-[11px] font-medium text-rose-300">Top gap · {gapTitle(company, company.topGap)}</div>
               <p className="mt-0.5 line-clamp-2 text-xs text-muted-foreground">{company.topGap.note}</p>
             </div>
           </div>
         )}
 
         <div className="mt-4 flex items-center justify-between border-t border-border pt-3 text-xs text-muted-foreground">
-          <span className="font-mono text-foreground">{formatCurrency(company.arr)} ARR</span>
+          <span className="font-mono text-foreground">{company.arrDisplay} ARR</span>
           <span>Assessed {formatDate(company.lastDiagnostic)}</span>
         </div>
       </div>
@@ -138,9 +139,14 @@ export default function PortfolioDashboard() {
             Customer Success operational-diligence rollup across {FIRM_NAME}&apos;s portfolio · as of {formatDate(AS_OF_DATE)}
           </p>
         </div>
-        <span className="inline-flex w-fit items-center gap-1.5 rounded-md border border-amber-500/30 bg-amber-500/10 px-2.5 py-1 text-[11px] text-amber-300">
-          <AlertTriangle className="h-3 w-3" /> Phase 1 external-signal scoring · trend data illustrative
-        </span>
+        <div className="flex flex-col items-start gap-2 sm:items-end">
+          <span className="inline-flex w-fit items-center gap-1.5 rounded-full border border-rose-500/30 bg-rose-500/10 px-2.5 py-1 text-[11px] text-rose-300">
+            <ShieldAlert className="h-3 w-3" /> Internal preview — not cleared for external distribution
+          </span>
+          <span className="inline-flex w-fit items-center gap-1.5 rounded-md border border-amber-500/30 bg-amber-500/10 px-2.5 py-1 text-[11px] text-amber-300">
+            <AlertTriangle className="h-3 w-3" /> Phase 1 external-signal scoring · trend data illustrative
+          </span>
+        </div>
       </div>
 
       {/* KPI strip */}
@@ -154,8 +160,14 @@ export default function PortfolioDashboard() {
         <KpiCard
           icon={Wallet}
           label="Total ARR"
-          value={formatCurrency(portfolioSummary.totalArr)}
-          sub="Across assessed companies"
+          value={portfolioSummary.totalArrDisplay}
+          sub={
+            portfolioSummary.arrUndisclosedCount > 0
+              ? `Disclosed ARR only — ${portfolioSummary.arrUndisclosedCount} ${
+                  portfolioSummary.arrUndisclosedCount === 1 ? "company" : "companies"
+                } undisclosed²`
+              : "Across assessed companies"
+          }
         />
         <KpiCard
           icon={Gauge}
@@ -166,8 +178,8 @@ export default function PortfolioDashboard() {
         <KpiCard
           icon={AlertTriangle}
           label="Est. ARR at Risk"
-          value={formatCurrency(portfolioSummary.arrAtRisk)}
-          sub="Preventable, tier-weighted"
+          value={portfolioSummary.arrAtRiskDisplay}
+          sub="Preventable, tier-weighted · disclosed ARR only²"
           illustrative
         />
       </div>
@@ -215,6 +227,12 @@ export default function PortfolioDashboard() {
           <CompanyCard key={c.id} company={c} />
         ))}
       </div>
+      {portfolioSummary.arrUndisclosedCount > 0 && (
+        <p className="mt-3 text-[11px] text-muted-foreground">
+          ² {portfolioSummary.arrUndisclosedNames.join(" and ")} ARR is undisclosed and excluded from the Total ARR
+          and Est. ARR at Risk figures.
+        </p>
+      )}
 
       {/* Legend / scoring model */}
       <div className="mt-8 rounded-xl border border-border bg-card p-5">

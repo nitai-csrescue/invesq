@@ -18,12 +18,12 @@ import {
   Tooltip,
   ResponsiveContainer,
 } from "recharts";
-import { PortfolioLayout } from "@/components/portfolio/PortfolioLayout";
+import { PortfolioLayout, ConfidenceBadge } from "@/components/portfolio/PortfolioLayout";
 import {
   getCompany,
+  gapTitle,
   PILLARS,
   scoreLevel,
-  formatCurrency,
   formatDate,
   PILLAR_MAX,
   AS_OF_DATE,
@@ -144,19 +144,20 @@ export default function PortfolioCompany() {
             <div>
               <h1 className="text-2xl font-semibold tracking-tight text-foreground">{company.name}</h1>
               <p className="mt-0.5 text-sm text-muted-foreground">{company.sector}</p>
-              <div className="mt-3">
+              <div className="mt-3 flex flex-wrap items-center gap-1.5">
                 <span
                   className={`inline-flex items-center rounded-full border px-3 py-1 text-xs font-medium ${tier.badgeClass}`}
                 >
                   Tier {tier.id} · {tier.label}
                 </span>
+                <ConfidenceBadge confidence={company.confidence} />
               </div>
             </div>
           </div>
           <div className="grid grid-cols-2 gap-x-8 gap-y-4 sm:grid-cols-3 lg:grid-cols-2">
-            <Meta icon={Building2} label="ARR" value={formatCurrency(company.arr)} />
+            <Meta icon={Building2} label="ARR" value={company.arrDisplay} />
             <Meta icon={MapPin} label="HQ" value={company.hq} />
-            <Meta icon={Users} label="Headcount" value={String(company.employees)} />
+            <Meta icon={Users} label="Headcount" value={company.employeesDisplay} />
             <Meta icon={CalendarClock} label="Last assessed" value={formatDate(company.lastDiagnostic)} />
           </div>
         </div>
@@ -177,20 +178,22 @@ export default function PortfolioCompany() {
           <div className="text-xs font-medium uppercase tracking-wider text-muted-foreground">
             Recommended engagement
           </div>
-          <p className="mt-2 text-sm text-foreground">{tier.engagement}</p>
+          <p className="mt-2 text-sm text-foreground">{company.engagement}</p>
         </div>
         <div className="rounded-xl border border-border bg-card p-5">
           <div className="text-xs font-medium uppercase tracking-wider text-muted-foreground">INVESQ signal</div>
-          <p className="mt-2 text-sm text-foreground">{tier.invesqSignal}</p>
+          <p className="mt-2 text-sm text-foreground">{company.invesqSignal}</p>
         </div>
         <div className="rounded-xl border border-border bg-card p-5">
           <div className="text-xs font-medium uppercase tracking-wider text-muted-foreground">
             Est. ARR at risk
           </div>
           <div className="mt-2 font-mono text-2xl font-semibold" style={{ color: tier.color }}>
-            {formatCurrency(company.arrAtRisk)}
+            {company.arrAtRiskDisplay}
           </div>
-          <div className="text-[11px] text-amber-300/80">Illustrative · {tier.arrRisk}</div>
+          <div className="text-[11px] text-amber-300/80">
+            {company.arrAtRiskRange ? `Illustrative · ${tier.arrRisk}` : `ARR undisclosed · ${tier.arrRisk}`}
+          </div>
         </div>
       </div>
 
@@ -248,7 +251,7 @@ export default function PortfolioCompany() {
               {company.gaps.slice(0, 3).map((g) => (
                 <div key={g.pillar.id} className="rounded-lg border border-border bg-background/40 p-3">
                   <div className="flex items-center justify-between">
-                    <span className="text-xs font-medium text-foreground">{g.pillar.name}</span>
+                    <span className="text-xs font-medium text-foreground">{gapTitle(company, g)}</span>
                     <span className={`text-[11px] font-medium ${scoreLevel(g.score).textClass}`}>
                       {scoreLevel(g.score).label}
                     </span>

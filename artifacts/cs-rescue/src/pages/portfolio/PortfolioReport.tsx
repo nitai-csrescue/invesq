@@ -1,14 +1,14 @@
 import { Link, useRoute } from "wouter";
 import { ArrowLeft, AlertTriangle, FileText, Info, TrendingDown } from "lucide-react";
-import { PortfolioLayout } from "@/components/portfolio/PortfolioLayout";
+import { PortfolioLayout, ConfidenceBadge } from "@/components/portfolio/PortfolioLayout";
 import {
   AS_OF_DATE,
   FIRM_NAME,
   PILLARS,
   PILLAR_MAX,
   WEIGHTED_MAX,
-  formatCurrency,
   formatDate,
+  gapTitle,
   getCompany,
   scoreLevel,
 } from "@/data/portfolioRollup";
@@ -66,10 +66,11 @@ export default function PortfolioReport() {
             <p className="mt-1 text-sm text-muted-foreground">
               {company.sector} · {company.hq}
             </p>
-            <div className="mt-3">
+            <div className="mt-3 flex flex-wrap items-center gap-1.5">
               <span className={`inline-flex items-center rounded-full border px-2.5 py-0.5 text-[11px] font-medium ${tier.badgeClass}`}>
                 Tier {tier.id} · {tier.label}
               </span>
+              <ConfidenceBadge confidence={company.confidence} />
             </div>
           </div>
           <div className="text-left lg:text-right">
@@ -90,9 +91,9 @@ export default function PortfolioReport() {
         <div className="mt-6 grid grid-cols-2 gap-4 border-t border-border pt-5 sm:grid-cols-3 lg:grid-cols-6">
           <MetaItem label="Prepared for" value={FIRM_NAME} />
           <MetaItem label="Assessment date" value={formatDate(company.lastDiagnostic)} />
-          <MetaItem label="ARR" value={formatCurrency(company.arr)} />
-          <MetaItem label="Headcount" value={String(company.employees)} />
-          <MetaItem label="Est. ARR at risk" value={formatCurrency(company.arrAtRisk)} />
+          <MetaItem label="ARR" value={company.arrDisplay} />
+          <MetaItem label="Headcount" value={company.employeesDisplay} />
+          <MetaItem label="Est. ARR at risk" value={company.arrAtRiskDisplay} />
           <MetaItem label="Framework" value={`8 pillars · 0–${PILLAR_MAX}`} />
         </div>
       </div>
@@ -103,7 +104,7 @@ export default function PortfolioReport() {
         <p className="mt-2 text-sm leading-relaxed text-muted-foreground">{company.summary}</p>
         <div className="mt-4 rounded-lg border border-border bg-background/40 p-4">
           <div className="text-[10px] uppercase tracking-wider text-muted-foreground">INVESQ signal</div>
-          <p className="mt-1 text-sm text-foreground">{tier.invesqSignal}</p>
+          <p className="mt-1 text-sm text-foreground">{company.invesqSignal}</p>
         </div>
       </div>
 
@@ -182,7 +183,7 @@ export default function PortfolioReport() {
               <div className="font-mono text-sm font-semibold text-muted-foreground">{String(i + 1).padStart(2, "0")}</div>
               <div className="min-w-0">
                 <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
-                  <span className="text-sm font-medium text-foreground">{g.pillar.name}</span>
+                  <span className="text-sm font-medium text-foreground">{gapTitle(company, g)}</span>
                   <span className={`text-[11px] font-medium ${scoreLevel(g.score).textClass}`}>
                     {scoreLevel(g.score).label}
                   </span>
@@ -201,10 +202,19 @@ export default function PortfolioReport() {
       {/* Recommended engagement */}
       <div className="mt-4 rounded-xl border border-border bg-card p-6">
         <h2 className="text-sm font-semibold text-foreground">Recommended engagement</h2>
-        <p className="mt-2 text-sm leading-relaxed text-foreground">{tier.engagement}</p>
+        <p className="mt-2 text-sm leading-relaxed text-foreground">{company.engagement}</p>
         <p className="mt-2 text-xs text-muted-foreground">
-          Tier {tier.id} companies typically carry {tier.arrRisk.toLowerCase()} — for {company.name}, an estimated{" "}
-          {formatCurrency(company.arrAtRisk)} of {formatCurrency(company.arr)} ARR.
+          {company.arrAtRiskRange ? (
+            <>
+              Tier {tier.id} companies typically carry {tier.arrRisk.toLowerCase()} — for {company.name}, an estimated{" "}
+              {company.arrAtRiskDisplay} of {company.arrDisplay} ARR.
+            </>
+          ) : (
+            <>
+              Tier {tier.id} companies typically carry {tier.arrRisk.toLowerCase()}. {company.name}&apos;s ARR is
+              undisclosed, so no dollar estimate is shown.
+            </>
+          )}
         </p>
       </div>
 
