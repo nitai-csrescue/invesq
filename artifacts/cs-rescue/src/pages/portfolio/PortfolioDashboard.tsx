@@ -1067,6 +1067,7 @@ export default function PortfolioDashboard() {
   // Raviga: redesigned dark-sidebar shell with light canvas + table layout
   if (firmSlug === "raviga") {
     const attentionCount = companies.filter((c) => c.tier.id <= 2).length;
+    const openFindings = companies.reduce((s, c) => s + c.gaps.length, 0);
     const avgNorm =
       companies.length > 0
         ? Math.round(
@@ -1106,7 +1107,7 @@ export default function PortfolioDashboard() {
         </div>
 
         {/* KPI summary cards */}
-        <div className="mb-7 grid grid-cols-2 gap-4 lg:grid-cols-4">
+        <div className="mb-7 grid grid-cols-2 gap-4 lg:grid-cols-5">
           <div className="rounded-xl border border-border bg-card p-5 shadow-sm">
             <div className="text-3xl font-bold text-foreground">{summary.companyCount}</div>
             <div className="mt-1.5 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
@@ -1127,16 +1128,25 @@ export default function PortfolioDashboard() {
             <div className="mt-1.5 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
               Avg Composite
             </div>
+            <div className="mt-0.5 text-[10px] text-muted-foreground/70">higher is better</div>
           </div>
           <div className="rounded-xl border border-border bg-card p-5 shadow-sm">
             <div
-              className={`text-3xl font-bold ${attentionCount > 0 ? "text-amber-600" : "text-emerald-600"}`}
+              className={`text-4xl font-black ${attentionCount > 0 ? "text-amber-600" : "text-emerald-600"}`}
             >
               {attentionCount}
             </div>
             <div className="mt-1.5 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
               Need Attention
             </div>
+            <div className="mt-0.5 text-[10px] text-muted-foreground/70">Tier 1 &amp; 2 companies</div>
+          </div>
+          <div className="rounded-xl border border-border bg-card p-5 shadow-sm">
+            <div className="text-3xl font-bold text-foreground">{openFindings}</div>
+            <div className="mt-1.5 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
+              Open Findings
+            </div>
+            <div className="mt-0.5 text-[10px] text-muted-foreground/70">across portfolio</div>
           </div>
         </div>
 

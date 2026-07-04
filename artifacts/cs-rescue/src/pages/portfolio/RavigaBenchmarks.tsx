@@ -75,7 +75,7 @@ function CompositeTab({ companies, firmSlug }: { companies: Company[]; firmSlug:
           const delta = Math.round((val - median) * 10) / 10;
           return (
             <div key={c.id} className="flex items-center gap-4 py-3">
-              <span className="w-5 shrink-0 text-xs text-muted-foreground text-center">{i + 1}</span>
+
               <div
                 className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-sm font-bold text-white"
                 style={{ backgroundColor: c.tier.color }}
@@ -139,7 +139,7 @@ function ArrTab({ companies, firmSlug }: { companies: Company[]; firmSlug: strin
           const dl = abs >= 1e6 ? `${sign}$${(abs / 1e6).toFixed(1)}M` : `${sign}$${(abs / 1e3).toFixed(0)}K`;
           return (
             <div key={c.id} className="flex items-center gap-4 py-3">
-              <span className="w-5 shrink-0 text-xs text-muted-foreground text-center">{i + 1}</span>
+
               <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-sm font-bold text-white" style={{ backgroundColor: c.tier.color }}>
                 {c.tier.id}
               </div>
@@ -199,7 +199,7 @@ function ForecastTab({ companies, firmSlug }: { companies: Company[]; firmSlug: 
           const delta = Math.round((uplift - median) * 10) / 10;
           return (
             <div key={c.id} className="flex items-center gap-4 py-3">
-              <span className="w-5 shrink-0 text-xs text-muted-foreground text-center">{i + 1}</span>
+
               <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-sm font-bold text-white" style={{ backgroundColor: c.tier.color }}>
                 {c.tier.id}
               </div>

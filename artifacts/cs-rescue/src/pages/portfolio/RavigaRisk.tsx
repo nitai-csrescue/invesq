@@ -8,6 +8,7 @@ import {
   formatCurrency,
   type Company,
 } from "@/data/portfolio";
+import { Info } from "lucide-react";
 import { RavigaShell } from "@/components/portfolio/RavigaShell";
 
 // ---------------------------------------------------------------------------
@@ -170,9 +171,6 @@ function PortfolioTab({
                 Tier
               </th>
               <th className="px-4 py-3 text-left text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
-                Score
-              </th>
-              <th className="px-4 py-3 text-left text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
                 Gaps
               </th>
               <th
@@ -200,11 +198,8 @@ function PortfolioTab({
                     T{c.tier.id}
                   </span>
                 </td>
-                <td className="px-4 py-3.5 font-mono text-sm text-foreground">
-                  {c.composite}/{c.displayMax}
-                </td>
                 <td className="px-4 py-3.5 text-sm text-foreground">{c.gaps.length}</td>
-                <td className="px-5 py-3.5 text-right font-mono text-sm font-semibold text-rose-700">
+                <td className="px-5 py-3.5 text-right font-mono text-sm font-semibold text-foreground">
                   {c.arrAtRiskDisplay}
                 </td>
               </tr>
@@ -256,7 +251,7 @@ function LedgerTab({
           <div className="font-mono text-2xl font-bold text-rose-700">
             {company.arrAtRiskDisplay}
           </div>
-          <div className="text-[11px] text-amber-600">
+          <div className="text-[11px] text-slate-500">
             Illustrative · {company.tier.arrRisk} · typical exposure for this tier
           </div>
         </div>
@@ -272,6 +267,14 @@ function LedgerTab({
         </div>
       ) : (
         <>
+          <div className="mb-4 flex items-start gap-2 rounded-lg border border-blue-200 bg-blue-50 p-3 text-[11px] text-blue-600">
+            <Info className="mt-0.5 h-3.5 w-3.5 shrink-0 text-blue-500" />
+            <span>
+              Illustrative split across identified gaps — not a certified per-issue estimate.
+              Figures rounded to nearest $1K; equal allocation is a simplification and actual
+              exposure concentration will vary.
+            </span>
+          </div>
           <div className="overflow-hidden rounded-xl border border-border bg-card">
             <div className="flex items-center justify-between border-b border-border bg-muted/50 px-5 py-3">
               <span className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
@@ -326,11 +329,6 @@ function LedgerTab({
             </div>
           </div>
 
-          <p className="mt-2 text-[11px] text-muted-foreground">
-            Illustrative split across identified gaps — not a certified per-issue estimate.
-            Figures rounded to nearest $1K; equal allocation is a simplification and actual
-            exposure concentration will vary.
-          </p>
         </>
       )}
     </div>
@@ -387,6 +385,13 @@ function SimulatorTab({
         </div>
       ) : (
         <>
+          {/* Illustrative disclaimer */}
+          <div className="mb-4 flex items-start gap-2 rounded-lg border border-blue-200 bg-blue-50 p-3 text-[11px] text-blue-600">
+            <Info className="mt-0.5 h-3.5 w-3.5 shrink-0 text-blue-500" />
+            <span>
+              Illustrative. Click rows to model "what if" recovery scenarios — not a certified per-issue projection.
+            </span>
+          </div>
           {/* Live counter cards */}
           <div className="mb-5 grid grid-cols-2 gap-4">
             <div className="rounded-xl border border-rose-300 bg-rose-50 p-5">

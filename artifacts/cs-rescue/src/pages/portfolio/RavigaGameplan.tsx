@@ -91,8 +91,9 @@ function GameplanItem({
     <div className="flex gap-5">
       {/* Stem */}
       <div className="flex flex-col items-center">
-        <div className="flex h-10 w-10 flex-none items-center justify-center rounded-full border-2 border-primary/40 bg-primary/10 text-[11px] font-bold text-primary">
-          D{item.day}
+        <div className="flex h-10 w-10 flex-none flex-col items-center justify-center rounded-full border-2 border-primary/40 bg-primary/10 text-primary">
+          <span className="text-[8px] font-semibold leading-none text-primary/70">Day</span>
+          <span className="text-[11px] font-bold leading-none">{item.day}</span>
         </div>
         {!isLast && <div className="mt-1 w-px flex-1 bg-border" />}
       </div>
@@ -207,19 +208,15 @@ export default function RavigaGameplan() {
         <div className="mt-3 flex items-center gap-1.5 text-[11px] text-muted-foreground/60">
           <CalendarClock className="h-3.5 w-3.5" />
           Diagnostic as of {formatDate(company.lastDiagnostic)} · Phase 1 external signals ·{" "}
-          {items.length} action{items.length !== 1 ? "s" : ""} identified
+          {items.length} milestone{items.length !== 1 ? "s" : ""} identified
         </div>
       </div>
 
-      {/* Disclaimer */}
-      <div className="mb-6 flex items-start gap-2.5 rounded-lg border border-amber-500/20 bg-amber-500/5 px-4 py-3 text-xs text-amber-300/80">
-        <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-amber-400" />
-        <p>
-          This gameplan is generated deterministically from Phase 1 external-signal diagnostics. Day milestones
-          are directional scheduling anchors — actual sequencing depends on leadership alignment and resource
-          availability. Phase 2 engagement validates and refines priorities with internal data.
-        </p>
-      </div>
+      {/* Disclaimer footnote */}
+      <p className="mb-6 text-[11px] italic text-muted-foreground/60">
+        Generated from Phase 1 external-signal diagnostics. Milestones are directional — actual sequencing
+        depends on leadership alignment and resource availability. Phase 2 engagement validates and refines priorities.
+      </p>
 
       {/* Timeline */}
       {items.length === 0 ? (

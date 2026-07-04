@@ -360,9 +360,6 @@ export function RavigaCompanyList({ companies, firm, summary }: RavigaCompanyLis
 
   return (
     <div className="mt-6 space-y-4">
-      {/* Ops KPI strip */}
-      <OpsStrip companies={companies} />
-
       {/* Search + filter + sort */}
       <div className="flex flex-wrap items-center gap-3">
         {/* Search box */}

@@ -91,7 +91,11 @@ function FindingCard({ finding, firmSlug }: { finding: Finding; firmSlug: string
             {finding.companyName}
           </Link>
           <span
-            className={`ml-1 rounded border px-1.5 py-0.5 text-[10px] ${finding.tierBadgeClass}`}
+            className={`ml-1 rounded border px-1.5 py-0.5 text-[10px] ${
+              finding.tierId === 1
+                ? "border-violet-300 bg-violet-50 text-violet-700"
+                : finding.tierBadgeClass
+            }`}
           >
             T{finding.tierId}
           </span>
@@ -115,9 +119,6 @@ function FindingCard({ finding, firmSlug }: { finding: Finding; firmSlug: string
         </Link>
       </div>
 
-      <div className="-mt-2 text-[10px] text-muted-foreground/50">
-        Source: Diagnostic assessment · Phase 1 external signals
-      </div>
     </div>
   );
 }

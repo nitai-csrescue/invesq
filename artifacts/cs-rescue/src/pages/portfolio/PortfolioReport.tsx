@@ -1,12 +1,11 @@
 import { Link, useRoute } from "wouter";
-import { ArrowLeft, AlertTriangle, FileText, Info, TrendingDown } from "lucide-react";
+import { ArrowLeft, FileText, Info, TrendingDown } from "lucide-react";
 import { PortfolioLayout, ConfidenceBadge } from "@/components/portfolio/PortfolioLayout";
 import { RavigaShell } from "@/components/portfolio/RavigaShell";
 import {
   AS_OF_DATE,
   PILLARS,
   PILLAR_MAX,
-  WEIGHTED_MAX,
   formatDate,
   gapTitle,
   getFirm,
@@ -104,6 +103,9 @@ export default function PortfolioReport() {
             <div className="font-mono text-5xl font-bold leading-none" style={{ color: tier.color }}>
               {company.composite}
               <span className="text-lg text-muted-foreground"> / {company.displayMax}</span>
+              {company.insufficientCount > 0 && (
+                <span className="text-sm text-muted-foreground/50"> (of {PILLAR_MAX})</span>
+              )}
             </div>
             {company.insufficientCount > 0 && (
               <p className="mt-1.5 text-[11px] text-amber-300/80">
@@ -169,8 +171,8 @@ export default function PortfolioReport() {
                       style={{ width: `${score === null ? 100 : fill}%` }}
                     />
                   </div>
-                  <span className={`w-28 text-right font-mono text-xs font-medium ${lvl.textClass}`}>
-                    {score === null ? "N/A" : `${score} / 2`} · {lvl.short}
+                  <span className={`w-16 text-right font-mono text-xs font-medium ${lvl.textClass}`}>
+                    {score === null ? "N/A" : `${score} / 2`}
                   </span>
                 </div>
               </div>
@@ -182,19 +184,6 @@ export default function PortfolioReport() {
             <div className="text-[10px] uppercase tracking-wider text-muted-foreground">Phase 1 · unweighted</div>
             <div className="font-mono text-lg font-semibold text-foreground">
               {company.composite} <span className="text-xs text-muted-foreground">/ {company.displayMax}</span>
-            </div>
-          </div>
-          <div>
-            <div className="text-[10px] uppercase tracking-wider text-muted-foreground">Phase 2 · weighted</div>
-            <div className="font-mono text-lg font-semibold text-foreground">
-              {company.weightedComposite}{" "}
-              <span className="text-xs text-muted-foreground">/ {company.weightedMax}</span>
-            </div>
-          </div>
-          <div>
-            <div className="text-[10px] uppercase tracking-wider text-muted-foreground">Full-framework max</div>
-            <div className="font-mono text-lg font-semibold text-foreground">
-              {PILLAR_MAX} <span className="text-xs text-muted-foreground">/ {WEIGHTED_MAX} weighted</span>
             </div>
           </div>
         </div>
@@ -218,7 +207,7 @@ export default function PortfolioReport() {
                 <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
                   <span className="text-sm font-medium text-foreground">{gapTitle(company, g)}</span>
                   <span className={`text-[11px] font-medium ${scoreLevel(g.score).textClass}`}>
-                    {scoreLevel(g.score).label}
+                    {scoreLevel(g.score).short}
                   </span>
                 </div>
                 <p className="mt-1 text-xs leading-relaxed text-muted-foreground">{g.note}</p>
@@ -239,13 +228,13 @@ export default function PortfolioReport() {
         <p className="mt-2 text-xs text-muted-foreground">
           {company.arrAtRiskRange ? (
             <>
-              Tier {tier.id} companies typically carry {tier.arrRisk.toLowerCase()}, reflecting typical churn and
+              Tier {tier.id} companies typically carry {tier.arrRisk}, reflecting typical churn and
               contraction patterns at this diagnostic tier rather than a company-specific forecast — for{" "}
               {company.name}, an estimated {company.arrAtRiskDisplay} of {company.arrDisplay} ARR.
             </>
           ) : (
             <>
-              Tier {tier.id} companies typically carry {tier.arrRisk.toLowerCase()}, reflecting typical churn and
+              Tier {tier.id} companies typically carry {tier.arrRisk}, reflecting typical churn and
               contraction patterns at this diagnostic tier rather than a company-specific forecast.{" "}
               {company.name}&apos;s ARR is undisclosed, so no dollar estimate is shown.
             </>
@@ -264,15 +253,15 @@ export default function PortfolioReport() {
             G2/Capterra, company content) — unweighted composite out of {PILLAR_MAX}.
           </li>
           <li>
-            Phase 2 applies pillar weights (max {WEIGHTED_MAX}) once proprietary data is available post-engagement.
+            Phase 2 applies pillar weights (max 19.5) once proprietary data is available post-engagement.
           </li>
           <li>
             Pillars that cannot be assessed from public data are marked Insufficient Data and excluded from the
             composite — never estimated.
           </li>
         </ul>
-        <div className="mt-4 flex items-start gap-2 rounded-lg border border-amber-500/30 bg-amber-500/10 p-3 text-[11px] text-amber-300">
-          <AlertTriangle className="mt-0.5 h-3.5 w-3.5 shrink-0" />
+        <div className="mt-4 flex items-start gap-2 rounded-lg border border-blue-200 bg-blue-50 p-3 text-[11px] text-blue-600">
+          <Info className="mt-0.5 h-3.5 w-3.5 shrink-0 text-blue-500" />
           <span>
             Illustrative design-partner preview. Scores, findings, and ARR-at-risk estimates are sample data for
             demonstration purposes.
