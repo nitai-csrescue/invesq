@@ -170,6 +170,28 @@ export function scoreSignals(ctx: ScoreContext): Signal[] {
         });
       }
     }
+
+    // Resources of record wired to this deployment feed the recommended-systems section
+    if (deployment.resourceIds?.length) {
+      const resById = new Map(resources.map((r) => [r.id, r]));
+      const depResIds = deployment.resourceIds.filter((id) => resById.has(id));
+      if (depResIds.length > 0) {
+        out.push({
+          kind: "priority",
+          text: `Confirm the systems of record behind ${deployment.name}: ${depResIds
+            .map((id) => resById.get(id)?.name ?? id)
+            .slice(0, 3)
+            .join(", ")}.`,
+          weight: 2,
+          sources: [depSrc, ...depResIds.slice(0, 3).map<SignalSource>((id) => ({
+            kind: "resource",
+            id,
+            label: resById.get(id)?.name ?? id,
+          }))],
+          resourceIds: depResIds,
+        });
+      }
+    }
   }
 
   // ── Node-health signals ─────────────────────────────────────────────────

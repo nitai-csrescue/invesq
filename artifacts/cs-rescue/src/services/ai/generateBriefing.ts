@@ -220,6 +220,10 @@ function customerizeText(s: string): string {
     /Walk the systems backing (.+?):\s*(.+?)\./,
     "Behind the scenes, these teams support your rollout ($1): $2.",
   );
+  t = t.replace(
+    /Confirm the systems of record behind (.+?):\s*(.+?)\./,
+    "The tools that hold your data for this rollout ($1): $2.",
+  );
   // Generic vocabulary swaps (last-pass, safe)
   t = t.replace(/\bdependency\b/gi, "handoff");
   t = t.replace(/\bdependencies\b/gi, "handoffs");

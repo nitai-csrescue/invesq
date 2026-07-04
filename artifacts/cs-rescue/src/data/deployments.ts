@@ -12,46 +12,268 @@ interface DeploymentSpec {
   nextMilestoneName?: string;
   /** Optional override for the secondary workstream label. */
   motionLabel?: string;
+  /**
+   * Architecture node IDs (from the live API graph) this rollout touches.
+   * Surfaced by the Copilot "Walk the systems backing {deployment}" line.
+   * 2–4 IDs; must match nodes in `artifacts/api-server/src/data/mockData.ts`.
+   */
+  architectureNodeIds?: string[];
+  /**
+   * Resource IDs (from the live API graph) this rollout depends on.
+   * Feeds the Copilot recommended-resources section. 2–3 IDs; must match
+   * resources in `artifacts/api-server/src/data/mockData.ts`.
+   */
+  resourceIds?: string[];
 }
+
+/** Fallback node/resource wiring per stage, used when a spec omits explicit IDs. */
+const STAGE_DEFAULT_WIRING: Record<
+  DeploymentStage,
+  { architectureNodeIds: string[]; resourceIds: string[] }
+> = {
+  pre_sales: {
+    architectureNodeIds: ["node-pre-sales", "node-crm"],
+    resourceIds: ["res-salesforce", "res-hubspot"],
+  },
+  contracting: {
+    architectureNodeIds: ["node-contract", "node-document"],
+    resourceIds: ["res-docusign", "res-salesforce"],
+  },
+  implementation: {
+    architectureNodeIds: ["node-implementation", "node-forward-deployed", "node-lifecycle-playbooks"],
+    resourceIds: ["res-jira", "res-confluence", "res-internal-api"],
+  },
+  csm: {
+    architectureNodeIds: ["node-csm", "node-lifecycle-playbooks", "node-analytics"],
+    resourceIds: ["res-salesforce", "res-looker"],
+  },
+  support: {
+    architectureNodeIds: ["node-support", "node-case-management", "node-document"],
+    resourceIds: ["res-zendesk", "res-jira"],
+  },
+  completed: {
+    architectureNodeIds: ["node-csm", "node-analytics"],
+    resourceIds: ["res-salesforce", "res-looker"],
+  },
+};
 
 const DEFAULT_SPEC: DeploymentSpec = { name: "Rollout", stage: "csm" };
 
 const DEPLOYMENT_SPECS: Record<string, DeploymentSpec[]> = {
-  a_wayne: [{ name: "Wayne Auth Modernization", stage: "implementation" }],
+  a_wayne: [
+    {
+      name: "Wayne Auth Modernization",
+      stage: "implementation",
+      // Identity/auth cutover through the integration hub with compliance sign-off.
+      architectureNodeIds: ["node-implementation", "node-api-gateway", "node-compliance"],
+      resourceIds: ["res-identity", "res-internal-api"],
+    },
+  ],
   a_stark: [
-    { name: "Stark SSO Expansion", stage: "csm" },
-    { suffix: "analytics", name: "Stark Analytics Rollout", stage: "implementation", healthDelta: -8, nextMilestoneName: "Analytics Pilot Review", motionLabel: "Analytics Adoption" },
-    { suffix: "renewal", name: "Stark Multi-Year Renewal", stage: "csm", healthDelta: 4, nextMilestoneName: "Renewal Proposal Review", motionLabel: "Renewal Motion" },
+    {
+      name: "Stark SSO Expansion",
+      stage: "csm",
+      architectureNodeIds: ["node-csm", "node-api-gateway", "node-compliance"],
+      resourceIds: ["res-identity", "res-salesforce"],
+    },
+    {
+      suffix: "analytics",
+      name: "Stark Analytics Rollout",
+      stage: "implementation",
+      healthDelta: -8,
+      nextMilestoneName: "Analytics Pilot Review",
+      motionLabel: "Analytics Adoption",
+      architectureNodeIds: ["node-implementation", "node-analytics", "node-data-orchestration"],
+      resourceIds: ["res-snowflake", "res-looker"],
+    },
+    {
+      suffix: "renewal",
+      name: "Stark Multi-Year Renewal",
+      stage: "csm",
+      healthDelta: 4,
+      nextMilestoneName: "Renewal Proposal Review",
+      motionLabel: "Renewal Motion",
+      architectureNodeIds: ["node-csm", "node-contract", "node-lifecycle-playbooks"],
+      resourceIds: ["res-salesforce", "res-docusign"],
+    },
   ],
-  a_acme: [{ name: "Acme Adoption Push", stage: "csm" }],
-  a_umbrella: [{ name: "Umbrella Renewal Save", stage: "support" }],
-  a_initech: [{ name: "Initech Workspace Rollout", stage: "csm" }],
+  a_acme: [
+    {
+      name: "Acme Adoption Push",
+      stage: "csm",
+      architectureNodeIds: ["node-csm", "node-lifecycle-playbooks", "node-analytics"],
+      resourceIds: ["res-salesforce", "res-looker"],
+    },
+  ],
+  a_umbrella: [
+    {
+      name: "Umbrella Renewal Save",
+      stage: "support",
+      architectureNodeIds: ["node-support", "node-csm", "node-case-management"],
+      resourceIds: ["res-zendesk", "res-salesforce"],
+    },
+  ],
+  a_initech: [
+    {
+      name: "Initech Workspace Rollout",
+      stage: "csm",
+      architectureNodeIds: ["node-csm", "node-implementation", "node-document"],
+      resourceIds: ["res-confluence", "res-salesforce"],
+    },
+  ],
   a_hooli: [
-    { name: "Hooli Analytics POC", stage: "csm" },
-    { suffix: "sso", name: "Hooli SSO Migration", stage: "implementation", healthDelta: -6, nextMilestoneName: "SSO Cutover Review", motionLabel: "Identity Rollout" },
+    {
+      name: "Hooli Analytics POC",
+      stage: "csm",
+      architectureNodeIds: ["node-csm", "node-analytics", "node-data-orchestration"],
+      resourceIds: ["res-snowflake", "res-looker"],
+    },
+    {
+      suffix: "sso",
+      name: "Hooli SSO Migration",
+      stage: "implementation",
+      healthDelta: -6,
+      nextMilestoneName: "SSO Cutover Review",
+      motionLabel: "Identity Rollout",
+      architectureNodeIds: ["node-implementation", "node-api-gateway", "node-compliance"],
+      resourceIds: ["res-identity", "res-internal-api"],
+    },
   ],
-  a_cyberdyne: [{ name: "Cyberdyne Health Recovery", stage: "csm" }],
+  a_cyberdyne: [
+    {
+      name: "Cyberdyne Health Recovery",
+      stage: "csm",
+      architectureNodeIds: ["node-csm", "node-deployment-intelligence", "node-lifecycle-playbooks"],
+      resourceIds: ["res-salesforce", "res-internal-api"],
+    },
+  ],
   a_massive: [
-    { name: "Massive Roadmap Sync", stage: "csm" },
-    { suffix: "expansion", name: "Massive Seat Expansion", stage: "csm", healthDelta: 3, motionLabel: "Expansion Motion" },
-    { suffix: "compliance", name: "Massive Compliance Pack", stage: "implementation", healthDelta: -5, nextMilestoneName: "Compliance Review", motionLabel: "Compliance Rollout" },
+    {
+      name: "Massive Roadmap Sync",
+      stage: "csm",
+      architectureNodeIds: ["node-csm", "node-lifecycle-playbooks", "node-decisioning"],
+      resourceIds: ["res-salesforce", "res-internal-api"],
+    },
+    {
+      suffix: "expansion",
+      name: "Massive Seat Expansion",
+      stage: "csm",
+      healthDelta: 3,
+      motionLabel: "Expansion Motion",
+      architectureNodeIds: ["node-csm", "node-partner-hub", "node-crm"],
+      resourceIds: ["res-salesforce", "res-hubspot"],
+    },
+    {
+      suffix: "compliance",
+      name: "Massive Compliance Pack",
+      stage: "implementation",
+      healthDelta: -5,
+      nextMilestoneName: "Compliance Review",
+      motionLabel: "Compliance Rollout",
+      architectureNodeIds: ["node-implementation", "node-compliance", "node-api-gateway"],
+      resourceIds: ["res-identity", "res-snowflake"],
+    },
   ],
-  a_soylent: [{ name: "Soylent Save Plan", stage: "support" }],
-  a_pied_piper: [{ name: "Pied Piper Seat Expansion", stage: "csm" }],
-  a_globex: [{ name: "Globex Workflows Pilot", stage: "csm" }],
-  a_vandelay: [{ name: "Vandelay Integration Unblock", stage: "implementation" }],
+  a_soylent: [
+    {
+      name: "Soylent Save Plan",
+      stage: "support",
+      architectureNodeIds: ["node-support", "node-csm", "node-case-management"],
+      resourceIds: ["res-zendesk", "res-salesforce"],
+    },
+  ],
+  a_pied_piper: [
+    {
+      name: "Pied Piper Seat Expansion",
+      stage: "csm",
+      architectureNodeIds: ["node-csm", "node-partner-hub", "node-crm"],
+      resourceIds: ["res-salesforce", "res-hubspot"],
+    },
+  ],
+  a_globex: [
+    {
+      name: "Globex Workflows Pilot",
+      stage: "csm",
+      architectureNodeIds: ["node-csm", "node-lifecycle-playbooks", "node-decisioning"],
+      resourceIds: ["res-internal-api", "res-looker"],
+    },
+  ],
+  a_vandelay: [
+    {
+      name: "Vandelay Integration Unblock",
+      stage: "implementation",
+      architectureNodeIds: ["node-implementation", "node-api-gateway", "node-data-orchestration"],
+      resourceIds: ["res-internal-api", "res-kafka"],
+    },
+  ],
   a_tyrell: [
-    { name: "Tyrell Renewal Kickoff", stage: "csm" },
-    { suffix: "platform", name: "Tyrell Platform Upgrade", stage: "implementation", healthDelta: -4, nextMilestoneName: "Upgrade Cutover", motionLabel: "Platform Migration" },
+    {
+      name: "Tyrell Renewal Kickoff",
+      stage: "csm",
+      architectureNodeIds: ["node-csm", "node-contract", "node-lifecycle-playbooks"],
+      resourceIds: ["res-salesforce", "res-docusign"],
+    },
+    {
+      suffix: "platform",
+      name: "Tyrell Platform Upgrade",
+      stage: "implementation",
+      healthDelta: -4,
+      nextMilestoneName: "Upgrade Cutover",
+      motionLabel: "Platform Migration",
+      architectureNodeIds: ["node-implementation", "node-api-gateway", "node-data-orchestration"],
+      resourceIds: ["res-internal-api", "res-kafka"],
+    },
   ],
-  a_ingen: [{ name: "InGen Onboarding Recovery", stage: "implementation" }],
-  a_sterling: [{ name: "Sterling Content Module", stage: "csm" }],
+  a_ingen: [
+    {
+      name: "InGen Onboarding Recovery",
+      stage: "implementation",
+      architectureNodeIds: ["node-implementation", "node-forward-deployed", "node-lifecycle-playbooks"],
+      resourceIds: ["res-jira", "res-confluence"],
+    },
+  ],
+  a_sterling: [
+    {
+      name: "Sterling Content Module",
+      stage: "csm",
+      architectureNodeIds: ["node-csm", "node-document", "node-lifecycle-playbooks"],
+      resourceIds: ["res-confluence", "res-s3"],
+    },
+  ],
   a_blackmesa: [
-    { name: "Black Mesa Analytics Adoption", stage: "csm" },
-    { suffix: "research", name: "Black Mesa Research Workspace", stage: "implementation", healthDelta: -7, nextMilestoneName: "Research Pilot Review", motionLabel: "Workspace Rollout" },
+    {
+      name: "Black Mesa Analytics Adoption",
+      stage: "csm",
+      architectureNodeIds: ["node-csm", "node-analytics", "node-data-orchestration"],
+      resourceIds: ["res-snowflake", "res-looker"],
+    },
+    {
+      suffix: "research",
+      name: "Black Mesa Research Workspace",
+      stage: "implementation",
+      healthDelta: -7,
+      nextMilestoneName: "Research Pilot Review",
+      motionLabel: "Workspace Rollout",
+      architectureNodeIds: ["node-implementation", "node-document", "node-forward-deployed"],
+      resourceIds: ["res-confluence", "res-s3"],
+    },
   ],
-  a_aperture: [{ name: "Aperture Tier Upgrade", stage: "csm" }],
-  a_nakatomi: [{ name: "Nakatomi Compliance Rollout", stage: "implementation" }],
+  a_aperture: [
+    {
+      name: "Aperture Tier Upgrade",
+      stage: "csm",
+      architectureNodeIds: ["node-csm", "node-partner-hub", "node-crm"],
+      resourceIds: ["res-salesforce", "res-hubspot"],
+    },
+  ],
+  a_nakatomi: [
+    {
+      name: "Nakatomi Compliance Rollout",
+      stage: "implementation",
+      architectureNodeIds: ["node-implementation", "node-compliance", "node-api-gateway"],
+      resourceIds: ["res-identity", "res-snowflake"],
+    },
+  ],
 };
 
 const today = new Date("2026-04-22");
@@ -131,14 +353,18 @@ function buildDeployment(a: DemoAccount, spec: DeploymentSpec): Deployment {
 
   const motionLabel = spec.motionLabel ?? (a.expansionPotential > 0 ? "Expansion" : "Save Plan");
 
+  const wiring = STAGE_DEFAULT_WIRING[spec.stage];
+  const architectureNodeIds = spec.architectureNodeIds ?? wiring.architectureNodeIds;
+  const resourceIds = spec.resourceIds ?? wiring.resourceIds;
+
   return {
     id: depId,
     accountId: a.id,
     accountName: a.name,
     name: spec.name,
     stage: spec.stage,
-    architectureNodeIds: [],
-    resourceIds: [],
+    architectureNodeIds,
+    resourceIds,
     blockers,
     milestones,
     healthScore: health,
