@@ -35,14 +35,15 @@ import FirmsIndex from "@/pages/portfolio/FirmsIndex";
 import RavigaGameplan from "@/pages/portfolio/RavigaGameplan";
 import RavigaFindings from "@/pages/portfolio/RavigaFindings";
 import RavigaBenchmarks from "@/pages/portfolio/RavigaBenchmarks";
+import RavigaRisk from "@/pages/portfolio/RavigaRisk";
 
 const queryClient = new QueryClient();
 
 // Bare = no sidebar/header (landing & investor pages)
 const BARE_PATHS = new Set<string>(["/", "/overview", "/launch-demo", "/ceati", "/cs-health-scorecard"]);
 
-// Pattern: /<firmSlug>/portfolio/... OR /<firmSlug>/findings OR /<firmSlug>/benchmarks
-const FIRM_SCOPED_RE = /^\/[^/]+\/(portfolio|findings|benchmarks)(\/|$)/;
+// Pattern: /<firmSlug>/portfolio/... OR /<firmSlug>/findings OR /<firmSlug>/benchmarks OR /<firmSlug>/risk
+const FIRM_SCOPED_RE = /^\/[^/]+\/(portfolio|findings|benchmarks|risk)(\/|$)/;
 
 function Shell({ children }: { children: ReactNode }) {
   const [location] = useLocation();
@@ -106,6 +107,7 @@ function Router() {
         {/* Raviga-only portfolio pages */}
         <Route path="/:firmSlug/findings" component={RavigaFindings} />
         <Route path="/:firmSlug/benchmarks" component={RavigaBenchmarks} />
+        <Route path="/:firmSlug/risk" component={RavigaRisk} />
 
         {/* Legacy /portfolio routes — 301-redirect to /stg equivalents */}
         <Route path="/portfolio">

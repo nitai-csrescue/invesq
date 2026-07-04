@@ -1,6 +1,6 @@
 import { type ReactNode, useEffect } from "react";
 import { Link, useLocation } from "wouter";
-import { BarChart3, AlertTriangle, BarChart2, ShieldCheck } from "lucide-react";
+import { BarChart3, AlertTriangle, BarChart2, ShieldCheck, TrendingDown } from "lucide-react";
 import { AskInvesq } from "@/components/portfolio/AskInvesq";
 import { type Firm } from "@/data/portfolio";
 
@@ -11,6 +11,7 @@ const NAV = [
   { href: "portfolio", label: "Portfolio", icon: BarChart3 },
   { href: "findings", label: "Findings", icon: AlertTriangle },
   { href: "benchmarks", label: "Benchmarks", icon: BarChart2 },
+  { href: "risk", label: "Risk & ROI", icon: TrendingDown },
 ] as const;
 
 // ---------------------------------------------------------------------------
