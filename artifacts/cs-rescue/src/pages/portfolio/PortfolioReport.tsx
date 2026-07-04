@@ -239,13 +239,15 @@ export default function PortfolioReport() {
         <p className="mt-2 text-xs text-muted-foreground">
           {company.arrAtRiskRange ? (
             <>
-              Tier {tier.id} companies typically carry {tier.arrRisk.toLowerCase()} — for {company.name}, an
-              estimated {company.arrAtRiskDisplay} of {company.arrDisplay} ARR.
+              Tier {tier.id} companies typically carry {tier.arrRisk.toLowerCase()}, reflecting typical churn and
+              contraction patterns at this diagnostic tier rather than a company-specific forecast — for{" "}
+              {company.name}, an estimated {company.arrAtRiskDisplay} of {company.arrDisplay} ARR.
             </>
           ) : (
             <>
-              Tier {tier.id} companies typically carry {tier.arrRisk.toLowerCase()}. {company.name}&apos;s ARR is
-              undisclosed, so no dollar estimate is shown.
+              Tier {tier.id} companies typically carry {tier.arrRisk.toLowerCase()}, reflecting typical churn and
+              contraction patterns at this diagnostic tier rather than a company-specific forecast.{" "}
+              {company.name}&apos;s ARR is undisclosed, so no dollar estimate is shown.
             </>
           )}
         </p>

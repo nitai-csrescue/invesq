@@ -1015,8 +1015,10 @@ export default function PortfolioCompany() {
           <div className="mt-2 font-mono text-2xl font-semibold" style={{ color: tier.color }}>
             {company.arrAtRiskDisplay}
           </div>
-          <div className="text-[11px] text-amber-300/80">
-            {company.arrAtRiskRange ? `Illustrative · ${tier.arrRisk}` : `ARR undisclosed · ${tier.arrRisk}`}
+          <div className="text-[11px] text-amber-600">
+            {company.arrAtRiskRange
+              ? `Illustrative · ${tier.arrRisk} · typical exposure for this tier`
+              : `ARR undisclosed · ${tier.arrRisk} · typical exposure for this tier`}
           </div>
         </div>
       </div>

@@ -64,7 +64,7 @@ function FindingCard({ finding, firmSlug }: { finding: Finding; firmSlug: string
   return (
     <div
       className={`flex flex-col gap-3 rounded-xl border p-4 ${
-        isHigh ? "border-rose-500/20 bg-rose-500/5" : "border-amber-500/20 bg-amber-500/5"
+        isHigh ? "border-rose-300 bg-rose-50" : "border-amber-300 bg-amber-50"
       }`}
     >
       {/* Header */}
@@ -73,8 +73,8 @@ function FindingCard({ finding, firmSlug }: { finding: Finding; firmSlug: string
           <span
             className={`inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[11px] font-medium ${
               isHigh
-                ? "border-rose-500/30 bg-rose-500/10 text-rose-300"
-                : "border-amber-500/30 bg-amber-500/10 text-amber-300"
+                ? "border-rose-300 bg-rose-100 text-rose-800"
+                : "border-amber-300 bg-amber-100 text-amber-800"
             }`}
           >
             <AlertTriangle className="h-2.5 w-2.5" />
@@ -162,10 +162,10 @@ export default function RavigaFindings() {
           </p>
         </div>
         <div className="flex items-center gap-2">
-          <span className="inline-flex items-center gap-1 rounded-full border border-rose-500/20 bg-rose-500/10 px-2.5 py-1 text-xs text-rose-300">
+          <span className="inline-flex items-center gap-1 rounded-full border border-rose-300 bg-rose-100 px-2.5 py-1 text-xs font-medium text-rose-800">
             <AlertTriangle className="h-3 w-3" /> {highCount} High
           </span>
-          <span className="inline-flex items-center gap-1 rounded-full border border-amber-500/20 bg-amber-500/10 px-2.5 py-1 text-xs text-amber-300">
+          <span className="inline-flex items-center gap-1 rounded-full border border-amber-300 bg-amber-100 px-2.5 py-1 text-xs font-medium text-amber-800">
             <AlertTriangle className="h-3 w-3" /> {medCount} Medium
           </span>
         </div>

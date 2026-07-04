@@ -1,6 +1,6 @@
 import { Router, type Request, type Response } from "express";
 import Anthropic from "@anthropic-ai/sdk";
-import logger from "../lib/logger.js";
+import { logger } from "../lib/logger.js";
 
 const router = Router();
 
