@@ -23,9 +23,11 @@ import {
   ReferenceLine,
 } from "recharts";
 import { PortfolioLayout, ConfidenceBadge } from "@/components/portfolio/PortfolioLayout";
+import { RavigaShell } from "@/components/portfolio/RavigaShell";
 import {
   getFirm,
   getFirmCompany,
+  getFirmCompanies,
   gapTitle,
   PILLARS,
   scoreLevel,
@@ -914,9 +916,34 @@ export default function PortfolioCompany() {
 
   const { tier } = company;
   const isRaviga = firmSlug === "raviga";
+  const allCompanies = isRaviga ? getFirmCompanies(firmSlug) : [];
+  const LayoutShell = (isRaviga ? RavigaShell : PortfolioLayout) as typeof PortfolioLayout;
 
   return (
-    <PortfolioLayout firm={firm}>
+    <LayoutShell firm={firm}>
+      {isRaviga && allCompanies.length > 1 && (
+        <div className="mb-5">
+          <div className="flex gap-1.5 overflow-x-auto pb-1">
+            {allCompanies.map((c) => (
+              <Link
+                key={c.id}
+                href={`/${firm.slug}/portfolio/${c.id}`}
+                className={`flex-none flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-xs whitespace-nowrap font-medium transition-colors ${
+                  c.id === company.id
+                    ? "border-[#2d4a6e] bg-[#2d4a6e] text-white"
+                    : "border-border bg-card text-muted-foreground hover:text-foreground hover:border-foreground/30"
+                }`}
+              >
+                <span
+                  className="h-2 w-2 shrink-0 rounded-full"
+                  style={{ backgroundColor: c.tier.color }}
+                />
+                {c.name}
+              </Link>
+            ))}
+          </div>
+        </div>
+      )}
       <Link
         href={`/${firm.slug}/portfolio`}
         className="inline-flex items-center gap-1.5 text-sm text-muted-foreground transition-colors hover:text-primary"
@@ -1130,6 +1157,6 @@ export default function PortfolioCompany() {
       <p className="mt-4 text-center text-[11px] text-muted-foreground">
         Prepared for {firm.displayName} · as of {formatDate(AS_OF_DATE)} · Design-partner preview
       </p>
-    </PortfolioLayout>
+    </LayoutShell>
   );
 }

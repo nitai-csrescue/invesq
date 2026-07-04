@@ -32,14 +32,17 @@ import PortfolioDashboard from "@/pages/portfolio/PortfolioDashboard";
 import PortfolioCompany from "@/pages/portfolio/PortfolioCompany";
 import PortfolioReport from "@/pages/portfolio/PortfolioReport";
 import FirmsIndex from "@/pages/portfolio/FirmsIndex";
+import RavigaGameplan from "@/pages/portfolio/RavigaGameplan";
+import RavigaFindings from "@/pages/portfolio/RavigaFindings";
+import RavigaBenchmarks from "@/pages/portfolio/RavigaBenchmarks";
 
 const queryClient = new QueryClient();
 
 // Bare = no sidebar/header (landing & investor pages)
 const BARE_PATHS = new Set<string>(["/", "/overview", "/launch-demo", "/ceati", "/cs-health-scorecard"]);
 
-// Pattern: /<firmSlug>/portfolio or /<firmSlug>/portfolio/...
-const FIRM_PORTFOLIO_RE = /^\/[^/]+\/portfolio(\/|$)/;
+// Pattern: /<firmSlug>/portfolio/... OR /<firmSlug>/findings OR /<firmSlug>/benchmarks
+const FIRM_SCOPED_RE = /^\/[^/]+\/(portfolio|findings|benchmarks)(\/|$)/;
 
 function Shell({ children }: { children: ReactNode }) {
   const [location] = useLocation();
@@ -55,7 +58,7 @@ function Shell({ children }: { children: ReactNode }) {
   }
 
   // Firm-scoped portfolio portals — self-contained client chrome.
-  if (FIRM_PORTFOLIO_RE.test(location)) {
+  if (FIRM_SCOPED_RE.test(location)) {
     return <>{children}</>;
   }
 
@@ -96,8 +99,13 @@ function Router() {
 
         {/* Firm-scoped portfolio portals — /:firmSlug/portfolio/... */}
         <Route path="/:firmSlug/portfolio" component={PortfolioDashboard} />
+        <Route path="/:firmSlug/portfolio/:companyId/gameplan" component={RavigaGameplan} />
         <Route path="/:firmSlug/portfolio/:companyId/report" component={PortfolioReport} />
         <Route path="/:firmSlug/portfolio/:companyId" component={PortfolioCompany} />
+
+        {/* Raviga-only portfolio pages */}
+        <Route path="/:firmSlug/findings" component={RavigaFindings} />
+        <Route path="/:firmSlug/benchmarks" component={RavigaBenchmarks} />
 
         {/* Legacy /portfolio routes — 301-redirect to /stg equivalents */}
         <Route path="/portfolio">

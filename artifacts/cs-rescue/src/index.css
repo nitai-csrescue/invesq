@@ -268,3 +268,50 @@
     inset: -1px;
   }
 }
+
+/* ============================================================
+   RAVIGA TENANT — light canvas override (dark shell / light canvas)
+   Scoped to .raviga-canvas; does NOT affect STG / Pamlico.
+   These overrides flip the CSS variable tokens back to light-mode
+   values so all shared components (cards, tables, badges) render
+   correctly on the light canvas without modification.
+   ============================================================ */
+.raviga-canvas {
+  color-scheme: light;
+
+  --button-outline: rgba(0, 0, 0, 0.10);
+  --badge-outline: rgba(0, 0, 0, 0.05);
+  --opaque-button-border-intensity: -8;
+  --elevate-1: rgba(0, 0, 0, 0.03);
+  --elevate-2: rgba(0, 0, 0, 0.08);
+
+  --background: 210 17% 95%;
+  --foreground: 222 47% 11%;
+  --border: 214 32% 88%;
+
+  --card: 0 0% 100%;
+  --card-foreground: 222 47% 11%;
+  --card-border: 214 32% 88%;
+
+  --popover: 0 0% 100%;
+  --popover-foreground: 222 47% 11%;
+  --popover-border: 214 32% 88%;
+
+  --primary: 221 83% 53%;
+  --primary-foreground: 210 40% 98%;
+
+  --secondary: 210 40% 94%;
+  --secondary-foreground: 222 47% 11%;
+
+  --muted: 210 40% 94%;
+  --muted-foreground: 215 18% 46%;
+
+  --accent: 210 40% 94%;
+  --accent-foreground: 222 47% 11%;
+
+  --destructive: 0 84% 60%;
+  --destructive-foreground: 210 40% 98%;
+
+  --input: 214 32% 88%;
+  --ring: 221 83% 53%;
+}

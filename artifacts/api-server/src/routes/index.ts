@@ -8,6 +8,7 @@ import deploymentsRouter from "./deployments.js";
 import accountsRouter from "./accounts.js";
 import lifecycleRouter from "./lifecycle.js";
 import debugRouter from "./debug.js";
+import invesqRouter from "./invesq.js";
 
 const router: IRouter = Router();
 
@@ -19,6 +20,7 @@ router.use("/connectors", connectorsRouter);
 router.use("/deployments", deploymentsRouter);
 router.use("/accounts", accountsRouter);
 router.use("/lifecycle-motions", lifecycleRouter);
+router.use("/invesq", invesqRouter);
 router.use(debugRouter);
 
 export default router;

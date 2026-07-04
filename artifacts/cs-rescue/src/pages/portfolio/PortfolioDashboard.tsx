@@ -10,6 +10,8 @@ import {
   ResponsiveContainer,
 } from "recharts";
 import { PortfolioLayout, ConfidenceBadge } from "@/components/portfolio/PortfolioLayout";
+import { RavigaShell } from "@/components/portfolio/RavigaShell";
+import { RavigaCompanyList } from "./RavigaCompanyList";
 import {
   PILLARS,
   TIERS,
@@ -1061,6 +1063,88 @@ export default function PortfolioDashboard() {
   const summary = getFirmSummary(firmSlug)!;
   const { tierCounts } = summary;
   const maxTierCount = Math.max(...tierCounts.map((t) => t.count), 1);
+
+  // Raviga: redesigned dark-sidebar shell with light canvas + table layout
+  if (firmSlug === "raviga") {
+    const attentionCount = companies.filter((c) => c.tier.id <= 2).length;
+    const avgNorm =
+      companies.length > 0
+        ? Math.round(
+            (companies.reduce(
+              (s, c) => s + (c.composite / c.displayMax) * PILLAR_MAX,
+              0,
+            ) /
+              companies.length) *
+              10,
+          ) / 10
+        : 0;
+    return (
+      <RavigaShell firm={firm}>
+        {/* Page header */}
+        <div className="mb-7">
+          <p className="mb-1.5 text-[11px] font-semibold uppercase tracking-widest text-muted-foreground">
+            {firm.displayName.toUpperCase()} · FUND III
+          </p>
+          <div className="flex flex-wrap items-start justify-between gap-4">
+            <h1 className="text-2xl font-bold text-foreground">Portfolio Overview</h1>
+            <div className="flex items-center gap-2">
+              <Link
+                href={`/${firmSlug}/benchmarks`}
+                className="inline-flex items-center gap-1.5 rounded-md border border-border px-3.5 py-2 text-sm text-muted-foreground transition-colors hover:text-foreground"
+              >
+                Benchmarks
+              </Link>
+              <Link
+                href={`/${firmSlug}/findings`}
+                className="inline-flex items-center gap-1.5 rounded-md px-3.5 py-2 text-sm font-medium text-white transition-opacity hover:opacity-90"
+                style={{ backgroundColor: "#1e3a5f" }}
+              >
+                View Findings
+              </Link>
+            </div>
+          </div>
+        </div>
+
+        {/* KPI summary cards */}
+        <div className="mb-7 grid grid-cols-2 gap-4 lg:grid-cols-4">
+          <div className="rounded-xl border border-border bg-card p-5 shadow-sm">
+            <div className="text-3xl font-bold text-foreground">{summary.companyCount}</div>
+            <div className="mt-1.5 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
+              Portfolio Companies
+            </div>
+          </div>
+          <div className="rounded-xl border border-border bg-card p-5 shadow-sm">
+            <div className="text-3xl font-bold text-foreground">{summary.totalArrDisplay}</div>
+            <div className="mt-1.5 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
+              Combined ARR
+            </div>
+          </div>
+          <div className="rounded-xl border border-border bg-card p-5 shadow-sm">
+            <div className="text-3xl font-bold text-foreground">
+              {avgNorm.toFixed(1)}
+              <span className="ml-1 text-base font-normal text-muted-foreground"> / {PILLAR_MAX}</span>
+            </div>
+            <div className="mt-1.5 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
+              Avg Composite
+            </div>
+          </div>
+          <div className="rounded-xl border border-border bg-card p-5 shadow-sm">
+            <div
+              className={`text-3xl font-bold ${attentionCount > 0 ? "text-amber-600" : "text-emerald-600"}`}
+            >
+              {attentionCount}
+            </div>
+            <div className="mt-1.5 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
+              Need Attention
+            </div>
+          </div>
+        </div>
+
+        {/* Portfolio accordion table */}
+        <RavigaCompanyList companies={companies} firm={firm} summary={summary} />
+      </RavigaShell>
+    );
+  }
 
   return (
     <PortfolioLayout firm={firm}>
