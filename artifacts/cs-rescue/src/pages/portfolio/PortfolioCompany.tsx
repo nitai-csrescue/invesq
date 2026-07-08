@@ -58,7 +58,8 @@ function Meta({ icon: Icon, label, value }: { icon: typeof Building2; label: str
 }
 
 function CompositeRing({ company }: { company: Company }) {
-  const pct = company.composite / company.displayMax;
+  const pct =
+    company.displayMax > 0 ? company.composite / company.displayMax : 0;
   const r = 52;
   const c = 2 * Math.PI * r;
   return (

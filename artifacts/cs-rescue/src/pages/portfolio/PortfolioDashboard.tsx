@@ -1068,14 +1068,15 @@ export default function PortfolioDashboard() {
   if (firmSlug === "raviga") {
     const attentionCount = companies.filter((c) => c.tier.id <= 2).length;
     const openFindings = companies.reduce((s, c) => s + c.gaps.length, 0);
+    const scoredCompanies = companies.filter((c) => c.displayMax > 0);
     const avgNorm =
-      companies.length > 0
+      scoredCompanies.length > 0
         ? Math.round(
-            (companies.reduce(
+            (scoredCompanies.reduce(
               (s, c) => s + (c.composite / c.displayMax) * PILLAR_MAX,
               0,
             ) /
-              companies.length) *
+              scoredCompanies.length) *
               10,
           ) / 10
         : 0;

@@ -164,14 +164,18 @@ function computeSummary(companies: Company[]): PortfolioSummary {
         )
       : ([0, 0] as [number, number]);
 
+  // Companies with zero scored pillars (all NA, displayMax 0) carry no
+  // composite signal — exclude them from the average rather than treating
+  // "no data" as a score of 0 (or dividing 0/0 into NaN).
+  const scoredCompanies = companies.filter((c) => c.displayMax > 0);
   const avgComposite =
-    companies.length > 0
+    scoredCompanies.length > 0
       ? Math.round(
-          (companies.reduce(
+          (scoredCompanies.reduce(
             (s, c) => s + (c.composite / c.displayMax) * PILLAR_MAX,
             0,
           ) /
-            companies.length) *
+            scoredCompanies.length) *
             10,
         ) / 10
       : 0;
@@ -351,6 +355,9 @@ export function getPortfolioTrendPoints(firmSlug: string): PortfolioTrendPoint[]
 
   for (const company of companies) {
     for (const ap of company.assessmentPoints) {
+      // All-NA assessments (displayMax 0) contribute no composite signal —
+      // skip them so the trend isn't dragged toward 0 by "no data" runs.
+      if (ap.displayMax === 0) continue;
       const ym = ap.date.slice(0, 7); // "2026-06"
       if (!byYearMonth.has(ym)) {
         byYearMonth.set(ym, {
