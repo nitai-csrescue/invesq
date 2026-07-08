@@ -19,6 +19,7 @@ import STG_COMPANIES from "./stg";
 import PAMLICO_COMPANIES from "./pamlico";
 import RAVIGA_COMPANIES from "./raviga";
 import LONGARC_COMPANIES from "./longarc";
+import SOLEN_COMPANIES from "./solen";
 
 // ---------------------------------------------------------------------------
 // Raw company registry — keyed by firm slug
@@ -28,6 +29,7 @@ const RAW_COMPANIES_BY_FIRM: Readonly<Record<string, RawCompany[]>> = {
   pamlico: PAMLICO_COMPANIES,
   raviga: RAVIGA_COMPANIES,
   longarc: LONGARC_COMPANIES,
+  solen: SOLEN_COMPANIES,
 };
 
 // ---------------------------------------------------------------------------

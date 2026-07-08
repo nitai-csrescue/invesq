@@ -30,6 +30,12 @@ export const FIRMS: Firm[] = [
     statusLabel: "Internal preview — not cleared for external distribution",
     internalOnly: true,
   },
+  {
+    slug: "solen",
+    displayName: "Solen Software Group",
+    statusLabel: "Internal preview — not cleared for external distribution",
+    internalOnly: true,
+  },
 ];
 
 export const FIRMS_BY_SLUG: Readonly<Record<string, Firm>> = Object.fromEntries(

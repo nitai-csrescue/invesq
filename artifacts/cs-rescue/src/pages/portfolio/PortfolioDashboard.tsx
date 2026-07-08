@@ -198,7 +198,11 @@ function RavigaCompanyCard({ company, firmSlug }: { company: Company; firmSlug: 
         <div className="mt-6">
           <h3 className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">Priority gaps</h3>
           {company.gaps.length === 0 ? (
-            <p className="mt-2 text-sm text-muted-foreground">No material gaps — all pillars optimized.</p>
+            <p className="mt-2 text-sm text-muted-foreground">
+              {company.displayMax === 0
+                ? "No gaps scored — all pillars returned Insufficient Data in this diagnostic."
+                : "No material gaps — all pillars optimized."}
+            </p>
           ) : (
             <div className="mt-3 space-y-3">
               {company.gaps.slice(0, 3).map((g) => (
@@ -212,6 +216,17 @@ function RavigaCompanyCard({ company, firmSlug }: { company: Company; firmSlug: 
                   <p className="mt-1.5 text-xs text-muted-foreground">{g.note}</p>
                 </div>
               ))}
+            </div>
+          )}
+          {company.scores.leadership === null && company.gapNotes?.leadership && (
+            <div className="mt-3 rounded-lg border border-border bg-background/40 p-3">
+              <div className="flex items-center justify-between">
+                <span className="text-sm font-medium text-foreground">CS Leadership</span>
+                <span className={`text-xs font-medium ${scoreLevel(null).textClass}`}>
+                  {scoreLevel(null).label}
+                </span>
+              </div>
+              <p className="mt-1.5 text-xs text-muted-foreground">{company.gapNotes.leadership}</p>
             </div>
           )}
         </div>

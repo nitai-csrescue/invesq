@@ -216,7 +216,24 @@ export default function PortfolioReport() {
             </div>
           ))}
           {company.gaps.length === 0 && (
-            <p className="text-xs text-muted-foreground">No material gaps — all pillars are optimized.</p>
+            <p className="text-xs text-muted-foreground">
+              {company.displayMax === 0
+                ? "No gaps scored — all pillars returned Insufficient Data in this diagnostic."
+                : "No material gaps — all pillars are optimized."}
+            </p>
+          )}
+          {company.scores.leadership === null && company.gapNotes?.leadership && (
+            <div className="flex gap-3 rounded-lg border border-border bg-background/40 p-4">
+              <div className="min-w-0">
+                <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
+                  <span className="text-sm font-medium text-foreground">CS Leadership</span>
+                  <span className={`text-[11px] font-medium ${scoreLevel(null).textClass}`}>
+                    {scoreLevel(null).short}
+                  </span>
+                </div>
+                <p className="mt-1 text-xs leading-relaxed text-muted-foreground">{company.gapNotes.leadership}</p>
+              </div>
+            </div>
           )}
         </div>
       </div>

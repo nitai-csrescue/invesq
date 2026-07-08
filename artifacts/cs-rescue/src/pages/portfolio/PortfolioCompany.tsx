@@ -1096,7 +1096,22 @@ export default function PortfolioCompany() {
                 </div>
               ))}
               {company.gaps.length === 0 && (
-                <p className="text-xs text-muted-foreground">No material gaps — all pillars are optimized.</p>
+                <p className="text-xs text-muted-foreground">
+                  {company.displayMax === 0
+                    ? "No gaps scored — all pillars returned Insufficient Data in this diagnostic."
+                    : "No material gaps — all pillars are optimized."}
+                </p>
+              )}
+              {company.scores.leadership === null && company.gapNotes?.leadership && (
+                <div className="rounded-lg border border-border bg-background/40 p-3">
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs font-medium text-foreground">CS Leadership</span>
+                    <span className={`text-[11px] font-medium ${scoreLevel(null).textClass}`}>
+                      {scoreLevel(null).label}
+                    </span>
+                  </div>
+                  <p className="mt-1 text-xs text-muted-foreground">{company.gapNotes.leadership}</p>
+                </div>
               )}
             </div>
           </div>
