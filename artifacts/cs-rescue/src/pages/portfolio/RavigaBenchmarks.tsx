@@ -60,9 +60,13 @@ function DeltaBadge({ delta }: { delta: number }) {
 // Composite tab
 // ---------------------------------------------------------------------------
 function CompositeTab({ companies, firmSlug }: { companies: Company[]; firmSlug: string }) {
-  const scores = companies.map(normalizedScore);
-  const median = getMedian(scores);
-  const sorted = [...companies].sort((a, b) => normalizedScore(b) - normalizedScore(a));
+  // Companies with zero scored pillars (all NA, displayMax 0) carry no
+  // composite signal — exclude them from benchmarking rather than treating
+  // "no data" as a score of 0 (or dividing 0/0 into NaN).
+  const scoredCompanies = companies.filter((c) => c.displayMax > 0);
+  const scores = scoredCompanies.map(normalizedScore);
+  const median = scores.length > 0 ? getMedian(scores) : 0;
+  const sorted = [...scoredCompanies].sort((a, b) => normalizedScore(b) - normalizedScore(a));
 
   return (
     <div>

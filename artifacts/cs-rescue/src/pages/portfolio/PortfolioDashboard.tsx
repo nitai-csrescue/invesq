@@ -132,9 +132,11 @@ function RavigaCompanyCard({ company, firmSlug }: { company: Company; firmSlug: 
             </Link>
             <div className="shrink-0 text-right">
               <div className="font-mono text-5xl font-black leading-none" style={{ color: tier.color }}>
-                {company.composite}
+                {company.compositeDisplay}
               </div>
-              <div className="mt-0.5 text-[10px] text-muted-foreground">/ {company.displayMax}</div>
+              <div className="mt-0.5 text-[10px] text-muted-foreground">
+                {company.displayMax > 0 ? `/ ${company.displayMax}` : "Insufficient Data"}
+              </div>
             </div>
           </div>
 
@@ -189,9 +191,11 @@ function RavigaCompanyCard({ company, firmSlug }: { company: Company; firmSlug: 
           </div>
           <div className="text-right">
             <div className="font-mono text-4xl font-black" style={{ color: tier.color }}>
-              {company.composite}
+              {company.compositeDisplay}
             </div>
-            <div className="text-[10px] text-muted-foreground">/ {company.displayMax}</div>
+            <div className="text-[10px] text-muted-foreground">
+              {company.displayMax > 0 ? `/ ${company.displayMax}` : "Insufficient Data"}
+            </div>
           </div>
         </div>
 
@@ -437,7 +441,7 @@ function CompanyCard({ company, firmSlug }: { company: Company; firmSlug: string
           </div>
           <div className="text-right shrink-0">
             <div className="font-mono text-3xl font-bold leading-none" style={{ color: tier.color }}>
-              {company.composite}
+              {company.compositeDisplay}
             </div>
             <div
               className="text-[10px] text-muted-foreground"
@@ -447,9 +451,15 @@ function CompanyCard({ company, firmSlug }: { company: Company; firmSlug: string
                   : undefined
               }
             >
-              / {company.displayMax}
-              {company.insufficientCount > 0 && (
-                <span className="text-amber-300/80"> · {company.insufficientCount} N/A</span>
+              {company.displayMax > 0 ? (
+                <>
+                  / {company.displayMax}
+                  {company.insufficientCount > 0 && (
+                    <span className="text-amber-300/80"> · {company.insufficientCount} N/A</span>
+                  )}
+                </>
+              ) : (
+                <span className="text-amber-300/80">Insufficient Data</span>
               )}
             </div>
           </div>

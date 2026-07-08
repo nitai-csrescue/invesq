@@ -127,6 +127,7 @@ function buildCompany(raw: RawCompany): Company {
     // Derived from latest scores:
     composite,
     displayMax: scored.length * 2,
+    compositeDisplay: scored.length > 0 ? String(composite) : "—",
     tierComposite,
     weightedComposite: Math.round(weighted * 10) / 10,
     weightedMax:

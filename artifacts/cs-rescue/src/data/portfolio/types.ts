@@ -125,6 +125,10 @@ export interface Company extends RawCompany {
   // Derived from latest scores:
   composite: number;         // Phase 1 unweighted — scored pillars only (NA excluded)
   displayMax: number;        // max for the displayed composite (scoredCount × 2)
+  // Composite as display text — "—" when ZERO pillars are scored (all NA).
+  // A company with no external signal must never display "0", which would
+  // imply a scored failure rather than an absence of data.
+  compositeDisplay: string;
   tierComposite: number;     // composite with NA substituted as 1 — for TIER ASSIGNMENT ONLY
   weightedComposite: number; // Phase 2 weighted — scored pillars only
   weightedMax: number;       // weighted max given scored pillars

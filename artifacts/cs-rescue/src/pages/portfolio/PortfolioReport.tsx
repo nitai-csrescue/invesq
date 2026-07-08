@@ -101,10 +101,16 @@ export default function PortfolioReport() {
           <div className="text-left lg:text-right">
             <div className="text-[10px] uppercase tracking-wider text-muted-foreground">Phase 1 composite</div>
             <div className="font-mono text-5xl font-bold leading-none" style={{ color: tier.color }}>
-              {company.composite}
-              <span className="text-lg text-muted-foreground"> / {company.displayMax}</span>
-              {company.insufficientCount > 0 && (
-                <span className="text-sm text-muted-foreground/50"> (of {PILLAR_MAX})</span>
+              {company.compositeDisplay}
+              {company.displayMax > 0 ? (
+                <>
+                  <span className="text-lg text-muted-foreground"> / {company.displayMax}</span>
+                  {company.insufficientCount > 0 && (
+                    <span className="text-sm text-muted-foreground/50"> (of {PILLAR_MAX})</span>
+                  )}
+                </>
+              ) : (
+                <span className="text-lg text-muted-foreground"> Insufficient Data</span>
               )}
             </div>
             {company.insufficientCount > 0 && (
@@ -183,7 +189,10 @@ export default function PortfolioReport() {
           <div>
             <div className="text-[10px] uppercase tracking-wider text-muted-foreground">Phase 1 · unweighted</div>
             <div className="font-mono text-lg font-semibold text-foreground">
-              {company.composite} <span className="text-xs text-muted-foreground">/ {company.displayMax}</span>
+              {company.compositeDisplay}{" "}
+              <span className="text-xs text-muted-foreground">
+                {company.displayMax > 0 ? `/ ${company.displayMax}` : "Insufficient Data"}
+              </span>
             </div>
           </div>
         </div>

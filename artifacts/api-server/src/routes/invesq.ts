@@ -12,8 +12,14 @@ function buildSystemPrompt(
   company: Record<string, unknown> | null | undefined,
 ): string {
   const gaps = company?.gaps as Array<{ pillarName: string; score: number; note: string }> | undefined;
+  // A company with zero scored pillars (displayMax 0) has no composite —
+  // never present "0/0", which would read as a scored failure.
+  const compositeText =
+    Number(company?.displayMax ?? 0) > 0
+      ? `${company?.composite}/${company?.displayMax}`
+      : "N/A — all pillars Insufficient Data; never describe the composite as 0 or 0/0";
   const companyCtx = company
-    ? `\n\nCompany context:\n- Name: ${company.name}\n- Tier ${company.tier} (${company.tierLabel})\n- Phase 1 composite: ${company.composite}/${company.displayMax}\n- ARR: ${company.arrDisplay}\n- Summary: ${String(company.summary ?? "").slice(0, 300)}\n- Engagement recommendation: ${company.engagement}\n- Open gaps (priority order): ${(gaps ?? []).map((g) => `[${g.score === 0 ? "High" : "Medium"}] ${g.pillarName}: ${g.note}`).join("; ")}`
+    ? `\n\nCompany context:\n- Name: ${company.name}\n- Tier ${company.tier} (${company.tierLabel})\n- Phase 1 composite: ${compositeText}\n- ARR: ${company.arrDisplay}\n- Summary: ${String(company.summary ?? "").slice(0, 300)}\n- Engagement recommendation: ${company.engagement}\n- Open gaps (priority order): ${(gaps ?? []).map((g) => `[${g.score === 0 ? "High" : "Medium"}] ${g.pillarName}: ${g.note}`).join("; ")}`
     : "";
 
   if (mode === "portco") {
@@ -108,7 +114,11 @@ function buildCannedResponse(
   if (lp.includes("benchmark") || lp.includes("compare") || lp.includes("portfolio")) {
     return (
       `**Benchmark context — ${name}**\n\n` +
-      `${name} is positioned at Tier ${company?.tier ?? "–"} with a Phase 1 composite of ${company?.composite ?? "–"}/${company?.displayMax ?? 16}.\n\n` +
+      `${name} is positioned at Tier ${company?.tier ?? "–"} with a Phase 1 composite of ${
+        Number(company?.displayMax ?? 0) > 0
+          ? `${company?.composite ?? "–"}/${company?.displayMax ?? 16}`
+          : "N/A (all pillars Insufficient Data)"
+      }.\n\n` +
       `For a full cross-portfolio comparison, navigate to the Benchmarks page to see ${name}'s delta vs. portfolio median on composite score, ARR, and 6-month forecast trajectory.\n\n` +
       `*Phase 1 benchmark comparisons are directional. Phase 2 data unlocks cohort-level NRR comparisons.*`
     );

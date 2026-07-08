@@ -198,7 +198,7 @@ export default function RavigaGameplan() {
               Tier {company.tier.id} · {company.tier.label}
             </span>
             <span className="font-mono text-sm text-muted-foreground">
-              {company.composite}/{company.displayMax}
+              {company.displayMax > 0 ? `${company.composite}/${company.displayMax}` : "N/A"}
             </span>
           </div>
         </div>
@@ -251,7 +251,8 @@ export default function RavigaGameplan() {
 
       <div className="mt-8 border-t border-border pt-4 text-[11px] text-muted-foreground/50">
         Gameplan derived from {company.name}'s Phase 1 composite (Tier {company.tier.id},{" "}
-        {company.composite}/{company.displayMax}). Source: Diagnostic assessment{" "}
+        {company.displayMax > 0 ? `${company.composite}/${company.displayMax}` : "N/A"}). Source:
+        Diagnostic assessment{" "}
         {formatDate(company.lastDiagnostic)}. Not a guarantee of outcomes.
       </div>
     </RavigaShell>

@@ -79,8 +79,10 @@ function CompositeRing({ company }: { company: Company }) {
         />
       </svg>
       <div className="absolute inset-0 flex flex-col items-center justify-center">
-        <span className="font-mono text-3xl font-bold text-foreground">{company.composite}</span>
-        <span className="text-[10px] text-muted-foreground">of {company.displayMax}</span>
+        <span className="font-mono text-3xl font-bold text-foreground">{company.compositeDisplay}</span>
+        <span className="text-[10px] text-muted-foreground">
+          {company.displayMax > 0 ? `of ${company.displayMax}` : "Insufficient Data"}
+        </span>
       </div>
     </div>
   );
@@ -1126,7 +1128,13 @@ export default function PortfolioCompany() {
               )}
             </div>
             <div className="mt-3">
-              <TrendChart company={company} />
+              {company.assessmentPoints.some((p) => p.displayMax > 0) ? (
+                <TrendChart company={company} />
+              ) : (
+                <div className="flex h-40 items-center justify-center rounded-lg border border-dashed border-border px-4 text-center text-xs text-muted-foreground">
+                  Insufficient Data — trend builds once pillars are scored
+                </div>
+              )}
             </div>
             <p className="mt-2 text-[11px] text-muted-foreground">
               {company.assessmentPoints.length === 1
@@ -1153,14 +1161,19 @@ export default function PortfolioCompany() {
           <div>
             <div className="text-[10px] uppercase tracking-wider text-muted-foreground">Phase 1 · unweighted</div>
             <div className="font-mono text-lg font-semibold text-foreground">
-              {company.composite} <span className="text-xs text-muted-foreground">/ {company.displayMax}</span>
+              {company.compositeDisplay}{" "}
+              <span className="text-xs text-muted-foreground">
+                {company.displayMax > 0 ? `/ ${company.displayMax}` : "Insufficient Data"}
+              </span>
             </div>
           </div>
           <div>
             <div className="text-[10px] uppercase tracking-wider text-muted-foreground">Phase 2 · weighted</div>
             <div className="font-mono text-lg font-semibold text-foreground">
-              {company.weightedComposite}{" "}
-              <span className="text-xs text-muted-foreground">/ {company.weightedMax}</span>
+              {company.weightedMax > 0 ? company.weightedComposite : "—"}{" "}
+              <span className="text-xs text-muted-foreground">
+                {company.weightedMax > 0 ? `/ ${company.weightedMax}` : "Insufficient Data"}
+              </span>
             </div>
           </div>
         </div>

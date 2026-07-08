@@ -207,8 +207,10 @@ function CompanyRow({
           className="flex h-10 w-10 flex-none items-center justify-center rounded-lg font-bold leading-none"
           style={{ backgroundColor: `${tier.color}22`, color: tier.color }}
         >
-          <span className="text-sm">{company.composite}</span>
-          <span className="ml-0.5 text-[8px] opacity-50">/{company.displayMax}</span>
+          <span className="text-sm">{company.compositeDisplay}</span>
+          {company.displayMax > 0 && (
+            <span className="ml-0.5 text-[8px] opacity-50">/{company.displayMax}</span>
+          )}
         </div>
 
         {/* Name + sector */}
@@ -248,7 +250,11 @@ function CompanyRow({
           <div className="mb-4 grid grid-cols-2 gap-2 sm:grid-cols-4">
             <MetricTile
               label="Composite"
-              value={`${company.composite} / ${company.displayMax}`}
+              value={
+                company.displayMax > 0
+                  ? `${company.composite} / ${company.displayMax}`
+                  : "N/A"
+              }
               sub={`Tier ${tier.id} — ${tier.label}`}
             />
             <MetricTile label="ARR" value={company.arrDisplay} />
