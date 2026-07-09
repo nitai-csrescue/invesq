@@ -12,6 +12,7 @@ import invesqRouter from "./invesq.js";
 import authRouter from "./auth.js";
 import portfolioRouter from "./portfolio.js";
 import jobsRouter from "./jobs.js";
+import adminRouter from "./admin.js";
 
 const router: IRouter = Router();
 
@@ -27,6 +28,7 @@ router.use("/lifecycle-motions", lifecycleRouter);
 router.use("/invesq", invesqRouter);
 router.use("/portfolio", portfolioRouter);
 router.use("/jobs", jobsRouter);
+router.use("/admin", adminRouter);
 router.use(debugRouter);
 
 export default router;

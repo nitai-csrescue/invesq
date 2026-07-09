@@ -883,6 +883,17 @@ export const GetPortfolioBootstrapResponse = zod.object({
 });
 
 /**
+ * Landing step of the internal /admin firm-onboarding flow. Creates a firm row with status "pending" and a matching jobs row (type "discovery", status "queued") targeting that firm. The job is a stub — nothing actually runs discovery yet.
+
+ * @summary Create a new firm (status "pending") and queue a discovery job
+ */
+
+export const CreateAdminFirmBody = zod.object({
+  name: zod.string().min(1),
+  website: zod.string().min(1),
+});
+
+/**
  * @summary Get the currently authenticated user
  */
 export const GetCurrentAuthUserHeader = zod.object({

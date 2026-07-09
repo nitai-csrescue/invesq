@@ -47,6 +47,38 @@ export interface ErrorEnvelope {
   error: string;
 }
 
+export interface CreateAdminFirmInput {
+  /** @minLength 1 */
+  name: string;
+  /** @minLength 1 */
+  website: string;
+}
+
+export interface Firm {
+  id: number;
+  name: string;
+  /** @nullable */
+  website: string | null;
+  slug: string;
+  status: string;
+  createdAt: string;
+}
+
+export interface Job {
+  id: number;
+  type: string;
+  targetId: string;
+  status: string;
+  progressPct: number;
+  /** @nullable */
+  etaSeconds: number | null;
+}
+
+export interface CreateAdminFirmResponse {
+  firm: Firm;
+  job: Job;
+}
+
 export interface HealthStatus {
   status: string;
 }

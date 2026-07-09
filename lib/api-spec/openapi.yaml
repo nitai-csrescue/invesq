@@ -415,6 +415,36 @@ paths:
               schema:
                 $ref: "#/components/schemas/ErrorEnvelope"
 
+  /admin/firms:
+    post:
+      operationId: createAdminFirm
+      tags: [admin]
+      summary: Create a new firm (status "pending") and queue a discovery job
+      description: >
+        Landing step of the internal /admin firm-onboarding flow. Creates a
+        firm row with status "pending" and a matching jobs row
+        (type "discovery", status "queued") targeting that firm. The job is a
+        stub — nothing actually runs discovery yet.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateAdminFirmInput"
+      responses:
+        "201":
+          description: Created firm and queued discovery job
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CreateAdminFirmResponse"
+        "400":
+          description: Invalid input
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+
   /auth/user:
     get:
       tags: [Auth]
@@ -611,6 +641,61 @@ components:
       properties:
         error:
           type: string
+
+    CreateAdminFirmInput:
+      type: object
+      required: [name, website]
+      properties:
+        name:
+          type: string
+          minLength: 1
+        website:
+          type: string
+          minLength: 1
+
+    Firm:
+      type: object
+      required: [id, name, website, slug, status, createdAt]
+      properties:
+        id:
+          type: integer
+        name:
+          type: string
+        website:
+          type: [string, "null"]
+        slug:
+          type: string
+        status:
+          type: string
+        createdAt:
+          type: string
+          format: date-time
+
+    Job:
+      type: object
+      required: [id, type, targetId, status, progressPct, etaSeconds]
+      properties:
+        id:
+          type: integer
+        type:
+          type: string
+        targetId:
+          type: string
+        status:
+          type: string
+        progressPct:
+          type: integer
+        etaSeconds:
+          type: [integer, "null"]
+
+    CreateAdminFirmResponse:
+      type: object
+      required: [firm, job]
+      properties:
+        firm:
+          $ref: "#/components/schemas/Firm"
+        job:
+          $ref: "#/components/schemas/Job"
 
     HealthStatus:
       type: object

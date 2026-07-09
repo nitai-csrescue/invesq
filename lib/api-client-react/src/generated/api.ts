@@ -26,6 +26,8 @@ import type {
   BeginBrowserLoginParams,
   Connector,
   ConnectorHealthSummary,
+  CreateAdminFirmInput,
+  CreateAdminFirmResponse,
   Deployment,
   ErrorEnvelope,
   GraphData,
@@ -1772,6 +1774,94 @@ export function useGetPortfolioBootstrap<
 
   return { ...query, queryKey: queryOptions.queryKey };
 }
+
+/**
+ * Landing step of the internal /admin firm-onboarding flow. Creates a firm row with status "pending" and a matching jobs row (type "discovery", status "queued") targeting that firm. The job is a stub — nothing actually runs discovery yet.
+
+ * @summary Create a new firm (status "pending") and queue a discovery job
+ */
+export const getCreateAdminFirmUrl = () => {
+  return `/api/admin/firms`;
+};
+
+export const createAdminFirm = async (
+  createAdminFirmInput: CreateAdminFirmInput,
+  options?: RequestInit,
+): Promise<CreateAdminFirmResponse> => {
+  return customFetch<CreateAdminFirmResponse>(getCreateAdminFirmUrl(), {
+    ...options,
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(createAdminFirmInput),
+  });
+};
+
+export const getCreateAdminFirmMutationOptions = <
+  TError = ErrorType<ErrorEnvelope>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof createAdminFirm>>,
+    TError,
+    { data: BodyType<CreateAdminFirmInput> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof createAdminFirm>>,
+  TError,
+  { data: BodyType<CreateAdminFirmInput> },
+  TContext
+> => {
+  const mutationKey = ["createAdminFirm"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof createAdminFirm>>,
+    { data: BodyType<CreateAdminFirmInput> }
+  > = (props) => {
+    const { data } = props ?? {};
+
+    return createAdminFirm(data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type CreateAdminFirmMutationResult = NonNullable<
+  Awaited<ReturnType<typeof createAdminFirm>>
+>;
+export type CreateAdminFirmMutationBody = BodyType<CreateAdminFirmInput>;
+export type CreateAdminFirmMutationError = ErrorType<ErrorEnvelope>;
+
+/**
+ * @summary Create a new firm (status "pending") and queue a discovery job
+ */
+export const useCreateAdminFirm = <
+  TError = ErrorType<ErrorEnvelope>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof createAdminFirm>>,
+    TError,
+    { data: BodyType<CreateAdminFirmInput> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof createAdminFirm>>,
+  TError,
+  { data: BodyType<CreateAdminFirmInput> },
+  TContext
+> => {
+  return useMutation(getCreateAdminFirmMutationOptions(options));
+};
 
 /**
  * @summary Get the currently authenticated user
