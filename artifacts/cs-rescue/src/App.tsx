@@ -4,6 +4,7 @@ import { ReactNode } from "react";
 import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { Layout, BareLayout } from "@/components/layout/Layout";
+import { AdminLayout } from "@/components/layout/AdminLayout";
 import { PersonaProvider } from "@/lib/persona";
 import { DemoTour } from "@/components/cs/DemoTour";
 import NotFound from "@/pages/not-found";
@@ -69,9 +70,10 @@ function Shell({ children }: { children: ReactNode }) {
     return <>{children}</>;
   }
 
-  // Admin surface uses the standard shell (sidebar + header).
+  // Admin surface is an internal tool with its own minimal chrome — never
+  // the client-facing demo shell (sidebar + header).
   if (location === "/admin" || location.startsWith("/admin/")) {
-    return <Layout>{children}</Layout>;
+    return <AdminLayout>{children}</AdminLayout>;
   }
 
   // Internal tenant index — standalone page.
