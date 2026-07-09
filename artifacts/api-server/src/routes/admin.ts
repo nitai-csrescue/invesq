@@ -1,14 +1,16 @@
 import { Router, type IRouter } from "express";
-import { and, count, eq, inArray, like, notInArray } from "drizzle-orm";
-import { db, companiesTable, firmsTable, jobsTable } from "@workspace/db";
+import { and, count, desc, eq, inArray, like, notInArray } from "drizzle-orm";
+import { db, assessmentsTable, companiesTable, firmsTable, jobsTable } from "@workspace/db";
 import { AddAdminFirmCompanyBody, ConfirmAdminFirmBody, CreateAdminFirmBody } from "@workspace/api-zod";
 import type {
+  AdminCompanyReportData,
   AdminFirmConfirmResult,
   AdminFirmDetail,
   AdminFirmSummary,
   Company,
   CreateAdminFirmResponse,
 } from "@workspace/api-zod";
+import { PILLARS, getTier, textToScore } from "@workspace/portfolio-engine";
 
 const router: IRouter = Router();
 
@@ -37,7 +39,7 @@ async function uniqueSlug(base: string): Promise<string> {
   return `${base}-${suffix}`;
 }
 
-function toCompany(row: typeof companiesTable.$inferSelect): Company {
+function toCompany(row: typeof companiesTable.$inferSelect, hasAssessment: boolean): Company {
   return {
     id: row.id,
     firmId: row.firmId,
@@ -46,7 +48,17 @@ function toCompany(row: typeof companiesTable.$inferSelect): Company {
     status: row.status,
     slug: row.slug,
     createdAt: row.createdAt,
+    hasAssessment,
   };
+}
+
+async function companiesWithAssessments(companyIds: number[]): Promise<Set<number>> {
+  if (companyIds.length === 0) return new Set();
+  const rows = await db
+    .selectDistinct({ companyId: assessmentsTable.companyId })
+    .from(assessmentsTable)
+    .where(inArray(assessmentsTable.companyId, companyIds));
+  return new Set(rows.map((row) => row.companyId));
 }
 
 // Internal admin firms index: every firm with its current company count.
@@ -169,6 +181,8 @@ router.get("/firms/:id", async (req, res) => {
       .where(eq(companiesTable.firmId, id))
       .orderBy(companiesTable.id);
 
+    const assessed = await companiesWithAssessments(companies.map((c) => c.id));
+
     const response: AdminFirmDetail = {
       firm: {
         id: firm.id,
@@ -178,7 +192,7 @@ router.get("/firms/:id", async (req, res) => {
         status: firm.status,
         createdAt: firm.createdAt,
       },
-      companies: companies.map(toCompany),
+      companies: companies.map((company) => toCompany(company, assessed.has(company.id))),
     };
 
     res.json(response);
@@ -220,7 +234,7 @@ router.post("/firms/:id/companies", async (req, res) => {
       throw new Error("Company insert returned no row");
     }
 
-    res.status(201).json(toCompany(company));
+    res.status(201).json(toCompany(company, false));
   } catch (err) {
     req.log.error({ err }, "Failed to add company to admin firm");
     res.status(500).json({ error: "Failed to add company" });
@@ -312,6 +326,101 @@ router.post("/firms/:id/confirm", async (req, res) => {
   } catch (err) {
     req.log.error({ err }, "Failed to confirm admin firm");
     res.status(500).json({ error: "Failed to confirm firm" });
+  }
+});
+
+// Assembles the report-data.json export payload (Diagnostic Report runbook)
+// from a company's latest assessment: raw p1-p8 scores plus derived
+// composite/tier. Narrative fields (execSummary, gaps, nextSteps) are left
+// empty — those come from Claude's research, not this endpoint.
+router.get("/companies/:id/report-data", async (req, res) => {
+  const id = Number(req.params.id);
+  if (!Number.isInteger(id) || id <= 0) {
+    res.status(400).json({ error: "Invalid company id" });
+    return;
+  }
+
+  try {
+    const [company] = await db.select().from(companiesTable).where(eq(companiesTable.id, id)).limit(1);
+    if (!company) {
+      res.status(404).json({ error: "Company not found" });
+      return;
+    }
+
+    const [firm] = await db.select().from(firmsTable).where(eq(firmsTable.id, company.firmId)).limit(1);
+    if (!firm) {
+      throw new Error(`Company ${id} references missing firm ${company.firmId}`);
+    }
+
+    const [assessment] = await db
+      .select()
+      .from(assessmentsTable)
+      .where(eq(assessmentsTable.companyId, id))
+      .orderBy(desc(assessmentsTable.date))
+      .limit(1);
+
+    if (!assessment) {
+      res.status(404).json({ error: "Company has no assessments yet" });
+      return;
+    }
+
+    const scores = {
+      p1: assessment.p1,
+      p2: assessment.p2,
+      p3: assessment.p3,
+      p4: assessment.p4,
+      p5: assessment.p5,
+      p6: assessment.p6,
+      p7: assessment.p7,
+      p8: assessment.p8,
+    };
+
+    const pillarScores = Object.fromEntries(
+      PILLARS.map((pillar, index) => {
+        const key = `p${index + 1}` as keyof typeof scores;
+        return [pillar.id, textToScore(scores[key])];
+      })
+    );
+
+    const scoredPillars = PILLARS.filter((p) => pillarScores[p.id] !== null);
+    const composite = scoredPillars.reduce((sum, p) => sum + (pillarScores[p.id] as number), 0);
+    const compositeMax = scoredPillars.length * 2;
+    const tierComposite = PILLARS.reduce((sum, p) => {
+      const s = pillarScores[p.id];
+      return sum + (s === null ? 1 : s);
+    }, 0);
+    const tier = getTier(tierComposite);
+
+    const response: AdminCompanyReportData = {
+      companyId: company.id,
+      companyName: company.name,
+      parentFund: firm.name,
+      preparedForName: "",
+      preparedForTitle: "",
+      reportDate: new Date().toISOString().slice(0, 10),
+      assessmentDate: assessment.date,
+      scores: {
+        p1: scores.p1 ?? "NA",
+        p2: scores.p2 ?? "NA",
+        p3: scores.p3 ?? "NA",
+        p4: scores.p4 ?? "NA",
+        p5: scores.p5 ?? "NA",
+        p6: scores.p6 ?? "NA",
+        p7: scores.p7 ?? "NA",
+        p8: scores.p8 ?? "NA",
+      },
+      composite,
+      compositeMax,
+      tier: `Tier ${tier.id} · ${tier.label}`,
+      execSummary: "",
+      gaps: [],
+      nextSteps: "",
+    };
+
+    res.json(response);
+  } catch (err) {
+    req.log.error({ err }, "Failed to assemble company report data");
+    res.status(500).json({ error: "Failed to assemble report data" });
   }
 });
 

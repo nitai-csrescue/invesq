@@ -932,6 +932,11 @@ export const GetAdminFirmResponse = zod.object({
       status: zod.string(),
       slug: zod.string().nullable(),
       createdAt: zod.coerce.date(),
+      hasAssessment: zod
+        .boolean()
+        .describe(
+          "Whether the company has at least one assessment row (eligible for report export).",
+        ),
     }),
   ),
 });
@@ -979,6 +984,49 @@ export const ConfirmAdminFirmResponse = zod.object({
     etaSeconds: zod.number().nullable(),
   }),
 });
+
+/**
+ * Builds the report-data.json object for the Diagnostic Report export runbook from the company's most recent assessment: raw p1-p8 scores, derived composite/tier, and firm name as parentFund. Narrative fields (execSummary, gaps, nextSteps) are left empty for Claude's research to fill in later.
+
+ * @summary Assemble the report-data.json export payload from a company's latest assessment
+ */
+export const GetAdminCompanyReportDataParams = zod.object({
+  id: zod.coerce.number(),
+});
+
+export const GetAdminCompanyReportDataResponse = zod
+  .object({
+    companyId: zod.number(),
+    companyName: zod.string(),
+    parentFund: zod.string(),
+    preparedForName: zod.string(),
+    preparedForTitle: zod.string(),
+    reportDate: zod
+      .string()
+      .describe("Date this report-data.json was assembled (ISO date)."),
+    assessmentDate: zod
+      .string()
+      .describe("Date of the source assessment used (ISO date)."),
+    scores: zod.object({
+      p1: zod.string(),
+      p2: zod.string(),
+      p3: zod.string(),
+      p4: zod.string(),
+      p5: zod.string(),
+      p6: zod.string(),
+      p7: zod.string(),
+      p8: zod.string(),
+    }),
+    composite: zod.number(),
+    compositeMax: zod.number(),
+    tier: zod.string(),
+    execSummary: zod.string(),
+    gaps: zod.array(zod.string()),
+    nextSteps: zod.string(),
+  })
+  .describe(
+    "Assembled report-data.json payload for the Diagnostic Report export pattern, sourced from a company's latest assessment. Narrative fields (execSummary, gaps, nextSteps) are left empty since they come from Claude's research, not the raw scoring data.\n",
+  );
 
 /**
  * @summary Get a job's current status, progress, and ETA

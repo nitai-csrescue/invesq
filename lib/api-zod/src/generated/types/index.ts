@@ -11,6 +11,8 @@ export * from "./accountLifecycleStage";
 export * from "./accountSegment";
 export * from "./accountStatus";
 export * from "./addAdminCompanyInput";
+export * from "./adminCompanyReportData";
+export * from "./adminCompanyReportDataScores";
 export * from "./adminFirmConfirmResult";
 export * from "./adminFirmDetail";
 export * from "./adminFirmSummary";

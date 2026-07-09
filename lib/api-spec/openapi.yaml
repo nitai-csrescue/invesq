@@ -561,6 +561,37 @@ paths:
               schema:
                 $ref: "#/components/schemas/ErrorEnvelope"
 
+  /admin/companies/{id}/report-data:
+    get:
+      operationId: getAdminCompanyReportData
+      tags: [admin]
+      summary: Assemble the report-data.json export payload from a company's latest assessment
+      description: >
+        Builds the report-data.json object for the Diagnostic Report export
+        runbook from the company's most recent assessment: raw p1-p8 scores,
+        derived composite/tier, and firm name as parentFund. Narrative fields
+        (execSummary, gaps, nextSteps) are left empty for Claude's research to
+        fill in later.
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Assembled report-data.json payload
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AdminCompanyReportData"
+        "404":
+          description: Company not found, or has no assessments yet
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+
   /jobs/{id}:
     get:
       operationId: getJob
@@ -860,7 +891,7 @@ components:
 
     Company:
       type: object
-      required: [id, firmId, name, website, status, slug, createdAt]
+      required: [id, firmId, name, website, status, slug, createdAt, hasAssessment]
       properties:
         id:
           type: integer
@@ -877,6 +908,85 @@ components:
         createdAt:
           type: string
           format: date-time
+        hasAssessment:
+          type: boolean
+          description: Whether the company has at least one assessment row (eligible for report export).
+
+    AdminCompanyReportData:
+      type: object
+      description: >
+        Assembled report-data.json payload for the Diagnostic Report export
+        pattern, sourced from a company's latest assessment. Narrative fields
+        (execSummary, gaps, nextSteps) are left empty since they come from
+        Claude's research, not the raw scoring data.
+      required:
+        [
+          companyId,
+          companyName,
+          parentFund,
+          preparedForName,
+          preparedForTitle,
+          reportDate,
+          assessmentDate,
+          scores,
+          composite,
+          compositeMax,
+          tier,
+          execSummary,
+          gaps,
+          nextSteps,
+        ]
+      properties:
+        companyId:
+          type: integer
+        companyName:
+          type: string
+        parentFund:
+          type: string
+        preparedForName:
+          type: string
+        preparedForTitle:
+          type: string
+        reportDate:
+          type: string
+          description: Date this report-data.json was assembled (ISO date).
+        assessmentDate:
+          type: string
+          description: Date of the source assessment used (ISO date).
+        scores:
+          type: object
+          required: [p1, p2, p3, p4, p5, p6, p7, p8]
+          properties:
+            p1:
+              type: string
+            p2:
+              type: string
+            p3:
+              type: string
+            p4:
+              type: string
+            p5:
+              type: string
+            p6:
+              type: string
+            p7:
+              type: string
+            p8:
+              type: string
+        composite:
+          type: number
+        compositeMax:
+          type: number
+        tier:
+          type: string
+        execSummary:
+          type: string
+        gaps:
+          type: array
+          items:
+            type: string
+        nextSteps:
+          type: string
 
     AdminFirmDetail:
       type: object

@@ -14,6 +14,7 @@ import {
   createSession,
   deleteSession,
   isAllowedAdminEmail,
+  GoogleAuthNotConfiguredError,
   SESSION_COOKIE,
   SESSION_TTL,
   ISSUER_URL,
@@ -58,6 +59,15 @@ function getSafeReturnTo(value: unknown): string {
   return value;
 }
 
+function sendAuthNotConfigured(res: Response): void {
+  res
+    .status(503)
+    .send(
+      "Admin sign-in isn't configured yet: GOOGLE_CLIENT_ID and GOOGLE_CLIENT_SECRET " +
+        "haven't been set. Once those secrets are added, reload this page.",
+    );
+}
+
 async function upsertUser(claims: Record<string, unknown>) {
   const userData = {
     id: claims.sub as string,
@@ -92,7 +102,16 @@ router.get("/auth/user", (req: Request, res: Response) => {
 });
 
 router.get("/login", async (req: Request, res: Response) => {
-  const config = await getOidcConfig();
+  let config;
+  try {
+    config = await getOidcConfig();
+  } catch (err) {
+    if (err instanceof GoogleAuthNotConfiguredError) {
+      sendAuthNotConfigured(res);
+      return;
+    }
+    throw err;
+  }
   const callbackUrl = `${getOrigin(req)}/api/callback`;
 
   const returnTo = getSafeReturnTo(req.query.returnTo);
@@ -104,10 +123,14 @@ router.get("/login", async (req: Request, res: Response) => {
 
   const redirectTo = oidc.buildAuthorizationUrl(config, {
     redirect_uri: callbackUrl,
-    scope: "openid email profile offline_access",
+    scope: "openid email profile",
     code_challenge: codeChallenge,
     code_challenge_method: "S256",
-    prompt: "login consent",
+    // "select_account" is what actually triggers Google's account chooser
+    // (Replit's "login consent" prompt values don't apply to Google).
+    // "consent" is paired in so a refresh_token keeps getting reissued.
+    prompt: "select_account consent",
+    access_type: "offline",
     state,
     nonce,
   });
@@ -123,7 +146,16 @@ router.get("/login", async (req: Request, res: Response) => {
 // Query params are not validated because the OIDC provider may include
 // parameters not expressed in the schema.
 router.get("/callback", async (req: Request, res: Response) => {
-  const config = await getOidcConfig();
+  let config;
+  try {
+    config = await getOidcConfig();
+  } catch (err) {
+    if (err instanceof GoogleAuthNotConfiguredError) {
+      sendAuthNotConfigured(res);
+      return;
+    }
+    throw err;
+  }
   const callbackUrl = `${getOrigin(req)}/api/callback`;
 
   const codeVerifier = req.cookies?.code_verifier;
@@ -199,18 +231,31 @@ router.get("/callback", async (req: Request, res: Response) => {
 });
 
 router.get("/logout", async (req: Request, res: Response) => {
-  const config = await getOidcConfig();
   const origin = getOrigin(req);
 
   const sid = getSessionId(req);
   await clearSession(res, sid);
 
-  const endSessionUrl = oidc.buildEndSessionUrl(config, {
-    client_id: process.env.REPL_ID!,
-    post_logout_redirect_uri: origin,
-  });
+  // Google's OIDC discovery document has no `end_session_endpoint` (unlike
+  // Replit) — there's no standard Google logout redirect to build. Clearing
+  // the local session cookie above is what actually logs the admin out of
+  // this app; just land them back at the origin.
+  let endSessionHref: string | null = null;
+  try {
+    const config = await getOidcConfig();
+    if (config.serverMetadata().end_session_endpoint) {
+      endSessionHref = oidc.buildEndSessionUrl(config, {
+        client_id: process.env.GOOGLE_CLIENT_ID!,
+        post_logout_redirect_uri: origin,
+      }).href;
+    }
+  } catch {
+    // Not configured or provider doesn't support end-session — fall back to
+    // a plain local redirect below. The session is already cleared, so this
+    // is a no-op failure, not a broken logout.
+  }
 
-  res.redirect(endSessionUrl.href);
+  res.redirect(endSessionHref ?? origin);
 });
 
 router.post(
@@ -272,6 +317,10 @@ router.post(
       const sid = await createSession(sessionData);
       res.json(ExchangeMobileAuthorizationCodeResponse.parse({ token: sid }));
     } catch (err) {
+      if (err instanceof GoogleAuthNotConfiguredError) {
+        res.status(503).json({ error: err.message });
+        return;
+      }
       req.log.error({ err }, "Mobile token exchange error");
       res.status(500).json({ error: "Token exchange failed" });
     }

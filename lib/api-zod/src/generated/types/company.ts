@@ -16,4 +16,6 @@ export interface Company {
   /** @nullable */
   slug: string | null;
   createdAt: Date;
+  /** Whether the company has at least one assessment row (eligible for report export). */
+  hasAssessment: boolean;
 }

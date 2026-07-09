@@ -15,6 +15,7 @@ import {
   getGetAdminFirmQueryKey,
 } from "@workspace/api-client-react";
 import { useQueryClient } from "@tanstack/react-query";
+import ExportPanel from "./ExportPanel";
 
 export default function FirmReview() {
   const [, params] = useRoute("/admin/firms/:id");
@@ -210,6 +211,10 @@ export default function FirmReview() {
           {confirmFirm.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <CheckCircle2 className="h-4 w-4" />}
           Confirm & queue build
         </Button>
+      </div>
+
+      <div className="mt-6">
+        <ExportPanel companies={companies} />
       </div>
     </div>
   );

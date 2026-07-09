@@ -67,7 +67,14 @@ async function load(): Promise<PortfolioLoadResult> {
     for (const firm of firms) {
       const firmMeta = firm.meta as FirmMeta | null;
       if (!firmMeta) {
-        throw new Error(`firms.meta is missing for firm "${firm.slug}" (id ${firm.id})`);
+        // Firms created via the /admin onboarding flow (status pending/reviewed)
+        // have no portfolio meta yet — they aren't tenant portals, so they're
+        // excluded from the bootstrap rather than failing the whole load.
+        logger.info(
+          { firmId: firm.id, slug: firm.slug, status: firm.status },
+          "Skipping non-portfolio firm in bootstrap (no firms.meta)",
+        );
+        continue;
       }
 
       const rawCompanies: RawCompany[] = companies

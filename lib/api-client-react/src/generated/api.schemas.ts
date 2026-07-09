@@ -100,6 +100,42 @@ export interface Company {
   /** @nullable */
   slug: string | null;
   createdAt: string;
+  /** Whether the company has at least one assessment row (eligible for report export). */
+  hasAssessment: boolean;
+}
+
+export type AdminCompanyReportDataScores = {
+  p1: string;
+  p2: string;
+  p3: string;
+  p4: string;
+  p5: string;
+  p6: string;
+  p7: string;
+  p8: string;
+};
+
+/**
+ * Assembled report-data.json payload for the Diagnostic Report export pattern, sourced from a company's latest assessment. Narrative fields (execSummary, gaps, nextSteps) are left empty since they come from Claude's research, not the raw scoring data.
+
+ */
+export interface AdminCompanyReportData {
+  companyId: number;
+  companyName: string;
+  parentFund: string;
+  preparedForName: string;
+  preparedForTitle: string;
+  /** Date this report-data.json was assembled (ISO date). */
+  reportDate: string;
+  /** Date of the source assessment used (ISO date). */
+  assessmentDate: string;
+  scores: AdminCompanyReportDataScores;
+  composite: number;
+  compositeMax: number;
+  tier: string;
+  execSummary: string;
+  gaps: string[];
+  nextSteps: string;
 }
 
 export interface AdminFirmDetail {

@@ -5,14 +5,16 @@ import { db, sessionsTable } from "@workspace/db";
 import { eq } from "drizzle-orm";
 import type { AuthUser } from "@workspace/api-zod";
 
-export const ISSUER_URL = process.env.ISSUER_URL ?? "https://replit.com/oidc";
+// /admin signs in directly against Google's OIDC endpoint (not generic
+// Replit OIDC) so the login screen shows Google's real account chooser,
+// letting each admin pick whichever Google account they want to use.
+export const ISSUER_URL =
+  process.env.GOOGLE_OIDC_ISSUER_URL ?? "https://accounts.google.com";
 export const SESSION_COOKIE = "sid";
 export const SESSION_TTL = 7 * 24 * 60 * 60 * 1000;
 
-// /admin is restricted to the csrescue.com Google Workspace domain. Replit's
-// OIDC claims don't expose which upstream identity provider was used, so this
-// email-domain allowlist is the enforceable proxy for "Google accounts on
-// csrescue.com" — every account on that Workspace domain signs in via Google.
+// /admin is restricted to the csrescue.com Google Workspace domain. Enforced
+// as an email-domain allowlist on the Google ID token's `email` claim.
 export const ALLOWED_EMAIL_DOMAIN = "@csrescue.com";
 
 export function isAllowedAdminEmail(email: string | null | undefined): boolean {
@@ -27,13 +29,33 @@ export interface SessionData {
   expires_at?: number;
 }
 
+// Thrown when GOOGLE_CLIENT_ID/GOOGLE_CLIENT_SECRET haven't been configured
+// yet. Callers should catch this and return a clear, non-crashing response —
+// it must never take down the whole server, since every other route (and
+// the rest of the app) has nothing to do with admin login.
+export class GoogleAuthNotConfiguredError extends Error {
+  constructor() {
+    super(
+      "Google OAuth is not configured yet: GOOGLE_CLIENT_ID and GOOGLE_CLIENT_SECRET " +
+        "environment variables must be set before /admin sign-in will work.",
+    );
+    this.name = "GoogleAuthNotConfiguredError";
+  }
+}
+
 let oidcConfig: client.Configuration | null = null;
 
 export async function getOidcConfig(): Promise<client.Configuration> {
   if (!oidcConfig) {
+    const clientId = process.env.GOOGLE_CLIENT_ID;
+    const clientSecret = process.env.GOOGLE_CLIENT_SECRET;
+    if (!clientId || !clientSecret) {
+      throw new GoogleAuthNotConfiguredError();
+    }
     oidcConfig = await client.discovery(
       new URL(ISSUER_URL),
-      process.env.REPL_ID!,
+      clientId,
+      clientSecret,
     );
   }
   return oidcConfig;

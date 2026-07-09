@@ -19,6 +19,7 @@ import type {
 import type {
   Account,
   AddAdminCompanyInput,
+  AdminCompanyReportData,
   AdminFirmConfirmResult,
   AdminFirmDetail,
   AdminFirmSummary,
@@ -2207,6 +2208,100 @@ export const useConfirmAdminFirm = <
 > => {
   return useMutation(getConfirmAdminFirmMutationOptions(options));
 };
+
+/**
+ * Builds the report-data.json object for the Diagnostic Report export runbook from the company's most recent assessment: raw p1-p8 scores, derived composite/tier, and firm name as parentFund. Narrative fields (execSummary, gaps, nextSteps) are left empty for Claude's research to fill in later.
+
+ * @summary Assemble the report-data.json export payload from a company's latest assessment
+ */
+export const getGetAdminCompanyReportDataUrl = (id: number) => {
+  return `/api/admin/companies/${id}/report-data`;
+};
+
+export const getAdminCompanyReportData = async (
+  id: number,
+  options?: RequestInit,
+): Promise<AdminCompanyReportData> => {
+  return customFetch<AdminCompanyReportData>(
+    getGetAdminCompanyReportDataUrl(id),
+    {
+      ...options,
+      method: "GET",
+    },
+  );
+};
+
+export const getGetAdminCompanyReportDataQueryKey = (id: number) => {
+  return [`/api/admin/companies/${id}/report-data`] as const;
+};
+
+export const getGetAdminCompanyReportDataQueryOptions = <
+  TData = Awaited<ReturnType<typeof getAdminCompanyReportData>>,
+  TError = ErrorType<ErrorEnvelope>,
+>(
+  id: number,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof getAdminCompanyReportData>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey =
+    queryOptions?.queryKey ?? getGetAdminCompanyReportDataQueryKey(id);
+
+  const queryFn: QueryFunction<
+    Awaited<ReturnType<typeof getAdminCompanyReportData>>
+  > = ({ signal }) =>
+    getAdminCompanyReportData(id, { signal, ...requestOptions });
+
+  return {
+    queryKey,
+    queryFn,
+    enabled: !!id,
+    ...queryOptions,
+  } as UseQueryOptions<
+    Awaited<ReturnType<typeof getAdminCompanyReportData>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type GetAdminCompanyReportDataQueryResult = NonNullable<
+  Awaited<ReturnType<typeof getAdminCompanyReportData>>
+>;
+export type GetAdminCompanyReportDataQueryError = ErrorType<ErrorEnvelope>;
+
+/**
+ * @summary Assemble the report-data.json export payload from a company's latest assessment
+ */
+
+export function useGetAdminCompanyReportData<
+  TData = Awaited<ReturnType<typeof getAdminCompanyReportData>>,
+  TError = ErrorType<ErrorEnvelope>,
+>(
+  id: number,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof getAdminCompanyReportData>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getGetAdminCompanyReportDataQueryOptions(id, options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
 
 /**
  * @summary Get a job's current status, progress, and ETA

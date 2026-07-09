@@ -67,7 +67,7 @@ Sidebar group `Platform` (demoted, kept for technical buyers)
 - `/platform/architecture` — original React Flow graph
 - `/platform/ai-copilot` — supports `?prompt=&accountId=&autoRun=1` deep-link from the Dashboard insight rail
 
-`/admin` (internal, unlinked from the sidebar) — gated by Replit Auth, see "Admin auth" below. Currently a placeholder landing page (shows signed-in email + logout); no CRUD yet.
+`/admin` (internal, unlinked from the sidebar) — gated by Replit Auth (Google OAuth via `@csrescue.com` allowlist), see "Admin auth" below. Includes a firm-onboarding CRUD scaffold: `/admin/firms` (list), `/admin/firms/:id` (`FirmReview.tsx` — add/select companies, confirm & queue a stub build job, plus the Export panel described below).
 
 **Redirects:**
 - `/resources`, `/deployments`, `/connectors` → `/overview` (files kept in `src/pages/` with archive header, not routed)
@@ -99,6 +99,16 @@ All new pages read from `src/data/*` — one coherent universe of 18 accounts, 7
   1. **Primary**: `routes/auth.ts` checks the domain on the OIDC callback (and mobile token-exchange) claims *before* `createSession`/`upsertUser` — a rejected login never gets a session cookie or a users-table row.
   2. **Secondary**: `authMiddleware` re-checks every session's stored email on each request and clears any session that fails, in case a session predates a policy change.
 - This auth layer applies globally (`app.use(authMiddleware)` in `app.ts`), but only `/admin` actually branches on `req.user` — every other route is public and behaves exactly as before.
+
+## Export panel (`/admin/firms/:id`)
+
+`FirmReview.tsx` includes an Export panel (`src/pages/admin/ExportPanel.tsx`) that assembles a `report-data.json` payload for the "Diagnostic Report — Programmatic Update & Export Runbook" pattern, then hands the user a ready-to-paste Claude prompt. It does not call Claude directly.
+
+- Company picker is restricted to companies with `hasAssessment: true` (a field computed server-side by checking for at least one `assessments` row per company, returned on `Company` from `GET /api/admin/firms/:id`).
+- `GET /api/admin/companies/:id/report-data` (`artifacts/api-server/src/routes/admin.ts`) builds the payload from that company's latest assessment (by `date`): raw `p1`-`p8` text scores (including `"NA"`), plus `composite`/`compositeMax`/`tier` re-derived via `@workspace/portfolio-engine`'s `PILLARS`/`getTier`/`textToScore` (same substitution rules as the portfolio engine — NA counts as 1 for the tier composite, is excluded from the raw composite). `parentFund` is the firm's `name` — there is no separate "parent fund" field in the schema. Returns 404 if the company has no assessments.
+- Narrative fields (`execSummary`, `gaps`, `nextSteps`) and `preparedForName`/`preparedForTitle` are left empty — no runbook doc matching that exact schema exists in-repo, so these are populated later by Claude's research, not by this endpoint. `reportDate` defaults to today (when the JSON was assembled); `assessmentDate` is the source assessment's date.
+- The panel's "Client PDF" vs "Editable" toggle only changes the wording of the copy-to-clipboard prompt (target format PDF vs PPTX) — the underlying JSON is identical either way.
+- Verified against real data: STG firm / Nomis Solutions (company id 1, one of the 5 migrated tenants) — independently recomputed composite (3) and tier (`Tier 1 · Significant Opportunities`) match the endpoint's output for that company's real assessment row.
 
 ## Database
 
