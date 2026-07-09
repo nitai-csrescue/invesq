@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { Link } from "wouter";
 import { PageHeader } from "@/components/cs/PageHeader";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -52,6 +53,13 @@ export default function AdminHome() {
         eyebrow="Internal"
         title="Admin"
         subtitle="Restricted to csrescue.com Google accounts."
+        actions={
+          <Link href="/admin/firms">
+            <Button variant="outline" size="sm" data-testid="link-view-all-firms">
+              View all firms
+            </Button>
+          </Link>
+        }
       />
 
       <div className="grid gap-6 md:grid-cols-[1.4fr_1fr]">
@@ -121,6 +129,22 @@ export default function AdminHome() {
                   <dt>Job status</dt>
                   <dd className="text-foreground">{lastResult.job.status}</dd>
                 </dl>
+                <div className="mt-3 flex items-center gap-3">
+                  <Link
+                    href={`/admin/firms/${lastResult.firm.id}`}
+                    className="text-xs text-primary hover:underline"
+                    data-testid="link-review-created-firm"
+                  >
+                    Review firm →
+                  </Link>
+                  <Link
+                    href={`/admin/jobs/${lastResult.job.id}`}
+                    className="text-xs text-primary hover:underline"
+                    data-testid="link-view-created-job"
+                  >
+                    View job →
+                  </Link>
+                </div>
               </div>
             )}
           </CardContent>

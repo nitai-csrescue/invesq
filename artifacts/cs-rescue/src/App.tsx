@@ -37,6 +37,9 @@ import RavigaFindings from "@/pages/portfolio/RavigaFindings";
 import RavigaBenchmarks from "@/pages/portfolio/RavigaBenchmarks";
 import RavigaRisk from "@/pages/portfolio/RavigaRisk";
 import AdminHome from "@/pages/AdminHome";
+import AdminFirmsList from "@/pages/admin/FirmsList";
+import AdminFirmReview from "@/pages/admin/FirmReview";
+import AdminJobStatus from "@/pages/admin/JobStatus";
 import { ProtectedRoute } from "@/lib/protected-route";
 import { PortfolioDataProvider, PortfolioGate } from "@/data/portfolio/PortfolioDataProvider";
 
@@ -114,6 +117,27 @@ function Router() {
             {() => (
               <ProtectedRoute>
                 <AdminHome />
+              </ProtectedRoute>
+            )}
+          </Route>
+          <Route path="/admin/firms">
+            {() => (
+              <ProtectedRoute>
+                <AdminFirmsList />
+              </ProtectedRoute>
+            )}
+          </Route>
+          <Route path="/admin/firms/:id">
+            {() => (
+              <ProtectedRoute>
+                <AdminFirmReview />
+              </ProtectedRoute>
+            )}
+          </Route>
+          <Route path="/admin/jobs/:id">
+            {() => (
+              <ProtectedRoute>
+                <AdminJobStatus />
               </ProtectedRoute>
             )}
           </Route>

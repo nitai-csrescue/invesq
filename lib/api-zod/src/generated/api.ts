@@ -883,6 +883,20 @@ export const GetPortfolioBootstrapResponse = zod.object({
 });
 
 /**
+ * @summary List all firms with company counts, for the internal admin index
+ */
+export const ListAdminFirmsResponseItem = zod.object({
+  id: zod.number(),
+  name: zod.string(),
+  website: zod.string().nullable(),
+  slug: zod.string(),
+  status: zod.string(),
+  companyCount: zod.number(),
+  createdAt: zod.coerce.date(),
+});
+export const ListAdminFirmsResponse = zod.array(ListAdminFirmsResponseItem);
+
+/**
  * Landing step of the internal /admin firm-onboarding flow. Creates a firm row with status "pending" and a matching jobs row (type "discovery", status "queued") targeting that firm. The job is a stub — nothing actually runs discovery yet.
 
  * @summary Create a new firm (status "pending") and queue a discovery job
@@ -891,6 +905,95 @@ export const GetPortfolioBootstrapResponse = zod.object({
 export const CreateAdminFirmBody = zod.object({
   name: zod.string().min(1),
   website: zod.string().min(1),
+});
+
+/**
+ * @summary Get a firm and its companies, for the review screen
+ */
+export const GetAdminFirmParams = zod.object({
+  id: zod.coerce.number(),
+});
+
+export const GetAdminFirmResponse = zod.object({
+  firm: zod.object({
+    id: zod.number(),
+    name: zod.string(),
+    website: zod.string().nullable(),
+    slug: zod.string(),
+    status: zod.string(),
+    createdAt: zod.coerce.date(),
+  }),
+  companies: zod.array(
+    zod.object({
+      id: zod.number(),
+      firmId: zod.number(),
+      name: zod.string(),
+      website: zod.string().nullable(),
+      status: zod.string(),
+      slug: zod.string().nullable(),
+      createdAt: zod.coerce.date(),
+    }),
+  ),
+});
+
+/**
+ * @summary Add a company to a firm under review
+ */
+export const AddAdminFirmCompanyParams = zod.object({
+  id: zod.coerce.number(),
+});
+
+export const AddAdminFirmCompanyBody = zod.object({
+  name: zod.string().min(1),
+  website: zod.string().min(1),
+});
+
+/**
+ * Marks the selected companies "active" and any unselected companies "excluded", sets the firm's status to "reviewed", and queues a stub jobs row (type "build", status "queued") targeting the firm.
+
+ * @summary Confirm the reviewed company selection and queue a build job
+ */
+export const ConfirmAdminFirmParams = zod.object({
+  id: zod.coerce.number(),
+});
+
+export const ConfirmAdminFirmBody = zod.object({
+  companyIds: zod.array(zod.number()),
+});
+
+export const ConfirmAdminFirmResponse = zod.object({
+  firm: zod.object({
+    id: zod.number(),
+    name: zod.string(),
+    website: zod.string().nullable(),
+    slug: zod.string(),
+    status: zod.string(),
+    createdAt: zod.coerce.date(),
+  }),
+  job: zod.object({
+    id: zod.number(),
+    type: zod.string(),
+    targetId: zod.string(),
+    status: zod.string(),
+    progressPct: zod.number(),
+    etaSeconds: zod.number().nullable(),
+  }),
+});
+
+/**
+ * @summary Get a job's current status, progress, and ETA
+ */
+export const GetJobParams = zod.object({
+  id: zod.coerce.number(),
+});
+
+export const GetJobResponse = zod.object({
+  id: zod.number(),
+  type: zod.string(),
+  targetId: zod.string(),
+  status: zod.string(),
+  progressPct: zod.number(),
+  etaSeconds: zod.number().nullable(),
 });
 
 /**

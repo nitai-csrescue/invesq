@@ -79,6 +79,50 @@ export interface CreateAdminFirmResponse {
   job: Job;
 }
 
+export interface AdminFirmSummary {
+  id: number;
+  name: string;
+  /** @nullable */
+  website: string | null;
+  slug: string;
+  status: string;
+  companyCount: number;
+  createdAt: string;
+}
+
+export interface Company {
+  id: number;
+  firmId: number;
+  name: string;
+  /** @nullable */
+  website: string | null;
+  status: string;
+  /** @nullable */
+  slug: string | null;
+  createdAt: string;
+}
+
+export interface AdminFirmDetail {
+  firm: Firm;
+  companies: Company[];
+}
+
+export interface AddAdminCompanyInput {
+  /** @minLength 1 */
+  name: string;
+  /** @minLength 1 */
+  website: string;
+}
+
+export interface ConfirmAdminFirmInput {
+  companyIds: number[];
+}
+
+export interface AdminFirmConfirmResult {
+  firm: Firm;
+  job: Job;
+}
+
 export interface HealthStatus {
   status: string;
 }

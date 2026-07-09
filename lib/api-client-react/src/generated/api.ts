@@ -18,12 +18,18 @@ import type {
 
 import type {
   Account,
+  AddAdminCompanyInput,
+  AdminFirmConfirmResult,
+  AdminFirmDetail,
+  AdminFirmSummary,
   ArchitectureEdge,
   ArchitectureMap,
   ArchitectureNode,
   ArchitectureSummary,
   AuthUserEnvelope,
   BeginBrowserLoginParams,
+  Company,
+  ConfirmAdminFirmInput,
   Connector,
   ConnectorHealthSummary,
   CreateAdminFirmInput,
@@ -33,6 +39,7 @@ import type {
   GraphData,
   HandleBrowserLoginCallbackParams,
   HealthStatus,
+  Job,
   LifecycleMotion,
   ListArchitectureNodesParams,
   ListDeploymentsParams,
@@ -1776,6 +1783,81 @@ export function useGetPortfolioBootstrap<
 }
 
 /**
+ * @summary List all firms with company counts, for the internal admin index
+ */
+export const getListAdminFirmsUrl = () => {
+  return `/api/admin/firms`;
+};
+
+export const listAdminFirms = async (
+  options?: RequestInit,
+): Promise<AdminFirmSummary[]> => {
+  return customFetch<AdminFirmSummary[]>(getListAdminFirmsUrl(), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getListAdminFirmsQueryKey = () => {
+  return [`/api/admin/firms`] as const;
+};
+
+export const getListAdminFirmsQueryOptions = <
+  TData = Awaited<ReturnType<typeof listAdminFirms>>,
+  TError = ErrorType<unknown>,
+>(options?: {
+  query?: UseQueryOptions<
+    Awaited<ReturnType<typeof listAdminFirms>>,
+    TError,
+    TData
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey = queryOptions?.queryKey ?? getListAdminFirmsQueryKey();
+
+  const queryFn: QueryFunction<Awaited<ReturnType<typeof listAdminFirms>>> = ({
+    signal,
+  }) => listAdminFirms({ signal, ...requestOptions });
+
+  return { queryKey, queryFn, ...queryOptions } as UseQueryOptions<
+    Awaited<ReturnType<typeof listAdminFirms>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type ListAdminFirmsQueryResult = NonNullable<
+  Awaited<ReturnType<typeof listAdminFirms>>
+>;
+export type ListAdminFirmsQueryError = ErrorType<unknown>;
+
+/**
+ * @summary List all firms with company counts, for the internal admin index
+ */
+
+export function useListAdminFirms<
+  TData = Awaited<ReturnType<typeof listAdminFirms>>,
+  TError = ErrorType<unknown>,
+>(options?: {
+  query?: UseQueryOptions<
+    Awaited<ReturnType<typeof listAdminFirms>>,
+    TError,
+    TData
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getListAdminFirmsQueryOptions(options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
  * Landing step of the internal /admin firm-onboarding flow. Creates a firm row with status "pending" and a matching jobs row (type "discovery", status "queued") targeting that firm. The job is a stub — nothing actually runs discovery yet.
 
  * @summary Create a new firm (status "pending") and queue a discovery job
@@ -1862,6 +1944,344 @@ export const useCreateAdminFirm = <
 > => {
   return useMutation(getCreateAdminFirmMutationOptions(options));
 };
+
+/**
+ * @summary Get a firm and its companies, for the review screen
+ */
+export const getGetAdminFirmUrl = (id: number) => {
+  return `/api/admin/firms/${id}`;
+};
+
+export const getAdminFirm = async (
+  id: number,
+  options?: RequestInit,
+): Promise<AdminFirmDetail> => {
+  return customFetch<AdminFirmDetail>(getGetAdminFirmUrl(id), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getGetAdminFirmQueryKey = (id: number) => {
+  return [`/api/admin/firms/${id}`] as const;
+};
+
+export const getGetAdminFirmQueryOptions = <
+  TData = Awaited<ReturnType<typeof getAdminFirm>>,
+  TError = ErrorType<ErrorEnvelope>,
+>(
+  id: number,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof getAdminFirm>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey = queryOptions?.queryKey ?? getGetAdminFirmQueryKey(id);
+
+  const queryFn: QueryFunction<Awaited<ReturnType<typeof getAdminFirm>>> = ({
+    signal,
+  }) => getAdminFirm(id, { signal, ...requestOptions });
+
+  return {
+    queryKey,
+    queryFn,
+    enabled: !!id,
+    ...queryOptions,
+  } as UseQueryOptions<
+    Awaited<ReturnType<typeof getAdminFirm>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type GetAdminFirmQueryResult = NonNullable<
+  Awaited<ReturnType<typeof getAdminFirm>>
+>;
+export type GetAdminFirmQueryError = ErrorType<ErrorEnvelope>;
+
+/**
+ * @summary Get a firm and its companies, for the review screen
+ */
+
+export function useGetAdminFirm<
+  TData = Awaited<ReturnType<typeof getAdminFirm>>,
+  TError = ErrorType<ErrorEnvelope>,
+>(
+  id: number,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof getAdminFirm>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getGetAdminFirmQueryOptions(id, options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * @summary Add a company to a firm under review
+ */
+export const getAddAdminFirmCompanyUrl = (id: number) => {
+  return `/api/admin/firms/${id}/companies`;
+};
+
+export const addAdminFirmCompany = async (
+  id: number,
+  addAdminCompanyInput: AddAdminCompanyInput,
+  options?: RequestInit,
+): Promise<Company> => {
+  return customFetch<Company>(getAddAdminFirmCompanyUrl(id), {
+    ...options,
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(addAdminCompanyInput),
+  });
+};
+
+export const getAddAdminFirmCompanyMutationOptions = <
+  TError = ErrorType<ErrorEnvelope>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof addAdminFirmCompany>>,
+    TError,
+    { id: number; data: BodyType<AddAdminCompanyInput> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof addAdminFirmCompany>>,
+  TError,
+  { id: number; data: BodyType<AddAdminCompanyInput> },
+  TContext
+> => {
+  const mutationKey = ["addAdminFirmCompany"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof addAdminFirmCompany>>,
+    { id: number; data: BodyType<AddAdminCompanyInput> }
+  > = (props) => {
+    const { id, data } = props ?? {};
+
+    return addAdminFirmCompany(id, data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type AddAdminFirmCompanyMutationResult = NonNullable<
+  Awaited<ReturnType<typeof addAdminFirmCompany>>
+>;
+export type AddAdminFirmCompanyMutationBody = BodyType<AddAdminCompanyInput>;
+export type AddAdminFirmCompanyMutationError = ErrorType<ErrorEnvelope>;
+
+/**
+ * @summary Add a company to a firm under review
+ */
+export const useAddAdminFirmCompany = <
+  TError = ErrorType<ErrorEnvelope>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof addAdminFirmCompany>>,
+    TError,
+    { id: number; data: BodyType<AddAdminCompanyInput> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof addAdminFirmCompany>>,
+  TError,
+  { id: number; data: BodyType<AddAdminCompanyInput> },
+  TContext
+> => {
+  return useMutation(getAddAdminFirmCompanyMutationOptions(options));
+};
+
+/**
+ * Marks the selected companies "active" and any unselected companies "excluded", sets the firm's status to "reviewed", and queues a stub jobs row (type "build", status "queued") targeting the firm.
+
+ * @summary Confirm the reviewed company selection and queue a build job
+ */
+export const getConfirmAdminFirmUrl = (id: number) => {
+  return `/api/admin/firms/${id}/confirm`;
+};
+
+export const confirmAdminFirm = async (
+  id: number,
+  confirmAdminFirmInput: ConfirmAdminFirmInput,
+  options?: RequestInit,
+): Promise<AdminFirmConfirmResult> => {
+  return customFetch<AdminFirmConfirmResult>(getConfirmAdminFirmUrl(id), {
+    ...options,
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(confirmAdminFirmInput),
+  });
+};
+
+export const getConfirmAdminFirmMutationOptions = <
+  TError = ErrorType<ErrorEnvelope>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof confirmAdminFirm>>,
+    TError,
+    { id: number; data: BodyType<ConfirmAdminFirmInput> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof confirmAdminFirm>>,
+  TError,
+  { id: number; data: BodyType<ConfirmAdminFirmInput> },
+  TContext
+> => {
+  const mutationKey = ["confirmAdminFirm"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof confirmAdminFirm>>,
+    { id: number; data: BodyType<ConfirmAdminFirmInput> }
+  > = (props) => {
+    const { id, data } = props ?? {};
+
+    return confirmAdminFirm(id, data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type ConfirmAdminFirmMutationResult = NonNullable<
+  Awaited<ReturnType<typeof confirmAdminFirm>>
+>;
+export type ConfirmAdminFirmMutationBody = BodyType<ConfirmAdminFirmInput>;
+export type ConfirmAdminFirmMutationError = ErrorType<ErrorEnvelope>;
+
+/**
+ * @summary Confirm the reviewed company selection and queue a build job
+ */
+export const useConfirmAdminFirm = <
+  TError = ErrorType<ErrorEnvelope>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof confirmAdminFirm>>,
+    TError,
+    { id: number; data: BodyType<ConfirmAdminFirmInput> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof confirmAdminFirm>>,
+  TError,
+  { id: number; data: BodyType<ConfirmAdminFirmInput> },
+  TContext
+> => {
+  return useMutation(getConfirmAdminFirmMutationOptions(options));
+};
+
+/**
+ * @summary Get a job's current status, progress, and ETA
+ */
+export const getGetJobUrl = (id: number) => {
+  return `/api/jobs/${id}`;
+};
+
+export const getJob = async (
+  id: number,
+  options?: RequestInit,
+): Promise<Job> => {
+  return customFetch<Job>(getGetJobUrl(id), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getGetJobQueryKey = (id: number) => {
+  return [`/api/jobs/${id}`] as const;
+};
+
+export const getGetJobQueryOptions = <
+  TData = Awaited<ReturnType<typeof getJob>>,
+  TError = ErrorType<ErrorEnvelope>,
+>(
+  id: number,
+  options?: {
+    query?: UseQueryOptions<Awaited<ReturnType<typeof getJob>>, TError, TData>;
+    request?: SecondParameter<typeof customFetch>;
+  },
+) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey = queryOptions?.queryKey ?? getGetJobQueryKey(id);
+
+  const queryFn: QueryFunction<Awaited<ReturnType<typeof getJob>>> = ({
+    signal,
+  }) => getJob(id, { signal, ...requestOptions });
+
+  return {
+    queryKey,
+    queryFn,
+    enabled: !!id,
+    ...queryOptions,
+  } as UseQueryOptions<Awaited<ReturnType<typeof getJob>>, TError, TData> & {
+    queryKey: QueryKey;
+  };
+};
+
+export type GetJobQueryResult = NonNullable<Awaited<ReturnType<typeof getJob>>>;
+export type GetJobQueryError = ErrorType<ErrorEnvelope>;
+
+/**
+ * @summary Get a job's current status, progress, and ETA
+ */
+
+export function useGetJob<
+  TData = Awaited<ReturnType<typeof getJob>>,
+  TError = ErrorType<ErrorEnvelope>,
+>(
+  id: number,
+  options?: {
+    query?: UseQueryOptions<Awaited<ReturnType<typeof getJob>>, TError, TData>;
+    request?: SecondParameter<typeof customFetch>;
+  },
+): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getGetJobQueryOptions(id, options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
 
 /**
  * @summary Get the currently authenticated user

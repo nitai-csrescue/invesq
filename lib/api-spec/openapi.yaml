@@ -416,6 +416,19 @@ paths:
                 $ref: "#/components/schemas/ErrorEnvelope"
 
   /admin/firms:
+    get:
+      operationId: listAdminFirms
+      tags: [admin]
+      summary: List all firms with company counts, for the internal admin index
+      responses:
+        "200":
+          description: All firms
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/AdminFirmSummary"
     post:
       operationId: createAdminFirm
       tags: [admin]
@@ -440,6 +453,134 @@ paths:
                 $ref: "#/components/schemas/CreateAdminFirmResponse"
         "400":
           description: Invalid input
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+
+  /admin/firms/{id}:
+    get:
+      operationId: getAdminFirm
+      tags: [admin]
+      summary: Get a firm and its companies, for the review screen
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Firm detail with companies
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AdminFirmDetail"
+        "404":
+          description: Firm not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+
+  /admin/firms/{id}/companies:
+    post:
+      operationId: addAdminFirmCompany
+      tags: [admin]
+      summary: Add a company to a firm under review
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AddAdminCompanyInput"
+      responses:
+        "201":
+          description: Company added to the firm
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Company"
+        "400":
+          description: Invalid input
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+        "404":
+          description: Firm not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+
+  /admin/firms/{id}/confirm:
+    post:
+      operationId: confirmAdminFirm
+      tags: [admin]
+      summary: Confirm the reviewed company selection and queue a build job
+      description: >
+        Marks the selected companies "active" and any unselected companies
+        "excluded", sets the firm's status to "reviewed", and queues a stub
+        jobs row (type "build", status "queued") targeting the firm.
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ConfirmAdminFirmInput"
+      responses:
+        "200":
+          description: Firm confirmed and build job queued
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AdminFirmConfirmResult"
+        "400":
+          description: Invalid input
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+        "404":
+          description: Firm not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+
+  /jobs/{id}:
+    get:
+      operationId: getJob
+      tags: [jobs]
+      summary: Get a job's current status, progress, and ETA
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Job status
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Job"
+        "404":
+          description: Job not found
           content:
             application/json:
               schema:
@@ -689,6 +830,86 @@ components:
           type: [integer, "null"]
 
     CreateAdminFirmResponse:
+      type: object
+      required: [firm, job]
+      properties:
+        firm:
+          $ref: "#/components/schemas/Firm"
+        job:
+          $ref: "#/components/schemas/Job"
+
+    AdminFirmSummary:
+      type: object
+      required: [id, name, website, slug, status, companyCount, createdAt]
+      properties:
+        id:
+          type: integer
+        name:
+          type: string
+        website:
+          type: [string, "null"]
+        slug:
+          type: string
+        status:
+          type: string
+        companyCount:
+          type: integer
+        createdAt:
+          type: string
+          format: date-time
+
+    Company:
+      type: object
+      required: [id, firmId, name, website, status, slug, createdAt]
+      properties:
+        id:
+          type: integer
+        firmId:
+          type: integer
+        name:
+          type: string
+        website:
+          type: [string, "null"]
+        status:
+          type: string
+        slug:
+          type: [string, "null"]
+        createdAt:
+          type: string
+          format: date-time
+
+    AdminFirmDetail:
+      type: object
+      required: [firm, companies]
+      properties:
+        firm:
+          $ref: "#/components/schemas/Firm"
+        companies:
+          type: array
+          items:
+            $ref: "#/components/schemas/Company"
+
+    AddAdminCompanyInput:
+      type: object
+      required: [name, website]
+      properties:
+        name:
+          type: string
+          minLength: 1
+        website:
+          type: string
+          minLength: 1
+
+    ConfirmAdminFirmInput:
+      type: object
+      required: [companyIds]
+      properties:
+        companyIds:
+          type: array
+          items:
+            type: integer
+
+    AdminFirmConfirmResult:
       type: object
       required: [firm, job]
       properties:
