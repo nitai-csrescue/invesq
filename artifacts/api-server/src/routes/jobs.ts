@@ -25,6 +25,7 @@ router.get("/:id", async (req, res) => {
       status: job.status,
       progressPct: job.progressPct,
       etaSeconds: job.etaSeconds,
+      error: job.error,
     });
   } catch (err) {
     req.log.error({ err }, "Failed to load job");

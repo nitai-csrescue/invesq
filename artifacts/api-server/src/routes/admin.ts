@@ -11,6 +11,7 @@ import type {
   CreateAdminFirmResponse,
 } from "@workspace/api-zod";
 import { PILLARS, getTier, textToScore } from "@workspace/portfolio-engine";
+import { runDiscoveryJob } from "../lib/jobs/discovery.js";
 
 const router: IRouter = Router();
 
@@ -148,10 +149,19 @@ router.post("/firms", async (req, res) => {
         status: job.status,
         progressPct: job.progressPct,
         etaSeconds: job.etaSeconds,
+        error: job.error,
       },
     };
 
     res.status(201).json(response);
+
+    // Fire-and-forget: the discovery job runs in the background (Claude web
+    // search + DB writes take tens of seconds) while the HTTP response above
+    // has already returned. Failures are caught and persisted onto the job
+    // row itself, not thrown here.
+    void runDiscoveryJob(job.id).catch((err) => {
+      req.log.error({ err, jobId: job.id }, "Discovery job crashed outside its own error handling");
+    });
   } catch (err) {
     req.log.error({ err }, "Failed to create admin firm");
     res.status(500).json({ error: "Failed to create firm" });
@@ -319,6 +329,7 @@ router.post("/firms/:id/confirm", async (req, res) => {
         status: job.status,
         progressPct: job.progressPct,
         etaSeconds: job.etaSeconds,
+        error: job.error,
       },
     };
 

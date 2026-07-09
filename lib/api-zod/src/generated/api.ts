@@ -982,6 +982,7 @@ export const ConfirmAdminFirmResponse = zod.object({
     status: zod.string(),
     progressPct: zod.number(),
     etaSeconds: zod.number().nullable(),
+    error: zod.string().nullable(),
   }),
 });
 
@@ -1042,6 +1043,7 @@ export const GetJobResponse = zod.object({
   status: zod.string(),
   progressPct: zod.number(),
   etaSeconds: zod.number().nullable(),
+  error: zod.string().nullable(),
 });
 
 /**

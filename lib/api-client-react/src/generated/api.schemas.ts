@@ -72,6 +72,8 @@ export interface Job {
   progressPct: number;
   /** @nullable */
   etaSeconds: number | null;
+  /** @nullable */
+  error: string | null;
 }
 
 export interface CreateAdminFirmResponse {

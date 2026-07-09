@@ -845,7 +845,7 @@ components:
 
     Job:
       type: object
-      required: [id, type, targetId, status, progressPct, etaSeconds]
+      required: [id, type, targetId, status, progressPct, etaSeconds, error]
       properties:
         id:
           type: integer
@@ -859,6 +859,8 @@ components:
           type: integer
         etaSeconds:
           type: [integer, "null"]
+        error:
+          type: [string, "null"]
 
     CreateAdminFirmResponse:
       type: object

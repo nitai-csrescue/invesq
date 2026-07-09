@@ -11,6 +11,9 @@ export const jobsTable = pgTable("jobs", {
   status: text("status").notNull().default("queued"),
   progressPct: integer("progress_pct").notNull().default(0),
   etaSeconds: integer("eta_seconds"),
+  // Set when status is "failed" so the caller has a human-readable reason.
+  // Always cleared (null) when a job is queued/running/completed successfully.
+  error: text("error"),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   completedAt: timestamp("completed_at", { withTimezone: true }),
 });

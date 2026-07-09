@@ -10,6 +10,7 @@ export const companiesTable = pgTable("companies", {
     .references(() => firmsTable.id),
   name: text("name").notNull(),
   website: text("website"),
+  // "active" | "excluded" | "candidate" (AI-discovered, not yet reviewed/confirmed).
   status: text("status").notNull().default("active"),
   // URL identifier used by the portfolio portals (RawCompany.id in the
   // portfolio engine, e.g. "renaissance-systems").
