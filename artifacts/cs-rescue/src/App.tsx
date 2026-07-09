@@ -38,6 +38,7 @@ import RavigaBenchmarks from "@/pages/portfolio/RavigaBenchmarks";
 import RavigaRisk from "@/pages/portfolio/RavigaRisk";
 import AdminHome from "@/pages/AdminHome";
 import { ProtectedRoute } from "@/lib/protected-route";
+import { PortfolioDataProvider, PortfolioGate } from "@/data/portfolio/PortfolioDataProvider";
 
 const queryClient = new QueryClient();
 
@@ -84,77 +85,79 @@ function Shell({ children }: { children: ReactNode }) {
 function Router() {
   return (
     <Shell>
-      <Switch>
-        <Route path="/" component={Landing} />
-        <Route path="/overview" component={Overview} />
-        <Route path="/launch-demo" component={LaunchDemo} />
-        <Route path="/ceati" component={Ceati} />
-        <Route path="/cs-health-scorecard" component={CSHealthScorecard} />
-        <Route path="/dashboard" component={Dashboard} />
-        <Route path="/accounts" component={Accounts} />
-        <Route path="/signals" component={Signals} />
-        <Route path="/playbooks" component={Playbooks} />
-        <Route path="/actions" component={Actions} />
-        <Route path="/reports" component={Reports} />
-        <Route path="/lifecycle-funnel" component={LifecycleFunnel} />
-        <Route path="/integrations" component={Integrations} />
-        <Route path="/settings" component={Settings} />
-        <Route path="/platform/architecture" component={Architecture} />
-        <Route path="/platform/ai-copilot" component={AICopilot} />
+      <PortfolioGate>
+        <Switch>
+          <Route path="/" component={Landing} />
+          <Route path="/overview" component={Overview} />
+          <Route path="/launch-demo" component={LaunchDemo} />
+          <Route path="/ceati" component={Ceati} />
+          <Route path="/cs-health-scorecard" component={CSHealthScorecard} />
+          <Route path="/dashboard" component={Dashboard} />
+          <Route path="/accounts" component={Accounts} />
+          <Route path="/signals" component={Signals} />
+          <Route path="/playbooks" component={Playbooks} />
+          <Route path="/actions" component={Actions} />
+          <Route path="/reports" component={Reports} />
+          <Route path="/lifecycle-funnel" component={LifecycleFunnel} />
+          <Route path="/integrations" component={Integrations} />
+          <Route path="/settings" component={Settings} />
+          <Route path="/platform/architecture" component={Architecture} />
+          <Route path="/platform/ai-copilot" component={AICopilot} />
 
-        {/* Internal tenant index (unlinked) */}
-        <Route path="/firms" component={FirmsIndex} />
+          {/* Internal tenant index (unlinked) */}
+          <Route path="/firms" component={FirmsIndex} />
 
-        {/* Admin — gated to csrescue.com Google accounts. Must stay above the
-            /:firmSlug/* wildcard routes below or "admin" would be swallowed
-            as a firm slug. */}
-        <Route path="/admin">
-          {() => (
-            <ProtectedRoute>
-              <AdminHome />
-            </ProtectedRoute>
-          )}
-        </Route>
+          {/* Admin — gated to csrescue.com Google accounts. Must stay above the
+              /:firmSlug/* wildcard routes below or "admin" would be swallowed
+              as a firm slug. */}
+          <Route path="/admin">
+            {() => (
+              <ProtectedRoute>
+                <AdminHome />
+              </ProtectedRoute>
+            )}
+          </Route>
 
-        {/* Firm-scoped portfolio portals — /:firmSlug/portfolio/... */}
-        <Route path="/:firmSlug/portfolio" component={PortfolioDashboard} />
-        <Route path="/:firmSlug/portfolio/:companyId/gameplan" component={RavigaGameplan} />
-        <Route path="/:firmSlug/portfolio/:companyId/report" component={PortfolioReport} />
-        <Route path="/:firmSlug/portfolio/:companyId" component={PortfolioCompany} />
+          {/* Firm-scoped portfolio portals — /:firmSlug/portfolio/... */}
+          <Route path="/:firmSlug/portfolio" component={PortfolioDashboard} />
+          <Route path="/:firmSlug/portfolio/:companyId/gameplan" component={RavigaGameplan} />
+          <Route path="/:firmSlug/portfolio/:companyId/report" component={PortfolioReport} />
+          <Route path="/:firmSlug/portfolio/:companyId" component={PortfolioCompany} />
 
-        {/* Raviga-only portfolio pages */}
-        <Route path="/:firmSlug/findings" component={RavigaFindings} />
-        <Route path="/:firmSlug/benchmarks" component={RavigaBenchmarks} />
-        <Route path="/:firmSlug/risk" component={RavigaRisk} />
+          {/* Raviga-only portfolio pages */}
+          <Route path="/:firmSlug/findings" component={RavigaFindings} />
+          <Route path="/:firmSlug/benchmarks" component={RavigaBenchmarks} />
+          <Route path="/:firmSlug/risk" component={RavigaRisk} />
 
-        {/* Legacy /portfolio routes — 301-redirect to /stg equivalents */}
-        <Route path="/portfolio">
-          {() => <Redirect to="/stg/portfolio" />}
-        </Route>
-        <Route path="/portfolio/:companyId/report">
-          {(params) => <Redirect to={`/stg/portfolio/${params?.companyId}/report`} />}
-        </Route>
-        <Route path="/portfolio/:companyId">
-          {(params) => <Redirect to={`/stg/portfolio/${params?.companyId}`} />}
-        </Route>
+          {/* Legacy /portfolio routes — 301-redirect to /stg equivalents */}
+          <Route path="/portfolio">
+            {() => <Redirect to="/stg/portfolio" />}
+          </Route>
+          <Route path="/portfolio/:companyId/report">
+            {(params) => <Redirect to={`/stg/portfolio/${params?.companyId}/report`} />}
+          </Route>
+          <Route path="/portfolio/:companyId">
+            {(params) => <Redirect to={`/stg/portfolio/${params?.companyId}`} />}
+          </Route>
 
-        {/* Prenax Customer Health Intelligence — self-contained prototype */}
-        <Route path="/prenax" component={PrenaxExecutiveOverview} />
-        <Route path="/prenax/portfolio" component={PrenaxPortfolio} />
-        <Route path="/prenax/methodology" component={PrenaxMethodology} />
-        <Route path="/prenax/customers/:id" component={PrenaxCustomerDetail} />
+          {/* Prenax Customer Health Intelligence — self-contained prototype */}
+          <Route path="/prenax" component={PrenaxExecutiveOverview} />
+          <Route path="/prenax/portfolio" component={PrenaxPortfolio} />
+          <Route path="/prenax/methodology" component={PrenaxMethodology} />
+          <Route path="/prenax/customers/:id" component={PrenaxCustomerDetail} />
 
-        {/* Archived routes redirect to the narrative overview */}
-        <Route path="/resources">{() => <Redirect to="/overview" />}</Route>
-        <Route path="/deployments">{() => <Redirect to="/overview" />}</Route>
-        <Route path="/connectors">{() => <Redirect to="/overview" />}</Route>
-        {/* Old AI Copilot path — keep deep-link query params working */}
-        <Route path="/ai-copilot">
-          {() => <Redirect to={`/platform/ai-copilot${typeof window !== "undefined" ? window.location.search : ""}`} />}
-        </Route>
+          {/* Archived routes redirect to the narrative overview */}
+          <Route path="/resources">{() => <Redirect to="/overview" />}</Route>
+          <Route path="/deployments">{() => <Redirect to="/overview" />}</Route>
+          <Route path="/connectors">{() => <Redirect to="/overview" />}</Route>
+          {/* Old AI Copilot path — keep deep-link query params working */}
+          <Route path="/ai-copilot">
+            {() => <Redirect to={`/platform/ai-copilot${typeof window !== "undefined" ? window.location.search : ""}`} />}
+          </Route>
 
-        <Route component={NotFound} />
-      </Switch>
+          <Route component={NotFound} />
+        </Switch>
+      </PortfolioGate>
     </Shell>
   );
 }
@@ -165,8 +168,10 @@ function App() {
       <TooltipProvider>
         <PersonaProvider>
           <WouterRouter base={import.meta.env.BASE_URL.replace(/\/$/, "")}>
-            <Router />
-            <DemoTour />
+            <PortfolioDataProvider>
+              <Router />
+              <DemoTour />
+            </PortfolioDataProvider>
           </WouterRouter>
           <Toaster />
         </PersonaProvider>

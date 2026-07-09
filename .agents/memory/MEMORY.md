@@ -2,3 +2,4 @@
 - [video-js gotchas](video-js-gotchas.md) — DESIGN subagent emits unquoted CSS units in framer-motion objects; video scaffold tsconfig omits DOM lib so `tsc` "fails" by design.
 - [Composite lib using import.meta.env](composite-lib-vite-env.md) — a workspace lib (tsc --build, not bundled by Vite) needs explicit `types: ["vite/client"]` + a `vite` devDep to typecheck `import.meta.env`.
 - [Replit Auth domain-restricted admin gate](replit-auth-domain-gate.md) — OIDC claims don't expose the upstream IdP, so "Google accounts on X.com" must be enforced as an email-domain allowlist, checked server-side before session creation.
+- [OpenAPI/Orval widens fixed-length tuples](openapi-tuple-widening.md) — a hand-written `[number, number]` tuple becomes `number[]` through codegen; cast locally at the handoff point instead of loosening the domain type.

@@ -18,7 +18,7 @@ The Architecture page (a true interactive React Flow graph) and AI Copilot still
 - **Frontend**: React + Vite + Tailwind + shadcn/ui + Wouter routing
 - **Graph (Architecture page)**: React Flow (`reactflow`)
 - **Charts**: in-house lightweight SVG sparklines + bar/funnel cards (no Recharts dep used in new pages)
-- **Data**: Local in-file mock data (`src/data/*`) for the CS-product demo pages. `/admin` and its future tooling use a real Postgres DB (see below) — the two data layers are intentionally separate.
+- **Data**: Tenant portal pages (`/:firmSlug/portfolio` and related routes) hydrate from Postgres via `/api/portfolio/bootstrap` (see "Database" below) — the static TS tenant files (`src/data/portfolio/{stg,pamlico,raviga,longarc,solen}.ts`) are kept only as a read-only backup/reference for the one-time migration and parity scripts, no longer imported by any live page. All other CS-product demo pages (accounts, signals, playbooks, actions, reports, etc.) still read local in-file mock data (`src/data/*`).
 - **Auth**: Replit Auth (OIDC) gates `/admin/*`. See "Admin auth" below.
 
 ## Artifacts
@@ -102,7 +102,7 @@ All new pages read from `src/data/*` — one coherent universe of 18 accounts, 7
 
 ## Database
 
-Postgres (Replit built-in) via `@workspace/db` (Drizzle). Tables: `users`, `sessions` (Replit Auth), `firms`, `companies`, `assessments`, `jobs` (schema in `lib/db/src/schema/*`). Not yet wired to any UI beyond the `/admin` placeholder — the CS-demo pages still read from `src/data/portfolio/*` mocks (the DB is a separate, parallel copy of that data — see below).
+Postgres (Replit built-in) via `@workspace/db` (Drizzle). Tables: `users`, `sessions` (Replit Auth), `firms`, `companies`, `assessments`, `jobs` (schema in `lib/db/src/schema/*`). `firms`/`companies`/`assessments` are now the live source for the tenant portal pages (see "Tenant portal DB cutover" below); `jobs` and the rest of `/admin`'s future tooling remain unwired beyond the placeholder page.
 
 ### One-time portfolio data migration
 
@@ -112,3 +112,12 @@ Postgres (Replit built-in) via `@workspace/db` (Drizzle). Tables: `users`, `sess
 - `assessments.p1`..`p8` map 1:1 to `PILLARS` order in `src/data/portfolio/pillars.ts` (`org, onboarding, health, escalation, revenue, leadership, planning, ai`); `"NA"` is stored literally for null/insufficient-data scores.
 - The `companies` table has no field for `RawCompany`'s id/sector/hq/ARR/etc. — only `name` migrated, matching the existing schema. Do not assume DB companies carry that richer data; it still only lives in the TS files.
 - Verified after running: recomputing company count, tier distribution, and average composite straight from the inserted DB rows (independently re-deriving tier/composite logic from the DB text values) matched the live `engine.ts`-computed values exactly for all 5 tenants, with 0 mismatches.
+
+### Tenant portal DB cutover
+
+The tenant portal routes (`/:firmSlug/portfolio` and the Raviga-specific findings/benchmarks/risk/gameplan sub-routes, plus `/firms`) now read live from Postgres instead of the static TS tenant files:
+
+- `artifacts/api-server/src/lib/portfolioData.ts` loads `firms`/`companies`/`assessments` from the DB, reshapes rows back into the original `RawCompany` shape, and runs the existing `validateFirmData` at server startup (before the server accepts traffic) — a validation failure here is a boot-time failure, not a silently-served bad response. Exposed via `GET /api/portfolio/bootstrap`.
+- On the frontend, `src/data/portfolio/PortfolioDataProvider.tsx` fetches that endpoint once (via the generated `useGetPortfolioBootstrap` hook) and calls `engine.ts`'s `hydratePortfolioData()`, which runs the *same* unchanged `buildCompany`/`computeSummary`/`validateFirmData` pipeline against the fetched data. `PortfolioGate` (also in that file) blocks rendering of firm-scoped routes only until hydration completes, so `engine.ts`'s query API (`getFirmCompanies`, `getFirmSummary`, etc.) stays fully synchronous for every consumer page — no page-level changes were needed.
+- The static TS tenant files (`stg.ts`, `pamlico.ts`, `raviga.ts`, `longarc.ts`, `solen.ts`) are no longer imported by `engine.ts` or any live route. They're still imported by two backup/reference scripts: `migrate-portfolio-to-db.ts` (the one-time migration, guarded so it can't re-run once `firms` has rows) and `scripts/verify-portfolio-parity.ts` — a standalone, zero-write script (`pnpm --filter @workspace/cs-rescue run verify-portfolio-parity`) that recomputes each tenant's companyCount/tierCounts/avgComposite from the files and independently from the DB and diffs them; re-run anytime to confirm the DB hasn't drifted from the original data.
+- `firms.ts` (the static `FIRMS`/`FIRMS_BY_SLUG` registry — slugs, display names, status labels) is intentionally **not** part of this cutover; it's metadata, not portfolio data, and stays a static file.

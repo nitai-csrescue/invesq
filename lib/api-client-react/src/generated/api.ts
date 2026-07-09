@@ -43,6 +43,7 @@ import type {
   NodeMetricSeries,
   PatchConnectorInput,
   PatchResourceInput,
+  PortfolioBootstrap,
   Resource,
 } from "./api.schemas";
 
@@ -1687,6 +1688,83 @@ export function useListLifecycleMotions<
   request?: SecondParameter<typeof customFetch>;
 }): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
   const queryOptions = getListLifecycleMotionsQueryOptions(options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * Serves RAW company/assessment data sourced from Postgres — no derived values (tiers, composites, gaps, etc). Clients re-derive those via @workspace/portfolio-engine. Returns 500 if the underlying data fails validation at load time (fail-soft: never crashes the server).
+
+ * @summary Get raw portfolio bootstrap data for all firm tenants
+ */
+export const getGetPortfolioBootstrapUrl = () => {
+  return `/api/portfolio/bootstrap`;
+};
+
+export const getPortfolioBootstrap = async (
+  options?: RequestInit,
+): Promise<PortfolioBootstrap> => {
+  return customFetch<PortfolioBootstrap>(getGetPortfolioBootstrapUrl(), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getGetPortfolioBootstrapQueryKey = () => {
+  return [`/api/portfolio/bootstrap`] as const;
+};
+
+export const getGetPortfolioBootstrapQueryOptions = <
+  TData = Awaited<ReturnType<typeof getPortfolioBootstrap>>,
+  TError = ErrorType<ErrorEnvelope>,
+>(options?: {
+  query?: UseQueryOptions<
+    Awaited<ReturnType<typeof getPortfolioBootstrap>>,
+    TError,
+    TData
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey = queryOptions?.queryKey ?? getGetPortfolioBootstrapQueryKey();
+
+  const queryFn: QueryFunction<
+    Awaited<ReturnType<typeof getPortfolioBootstrap>>
+  > = ({ signal }) => getPortfolioBootstrap({ signal, ...requestOptions });
+
+  return { queryKey, queryFn, ...queryOptions } as UseQueryOptions<
+    Awaited<ReturnType<typeof getPortfolioBootstrap>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type GetPortfolioBootstrapQueryResult = NonNullable<
+  Awaited<ReturnType<typeof getPortfolioBootstrap>>
+>;
+export type GetPortfolioBootstrapQueryError = ErrorType<ErrorEnvelope>;
+
+/**
+ * @summary Get raw portfolio bootstrap data for all firm tenants
+ */
+
+export function useGetPortfolioBootstrap<
+  TData = Awaited<ReturnType<typeof getPortfolioBootstrap>>,
+  TError = ErrorType<ErrorEnvelope>,
+>(options?: {
+  query?: UseQueryOptions<
+    Awaited<ReturnType<typeof getPortfolioBootstrap>>,
+    TError,
+    TData
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getGetPortfolioBootstrapQueryOptions(options);
 
   const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
     queryKey: QueryKey;

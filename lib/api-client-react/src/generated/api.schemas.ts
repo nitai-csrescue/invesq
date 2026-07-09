@@ -745,6 +745,89 @@ export interface LifecycleMotion {
 }
 
 /**
+ * Dated event annotated as a marker on the trend / forecast chart.
+ */
+export interface PortfolioActionLogEntry {
+  date: string;
+  label: string;
+}
+
+/**
+ * Keyed by pillar id; all 8 pillars must be present. 0/1/2 = scored, null = Insufficient Data (NA).
+ */
+export type PortfolioAssessmentPillarScores = {
+  [key: string]: 0 | 1 | 2 | null;
+};
+
+/**
+ * A single diagnostic run for a company. The company's current state always derives from the LATEST assessment in the array.
+ */
+export interface PortfolioAssessment {
+  date: string;
+  /** Keyed by pillar id; all 8 pillars must be present. 0/1/2 = scored, null = Insufficient Data (NA). */
+  pillarScores: PortfolioAssessmentPillarScores;
+  note?: string;
+}
+
+export type PortfolioCompanyConfidence =
+  (typeof PortfolioCompanyConfidence)[keyof typeof PortfolioCompanyConfidence];
+
+export const PortfolioCompanyConfidence = {
+  High: "High",
+  Medium: "Medium",
+  Low: "Low",
+} as const;
+
+export type PortfolioCompanyLeadershipFraming =
+  (typeof PortfolioCompanyLeadershipFraming)[keyof typeof PortfolioCompanyLeadershipFraming];
+
+export const PortfolioCompanyLeadershipFraming = {
+  establish: "establish",
+} as const;
+
+export type PortfolioCompanyGapNotes = { [key: string]: string };
+
+/**
+ * Raw company record — only raw inputs, never derived values (RawCompany in @workspace/portfolio-engine).
+ */
+export interface PortfolioCompany {
+  id: string;
+  name: string;
+  sector: string;
+  hq: string;
+  employeesDisplay: string;
+  arrDisplay: string;
+  /**
+   * @minItems 2
+   * @maxItems 2
+   * @nullable
+   */
+  arrForRollup: number[] | null;
+  confidence: PortfolioCompanyConfidence;
+  engagement: string;
+  invesqSignal: string;
+  leadershipFraming?: PortfolioCompanyLeadershipFraming;
+  summary: string;
+  calloutNote?: string;
+  assessments: PortfolioAssessment[];
+  gapNotes?: PortfolioCompanyGapNotes;
+  actionsLog?: PortfolioActionLogEntry[];
+}
+
+export interface PortfolioBootstrapFirm {
+  slug: string;
+  displayName: string;
+  statusLabel: string;
+  internalOnly: boolean;
+  companies: PortfolioCompany[];
+}
+
+export interface PortfolioBootstrap {
+  asOfDate: string;
+  firms: PortfolioBootstrapFirm[];
+}
+
+/**
  * Opaque session token — `Bearer <sid>`.
  */
 export type AuthorizationSessionHeaderParameter = string;

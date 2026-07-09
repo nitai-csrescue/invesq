@@ -22,6 +22,8 @@ tags:
     description: Customer accounts
   - name: lifecycle
     description: Lifecycle motions
+  - name: portfolio
+    description: PE-firm tenant portfolio bootstrap data
   - name: Auth
     description: Browser and mobile authentication endpoints.
 paths:
@@ -388,6 +390,30 @@ paths:
                 type: array
                 items:
                   $ref: "#/components/schemas/LifecycleMotion"
+
+  /portfolio/bootstrap:
+    get:
+      operationId: getPortfolioBootstrap
+      tags: [portfolio]
+      summary: Get raw portfolio bootstrap data for all firm tenants
+      description: >
+        Serves RAW company/assessment data sourced from Postgres — no derived
+        values (tiers, composites, gaps, etc). Clients re-derive those via
+        @workspace/portfolio-engine. Returns 500 if the underlying data fails
+        validation at load time (fail-soft: never crashes the server).
+      responses:
+        "200":
+          description: Raw portfolio bootstrap payload
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PortfolioBootstrap"
+        "500":
+          description: Portfolio data failed validation and could not be served
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
 
   /auth/user:
     get:
@@ -1327,3 +1353,130 @@ components:
         - color
         - nodeIds
         - kpis
+
+    PortfolioActionLogEntry:
+      type: object
+      description: Dated event annotated as a marker on the trend / forecast chart.
+      properties:
+        date:
+          type: string
+        label:
+          type: string
+      required:
+        - date
+        - label
+
+    PortfolioAssessment:
+      type: object
+      description: A single diagnostic run for a company. The company's current state always derives from the LATEST assessment in the array.
+      properties:
+        date:
+          type: string
+        pillarScores:
+          type: object
+          description: Keyed by pillar id; all 8 pillars must be present. 0/1/2 = scored, null = Insufficient Data (NA).
+          additionalProperties:
+            type: [integer, "null"]
+            enum: [0, 1, 2, null]
+        note:
+          type: string
+      required:
+        - date
+        - pillarScores
+
+    PortfolioCompany:
+      type: object
+      description: Raw company record — only raw inputs, never derived values (RawCompany in @workspace/portfolio-engine).
+      properties:
+        id:
+          type: string
+        name:
+          type: string
+        sector:
+          type: string
+        hq:
+          type: string
+        employeesDisplay:
+          type: string
+        arrDisplay:
+          type: string
+        arrForRollup:
+          type: [array, "null"]
+          minItems: 2
+          maxItems: 2
+          items:
+            type: number
+        confidence:
+          type: string
+          enum: [High, Medium, Low]
+        engagement:
+          type: string
+        invesqSignal:
+          type: string
+        leadershipFraming:
+          type: string
+          enum: [establish]
+        summary:
+          type: string
+        calloutNote:
+          type: string
+        assessments:
+          type: array
+          items:
+            $ref: "#/components/schemas/PortfolioAssessment"
+        gapNotes:
+          type: object
+          additionalProperties:
+            type: string
+        actionsLog:
+          type: array
+          items:
+            $ref: "#/components/schemas/PortfolioActionLogEntry"
+      required:
+        - id
+        - name
+        - sector
+        - hq
+        - employeesDisplay
+        - arrDisplay
+        - arrForRollup
+        - confidence
+        - engagement
+        - invesqSignal
+        - summary
+        - assessments
+
+    PortfolioBootstrapFirm:
+      type: object
+      properties:
+        slug:
+          type: string
+        displayName:
+          type: string
+        statusLabel:
+          type: string
+        internalOnly:
+          type: boolean
+        companies:
+          type: array
+          items:
+            $ref: "#/components/schemas/PortfolioCompany"
+      required:
+        - slug
+        - displayName
+        - statusLabel
+        - internalOnly
+        - companies
+
+    PortfolioBootstrap:
+      type: object
+      properties:
+        asOfDate:
+          type: string
+        firms:
+          type: array
+          items:
+            $ref: "#/components/schemas/PortfolioBootstrapFirm"
+      required:
+        - asOfDate
+        - firms

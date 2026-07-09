@@ -796,6 +796,93 @@ export const ListLifecycleMotionsResponse = zod.array(
 );
 
 /**
+ * Serves RAW company/assessment data sourced from Postgres — no derived values (tiers, composites, gaps, etc). Clients re-derive those via @workspace/portfolio-engine. Returns 500 if the underlying data fails validation at load time (fail-soft: never crashes the server).
+
+ * @summary Get raw portfolio bootstrap data for all firm tenants
+ */
+export const getPortfolioBootstrapResponseFirmsItemCompaniesItemArrForRollupMin = 2;
+export const getPortfolioBootstrapResponseFirmsItemCompaniesItemArrForRollupMax = 2;
+
+export const GetPortfolioBootstrapResponse = zod.object({
+  asOfDate: zod.string(),
+  firms: zod.array(
+    zod.object({
+      slug: zod.string(),
+      displayName: zod.string(),
+      statusLabel: zod.string(),
+      internalOnly: zod.boolean(),
+      companies: zod.array(
+        zod
+          .object({
+            id: zod.string(),
+            name: zod.string(),
+            sector: zod.string(),
+            hq: zod.string(),
+            employeesDisplay: zod.string(),
+            arrDisplay: zod.string(),
+            arrForRollup: zod
+              .array(zod.number())
+              .min(
+                getPortfolioBootstrapResponseFirmsItemCompaniesItemArrForRollupMin,
+              )
+              .max(
+                getPortfolioBootstrapResponseFirmsItemCompaniesItemArrForRollupMax,
+              )
+              .nullable(),
+            confidence: zod.enum(["High", "Medium", "Low"]),
+            engagement: zod.string(),
+            invesqSignal: zod.string(),
+            leadershipFraming: zod.enum(["establish"]).optional(),
+            summary: zod.string(),
+            calloutNote: zod.string().optional(),
+            assessments: zod.array(
+              zod
+                .object({
+                  date: zod.string(),
+                  pillarScores: zod
+                    .record(
+                      zod.string(),
+                      zod
+                        .union([
+                          zod.literal(0),
+                          zod.literal(1),
+                          zod.literal(2),
+                          zod.literal(null),
+                        ])
+                        .nullable(),
+                    )
+                    .describe(
+                      "Keyed by pillar id; all 8 pillars must be present. 0\/1\/2 = scored, null = Insufficient Data (NA).",
+                    ),
+                  note: zod.string().optional(),
+                })
+                .describe(
+                  "A single diagnostic run for a company. The company's current state always derives from the LATEST assessment in the array.",
+                ),
+            ),
+            gapNotes: zod.record(zod.string(), zod.string()).optional(),
+            actionsLog: zod
+              .array(
+                zod
+                  .object({
+                    date: zod.string(),
+                    label: zod.string(),
+                  })
+                  .describe(
+                    "Dated event annotated as a marker on the trend \/ forecast chart.",
+                  ),
+              )
+              .optional(),
+          })
+          .describe(
+            "Raw company record — only raw inputs, never derived values (RawCompany in @workspace\/portfolio-engine).",
+          ),
+      ),
+    }),
+  ),
+});
+
+/**
  * @summary Get the currently authenticated user
  */
 export const GetCurrentAuthUserHeader = zod.object({

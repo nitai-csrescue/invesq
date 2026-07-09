@@ -1,13 +1,9 @@
 // ---------------------------------------------------------------------------
 // Portfolio engine — ALL derived values live here.
 // Raw company data (assessments + copy) → computed Company + PortfolioSummary.
-//
-// Data source: raw company data is fetched from /api/portfolio/bootstrap
-// (Postgres-backed) and pushed in via hydratePortfolioData(). Derivation
-// logic below (buildCompany/computeSummary/validateFirmData) is unchanged
-// from the original static-file version — only the input source changed.
-// Validation runs synchronously inside hydratePortfolioData(); any violation
-// throws, ensuring bad data never silently reaches the UI.
+// Pure functions only: callers supply the raw data (DB-sourced) and run
+// buildFirmPortfolio, which validates and throws on any violation, ensuring
+// bad data never silently reaches the UI.
 // ---------------------------------------------------------------------------
 import type {
   RawCompany,
@@ -19,7 +15,9 @@ import type {
   PortfolioTrendPoint,
 } from "./types";
 import { PILLARS, PILLAR_MAX, TIERS, getTier } from "./pillars";
-import { getFirm as _getFirm } from "./firms";
+
+// "As of" date shown across the portal chrome — dataset metadata, not copy.
+export const AS_OF_DATE = "2026-06-15";
 
 // ---------------------------------------------------------------------------
 // Internal helpers
@@ -86,7 +84,7 @@ function buildAssessmentPoints(
   });
 }
 
-function buildCompany(raw: RawCompany): Company {
+export function buildCompany(raw: RawCompany): Company {
   const latest = raw.assessments[raw.assessments.length - 1];
   const scores = latest.pillarScores;
 
@@ -140,7 +138,7 @@ function sumRanges(ranges: [number, number][]): [number, number] {
   );
 }
 
-function computeSummary(companies: Company[]): PortfolioSummary {
+export function computeSummary(companies: Company[]): PortfolioSummary {
   const disclosed = companies.filter((c) => c.arrForRollup !== null);
   const undisclosed = companies.filter((c) => c.arrForRollup === null);
 
@@ -190,11 +188,11 @@ function computeSummary(companies: Company[]): PortfolioSummary {
 }
 
 // ---------------------------------------------------------------------------
-// Validation — runs once at module load, throws on any violation
+// Validation — throws on any violation
 // ---------------------------------------------------------------------------
 const VALID_SCORES = new Set([0, 1, 2, null]);
 
-function validateFirmData(
+export function validateFirmData(
   firmSlug: string,
   rawList: RawCompany[],
   companies: Company[],
@@ -288,60 +286,21 @@ function validateFirmData(
 }
 
 // ---------------------------------------------------------------------------
-// Hydration — populated once by PortfolioDataProvider after it fetches
-// /api/portfolio/bootstrap. Until hydrated, the query API below returns
-// empty/undefined; callers must gate rendering on hydration (see
-// PortfolioDataProvider's PortfolioGate) rather than reading before then.
+// Build a firm's full portfolio from raw data: derive, sort, validate.
+// Sort order matches the original engine: ascending tierComposite, with
+// insertion order as the stable tie-break.
 // ---------------------------------------------------------------------------
-const FIRM_COMPANIES = new Map<string, Company[]>();
-const FIRM_SUMMARIES = new Map<string, PortfolioSummary>();
-let hydrated = false;
-
-export function isPortfolioDataHydrated(): boolean {
-  return hydrated;
-}
-
-/**
- * Derive + validate + cache each firm's companies/summary from raw bootstrap
- * data. Uses the exact same buildCompany/validateFirmData/computeSummary
- * logic as the original eager, file-based version — only the input source
- * (bootstrap payload instead of static imports) has changed. Throws on any
- * validation violation, exactly as before.
- */
-export function hydratePortfolioData(
-  bootstrapFirms: readonly { slug: string; companies: RawCompany[] }[],
-): void {
-  for (const { slug, companies: rawList } of bootstrapFirms) {
-    const companies = rawList
-      .map(buildCompany)
-      .sort((a, b) => a.tierComposite - b.tierComposite);
-
-    validateFirmData(slug, rawList, companies);
-
-    FIRM_COMPANIES.set(slug, companies);
-    FIRM_SUMMARIES.set(slug, computeSummary(companies));
-  }
-  hydrated = true;
-}
-
-// ---------------------------------------------------------------------------
-// Public query API
-// ---------------------------------------------------------------------------
-export { _getFirm as getFirm };
-
-export function getFirmCompanies(firmSlug: string): Company[] {
-  return FIRM_COMPANIES.get(firmSlug) ?? [];
-}
-
-export function getFirmCompany(
+export function buildFirmPortfolio(
   firmSlug: string,
-  companySlug: string,
-): Company | undefined {
-  return FIRM_COMPANIES.get(firmSlug)?.find((c) => c.id === companySlug);
-}
+  rawList: RawCompany[],
+): { companies: Company[]; summary: PortfolioSummary } {
+  const companies = rawList
+    .map(buildCompany)
+    .sort((a, b) => a.tierComposite - b.tierComposite);
 
-export function getFirmSummary(firmSlug: string): PortfolioSummary | undefined {
-  return FIRM_SUMMARIES.get(firmSlug);
+  validateFirmData(firmSlug, rawList, companies);
+
+  return { companies, summary: computeSummary(companies) };
 }
 
 // ---------------------------------------------------------------------------
@@ -356,8 +315,9 @@ function monthLabel(iso: string): string {
   return `${mon} '${yr}`;
 }
 
-export function getPortfolioTrendPoints(firmSlug: string): PortfolioTrendPoint[] {
-  const companies = FIRM_COMPANIES.get(firmSlug) ?? [];
+export function computePortfolioTrendPoints(
+  companies: Company[],
+): PortfolioTrendPoint[] {
   // Bucket by year-month key ("2026-06") so we can sort, map to label later.
   const byYearMonth = new Map<
     string,
@@ -441,7 +401,7 @@ export function formatDate(iso: string): string {
 // Forecast — additive; never modifies core derivation logic above
 // ---------------------------------------------------------------------------
 
-/** A single forward-projected data point produced by computeCompanyForecast / computePortfolioForecast. */
+/** A single forward-projected data point produced by computeCompanyForecast / computePortfolioForecastFromTrend. */
 export interface ForecastPoint {
   period: string;    // human-readable label e.g. "Jul '26"
   sortKey: string;   // ISO yyyy-mm-dd for sorting / deduplication
@@ -510,8 +470,10 @@ export function computeCompanyForecast(
  * using linear regression on the last (up to 4) portfolio trend periods.
  * Returns [] when fewer than 2 trend periods exist.
  */
-export function computePortfolioForecast(firmSlug: string, monthsAhead = 6): ForecastPoint[] {
-  const trendPoints = getPortfolioTrendPoints(firmSlug);
+export function computePortfolioForecastFromTrend(
+  trendPoints: PortfolioTrendPoint[],
+  monthsAhead = 6,
+): ForecastPoint[] {
   if (trendPoints.length < 2) return [];
   const window = trendPoints.slice(-Math.min(4, trendPoints.length));
   const { slope, intercept } = linReg(window.map((p) => p.avgNormalized));
@@ -650,11 +612,10 @@ export function computeCompanyArrForecast(
  * Aggregate per-company ARR forecasts into a portfolio-level ARR outlook.
  * Only companies with disclosed ARR (arrForRollup != null) contribute.
  */
-export function computePortfolioArrForecast(
-  firmSlug: string,
+export function computePortfolioArrForecastFromCompanies(
+  companies: Company[],
   action: (typeof FORECAST_ACTIONS)[number] | undefined,
 ): ArrForecastPoint[] {
-  const companies = FIRM_COMPANIES.get(firmSlug) ?? [];
   const periodMap = new Map<
     string,
     { period: string; sortKey: string; baselineSum: number; upsideSum: number }

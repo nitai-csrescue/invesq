@@ -14,9 +14,10 @@
 import { sql, inArray } from "drizzle-orm";
 import { db, pool, firmsTable, companiesTable, assessmentsTable } from "@workspace/db";
 
+import { buildFirmPortfolio } from "@workspace/portfolio-engine";
+
 import { FIRMS } from "../src/data/portfolio/firms";
 import { PILLARS, TIERS } from "../src/data/portfolio/pillars";
-import { getFirmSummary } from "../src/data/portfolio/engine";
 import type { RawCompany, PillarScore, TierCount } from "../src/data/portfolio/types";
 
 import STG_COMPANIES from "../src/data/portfolio/stg";
@@ -257,7 +258,8 @@ async function main() {
   let anyMismatch = false;
 
   for (const firm of FIRMS) {
-    const oldSummary = getFirmSummary(firm.slug);
+    const rawList = RAW_COMPANIES_BY_FIRM[firm.slug] ?? [];
+    const oldSummary = rawList.length > 0 ? buildFirmPortfolio(firm.slug, rawList).summary : undefined;
     if (!oldSummary) {
       console.log(`\n[${firm.slug}] SKIPPED — no file-based summary found (unexpected).`);
       anyMismatch = true;
