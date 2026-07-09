@@ -9,10 +9,12 @@ import accountsRouter from "./accounts.js";
 import lifecycleRouter from "./lifecycle.js";
 import debugRouter from "./debug.js";
 import invesqRouter from "./invesq.js";
+import authRouter from "./auth.js";
 
 const router: IRouter = Router();
 
 router.use(healthRouter);
+router.use(authRouter);
 router.use(graphRouter);
 router.use("/architecture", architectureRouter);
 router.use("/resources", resourcesRouter);

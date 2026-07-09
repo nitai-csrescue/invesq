@@ -36,6 +36,8 @@ import RavigaGameplan from "@/pages/portfolio/RavigaGameplan";
 import RavigaFindings from "@/pages/portfolio/RavigaFindings";
 import RavigaBenchmarks from "@/pages/portfolio/RavigaBenchmarks";
 import RavigaRisk from "@/pages/portfolio/RavigaRisk";
+import AdminHome from "@/pages/AdminHome";
+import { ProtectedRoute } from "@/lib/protected-route";
 
 const queryClient = new QueryClient();
 
@@ -61,6 +63,11 @@ function Shell({ children }: { children: ReactNode }) {
   // Firm-scoped portfolio portals — self-contained client chrome.
   if (FIRM_SCOPED_RE.test(location)) {
     return <>{children}</>;
+  }
+
+  // Admin surface uses the standard shell (sidebar + header).
+  if (location === "/admin" || location.startsWith("/admin/")) {
+    return <Layout>{children}</Layout>;
   }
 
   // Internal tenant index — standalone page.
@@ -97,6 +104,17 @@ function Router() {
 
         {/* Internal tenant index (unlinked) */}
         <Route path="/firms" component={FirmsIndex} />
+
+        {/* Admin — gated to csrescue.com Google accounts. Must stay above the
+            /:firmSlug/* wildcard routes below or "admin" would be swallowed
+            as a firm slug. */}
+        <Route path="/admin">
+          {() => (
+            <ProtectedRoute>
+              <AdminHome />
+            </ProtectedRoute>
+          )}
+        </Route>
 
         {/* Firm-scoped portfolio portals — /:firmSlug/portfolio/... */}
         <Route path="/:firmSlug/portfolio" component={PortfolioDashboard} />

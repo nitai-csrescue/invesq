@@ -18,12 +18,13 @@ The Architecture page (a true interactive React Flow graph) and AI Copilot still
 - **Frontend**: React + Vite + Tailwind + shadcn/ui + Wouter routing
 - **Graph (Architecture page)**: React Flow (`reactflow`)
 - **Charts**: in-house lightweight SVG sparklines + bar/funnel cards (no Recharts dep used in new pages)
-- **Data**: Local in-file mock data (`src/data/*`) — no DB, no API for the new CS-product pages
+- **Data**: Local in-file mock data (`src/data/*`) for the CS-product demo pages. `/admin` and its future tooling use a real Postgres DB (see below) — the two data layers are intentionally separate.
+- **Auth**: Replit Auth (OIDC) gates `/admin/*`. See "Admin auth" below.
 
 ## Artifacts
 
 - **cs-rescue** (preview path `/`) — React/Vite frontend (the demo)
-- **api-server** (preview path `/api`) — Express backend (used only by the legacy Architecture / AI Copilot pages)
+- **api-server** (preview path `/api`) — Express backend. Serves the legacy Architecture / AI Copilot pages plus `/api/login`, `/api/callback`, `/api/logout`, `/api/auth/user`, `/api/mobile-auth/*` (Replit Auth).
 - **mockup-sandbox** — component preview server
 
 ## Key Commands
@@ -66,6 +67,8 @@ Sidebar group `Platform` (demoted, kept for technical buyers)
 - `/platform/architecture` — original React Flow graph
 - `/platform/ai-copilot` — supports `?prompt=&accountId=&autoRun=1` deep-link from the Dashboard insight rail
 
+`/admin` (internal, unlinked from the sidebar) — gated by Replit Auth, see "Admin auth" below. Currently a placeholder landing page (shows signed-in email + logout); no CRUD yet.
+
 **Redirects:**
 - `/resources`, `/deployments`, `/connectors` → `/overview` (files kept in `src/pages/` with archive header, not routed)
 - `/ai-copilot` → `/platform/ai-copilot`
@@ -79,5 +82,24 @@ All new pages read from `src/data/*` — one coherent universe of 18 accounts, 7
 | Method | Path | Description |
 |---|---|---|
 | GET | `/api/healthz` | Health check |
+| GET | `/api/auth/user` | Current auth state (`{ user: AuthUser \| null }`) |
+| GET | `/api/login` | Redirects to Replit OIDC (`?returnTo=` supported) |
+| GET | `/api/callback` | OIDC callback — creates session, sets cookie |
+| GET | `/api/logout` | Clears session, redirects to OIDC end-session |
+| POST | `/api/mobile-auth/token-exchange` | Mobile token exchange |
+| POST | `/api/mobile-auth/logout` | Mobile session logout |
 
 (Original architecture/copilot endpoints are still served — see legacy `Resources.tsx`/`Deployments.tsx`/`Connectors.tsx` archive files.)
+
+## Admin auth (`/admin`)
+
+- `/admin` is client-side gated: `ProtectedRoute` (`src/lib/protected-route.tsx`) calls `useAuth()` from `@workspace/replit-auth-web` and redirects to `login()` when not authenticated. It is placed above the `/:firmSlug/*` wildcard routes in `App.tsx` so `admin` is never swallowed as a firm slug.
+- Access is restricted to `@csrescue.com` email addresses. Replit's OIDC claims don't expose which upstream identity provider (Google, etc.) was used, so an email-domain allowlist (`isAllowedAdminEmail` in `artifacts/api-server/src/lib/auth.ts`) is the enforceable proxy for "Google accounts on csrescue.com" — every account on that Workspace domain authenticates via Google.
+- Enforcement is server-side and defense-in-depth:
+  1. **Primary**: `routes/auth.ts` checks the domain on the OIDC callback (and mobile token-exchange) claims *before* `createSession`/`upsertUser` — a rejected login never gets a session cookie or a users-table row.
+  2. **Secondary**: `authMiddleware` re-checks every session's stored email on each request and clears any session that fails, in case a session predates a policy change.
+- This auth layer applies globally (`app.use(authMiddleware)` in `app.ts`), but only `/admin` actually branches on `req.user` — every other route is public and behaves exactly as before.
+
+## Database
+
+Postgres (Replit built-in) via `@workspace/db` (Drizzle). Tables: `users`, `sessions` (Replit Auth), `firms`, `companies`, `assessments`, `jobs` (schema in `lib/db/src/schema/*`). Not yet wired to any UI beyond the `/admin` placeholder — the CS-demo pages still read from `src/data/*` mocks.
