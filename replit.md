@@ -102,4 +102,13 @@ All new pages read from `src/data/*` — one coherent universe of 18 accounts, 7
 
 ## Database
 
-Postgres (Replit built-in) via `@workspace/db` (Drizzle). Tables: `users`, `sessions` (Replit Auth), `firms`, `companies`, `assessments`, `jobs` (schema in `lib/db/src/schema/*`). Not yet wired to any UI beyond the `/admin` placeholder — the CS-demo pages still read from `src/data/*` mocks.
+Postgres (Replit built-in) via `@workspace/db` (Drizzle). Tables: `users`, `sessions` (Replit Auth), `firms`, `companies`, `assessments`, `jobs` (schema in `lib/db/src/schema/*`). Not yet wired to any UI beyond the `/admin` placeholder — the CS-demo pages still read from `src/data/portfolio/*` mocks (the DB is a separate, parallel copy of that data — see below).
+
+### One-time portfolio data migration
+
+`artifacts/cs-rescue/scripts/migrate-portfolio-to-db.ts` (run once via `pnpm --filter @workspace/cs-rescue run migrate-portfolio`) copied the 5 tenants' hardcoded portfolio data (`src/data/portfolio/{stg,pamlico,raviga,longarc,solen}.ts`) into `firms`/`companies`/`assessments`. It is read-only against the TS files — it never modifies them — and refuses to run again once `firms` has any rows, so it can't double-insert.
+
+- 5 firms, 27 companies, 137 assessments (full assessment history per company, not just the latest — Raviga alone contributes 120 of those, 12 monthly assessments × 10 companies).
+- `assessments.p1`..`p8` map 1:1 to `PILLARS` order in `src/data/portfolio/pillars.ts` (`org, onboarding, health, escalation, revenue, leadership, planning, ai`); `"NA"` is stored literally for null/insufficient-data scores.
+- The `companies` table has no field for `RawCompany`'s id/sector/hq/ARR/etc. — only `name` migrated, matching the existing schema. Do not assume DB companies carry that richer data; it still only lives in the TS files.
+- Verified after running: recomputing company count, tier distribution, and average composite straight from the inserted DB rows (independently re-deriving tier/composite logic from the DB text values) matched the live `engine.ts`-computed values exactly for all 5 tenants, with 0 mismatches.

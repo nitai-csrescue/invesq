@@ -1,6 +1,6 @@
 {
   "extends": "../../tsconfig.base.json",
-  "include": ["src/**/*"],
+  "include": ["src/**/*", "scripts/**/*"],
   "exclude": ["node_modules", "build", "dist", "**/*.test.ts"],
   "compilerOptions": {
     "noEmit": true,
@@ -20,6 +20,9 @@
     },
     {
       "path": "../../lib/replit-auth-web"
+    },
+    {
+      "path": "../../lib/db"
     }
   ]
 }
