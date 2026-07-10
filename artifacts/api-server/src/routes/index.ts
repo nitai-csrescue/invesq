@@ -13,10 +13,12 @@ import authRouter from "./auth.js";
 import portfolioRouter from "./portfolio.js";
 import jobsRouter from "./jobs.js";
 import adminRouter from "./admin.js";
+import buildStatusRouter from "./buildStatus.js";
 
 const router: IRouter = Router();
 
 router.use(healthRouter);
+router.use(buildStatusRouter);
 router.use(authRouter);
 router.use(graphRouter);
 router.use("/architecture", architectureRouter);

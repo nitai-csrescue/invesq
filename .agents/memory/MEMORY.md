@@ -15,3 +15,5 @@
 - [Render-time redaction vs data migration](name-redaction-render-time-mitigation.md) — filter PII at the single shared response funnel (covers cache + future consumers) instead of backfilling stored rows.
 - [Auditing raw JSON dumps before removal](admin-json-dump-removal-parity.md) — diff the schema against the rendered view first; fields can exist only in the JSON block (e.g. per-pillar signals) and get silently lost.
 - [Generated-content cache invalidation](generated-content-cache-invalidation.md) — fixing fallback/template copy has no effect on already-cached generated rows; must bump the cache's version key or delete rows to verify.
+- [RavigaShell scroll hides content](raviga-shell-scroll-screenshot.md) — footer sticks to viewport bottom in fixed-height shells; seeing it in a screenshot doesn't prove content above it fully rendered/fit.
+- [New Express routes need restart](api-server-new-route-needs-restart.md) — a brand-new route file can 404 until the api-server workflow is explicitly restarted, even while other routes work.

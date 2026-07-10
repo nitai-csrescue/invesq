@@ -37,6 +37,7 @@ import RavigaGameplan from "@/pages/portfolio/RavigaGameplan";
 import RavigaFindings from "@/pages/portfolio/RavigaFindings";
 import RavigaBenchmarks from "@/pages/portfolio/RavigaBenchmarks";
 import RavigaRisk from "@/pages/portfolio/RavigaRisk";
+import RavigaDataSources from "@/pages/portfolio/RavigaDataSources";
 import AdminHome from "@/pages/AdminHome";
 import AdminFirmsList from "@/pages/admin/FirmsList";
 import AdminFirmReview from "@/pages/admin/FirmReview";
@@ -49,8 +50,8 @@ const queryClient = new QueryClient();
 // Bare = no sidebar/header (landing & investor pages)
 const BARE_PATHS = new Set<string>(["/", "/overview", "/launch-demo", "/ceati", "/cs-health-scorecard"]);
 
-// Pattern: /<firmSlug>/portfolio/... OR /<firmSlug>/findings OR /<firmSlug>/benchmarks OR /<firmSlug>/risk
-const FIRM_SCOPED_RE = /^\/[^/]+\/(portfolio|findings|benchmarks|risk)(\/|$)/;
+// Pattern: /<firmSlug>/portfolio/... OR /<firmSlug>/findings OR /<firmSlug>/benchmarks OR /<firmSlug>/risk OR /<firmSlug>/data-sources
+const FIRM_SCOPED_RE = /^\/[^/]+\/(portfolio|findings|benchmarks|risk|data-sources)(\/|$)/;
 
 function Shell({ children }: { children: ReactNode }) {
   const [location] = useLocation();
@@ -154,6 +155,7 @@ function Router() {
           <Route path="/:firmSlug/findings" component={RavigaFindings} />
           <Route path="/:firmSlug/benchmarks" component={RavigaBenchmarks} />
           <Route path="/:firmSlug/risk" component={RavigaRisk} />
+          <Route path="/:firmSlug/data-sources" component={RavigaDataSources} />
 
           {/* Legacy /portfolio routes — 301-redirect to /stg equivalents */}
           <Route path="/portfolio">

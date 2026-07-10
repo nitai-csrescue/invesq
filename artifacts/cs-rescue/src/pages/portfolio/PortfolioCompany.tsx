@@ -11,9 +11,12 @@ import {
   Info,
   Plug,
   X,
+  Percent,
 } from "lucide-react";
 import {
   LineChart,
+  ComposedChart,
+  Area,
   Line,
   XAxis,
   YAxis,
@@ -38,11 +41,15 @@ import {
   computeCompanyArrForecast,
   FORECAST_ACTIONS,
   formatCurrencyCompact,
+  getConnectorLiveStatus,
+  getArrConfidenceBandPct,
+  getRetentionMetrics,
   type Company,
   type Firm,
   type AssessmentPoint,
   type ArrForecastPoint,
   type ArrTooltipData,
+  type ConnectorId,
 } from "@/data/portfolio";
 
 function Meta({ icon: Icon, label, value }: { icon: typeof Building2; label: string; value: string }) {
@@ -475,7 +482,18 @@ function ForecastSection({ company, firmSlug }: { company: Company; firmSlug: st
     upsideArrMid: number | null;
     baselineTooltip?: ArrTooltipData;
     upsideTooltip?: ArrTooltipData;
+    confidenceRange: [number, number] | null;
   };
+
+  // Raviga-only: connected-data confidence band around the baseline ARR line.
+  const confidenceBandPct = isRaviga ? getArrConfidenceBandPct(company) : 0;
+  const confidenceRangeFor = (mid: number | null): [number, number] | null =>
+    isRaviga && mid != null
+      ? [
+          Math.round(mid * (1 - confidenceBandPct / 100)),
+          Math.round(mid * (1 + confidenceBandPct / 100)),
+        ]
+      : null;
 
   const arrChartData: ArrRow[] =
     arrForecastPts.length > 0
@@ -484,6 +502,7 @@ function ForecastSection({ company, firmSlug }: { company: Company; firmSlug: st
             period: lastPeriod,
             baselineArrMid: arrMidCurrent,
             upsideArrMid: action != null ? arrMidCurrent : null,
+            confidenceRange: confidenceRangeFor(arrMidCurrent),
           },
           ...arrForecastPts.map((pt) => ({
             period: pt.period,
@@ -491,13 +510,16 @@ function ForecastSection({ company, firmSlug }: { company: Company; firmSlug: st
             upsideArrMid: pt.upsideArrMid,
             baselineTooltip: pt.baselineTooltip,
             upsideTooltip: pt.upsideTooltip ?? undefined,
+            confidenceRange: confidenceRangeFor(pt.baselineArrMid),
           })),
         ]
       : [];
 
   const endArrPt = arrForecastPts.length > 0 ? arrForecastPts[arrForecastPts.length - 1] : null;
   const arrYValues = arrChartData.flatMap((d) =>
-    [d.baselineArrMid, d.upsideArrMid].filter((v): v is number => v != null),
+    [d.baselineArrMid, d.upsideArrMid, ...(d.confidenceRange ?? [])].filter(
+      (v): v is number => v != null,
+    ),
   );
   const arrYMin = arrYValues.length > 0 ? Math.floor(Math.min(...arrYValues) * 0.96) : 0;
   const arrYMax = arrYValues.length > 0 ? Math.ceil(Math.max(...arrYValues) * 1.04) : 1;
@@ -676,7 +698,7 @@ function ForecastSection({ company, firmSlug }: { company: Company; firmSlug: st
 
           <div className="mt-3">
             <ResponsiveContainer width="100%" height={180}>
-              <LineChart data={arrChartData} margin={{ top: 8, right: 12, left: 10, bottom: 0 }}>
+              <ComposedChart data={arrChartData} margin={{ top: 8, right: 12, left: 10, bottom: 0 }}>
                 <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
                 <XAxis
                   dataKey="period"
@@ -693,6 +715,19 @@ function ForecastSection({ company, firmSlug }: { company: Company; firmSlug: st
                   width={56}
                 />
                 <Tooltip content={<ArrChartTooltipContent />} />
+                {isRaviga && (
+                  <Area
+                    type="monotone"
+                    dataKey="confidenceRange"
+                    stroke="none"
+                    fill="#6b7280"
+                    fillOpacity={0.12}
+                    connectNulls
+                    activeDot={false}
+                    legendType="none"
+                    tooltipType="none"
+                  />
+                )}
                 <Line
                   type="monotone"
                   dataKey="baselineArrMid"
@@ -713,7 +748,7 @@ function ForecastSection({ company, firmSlug }: { company: Company; firmSlug: st
                     connectNulls
                   />
                 )}
-              </LineChart>
+              </ComposedChart>
             </ResponsiveContainer>
           </div>
 
@@ -733,7 +768,19 @@ function ForecastSection({ company, firmSlug }: { company: Company; firmSlug: st
                 <span>Upside ARR — {action.label}</span>
               </div>
             )}
+            {isRaviga && (
+              <div className="flex items-center gap-1.5">
+                <span className="h-2.5 w-4 shrink-0 rounded-sm bg-muted-foreground/20" />
+                <span>±{confidenceBandPct.toFixed(1)}% confidence band — connected data</span>
+              </div>
+            )}
           </div>
+          {isRaviga && (
+            <p className="mt-1.5 text-[10px] text-muted-foreground/80">
+              Confidence band reflects reduced forecast uncertainty from connected proprietary data sources
+              (CRM, CS platform, conversation intelligence, product telemetry) vs. external-signal-only modeling.
+            </p>
+          )}
 
           {/* End-of-period summary with info popovers */}
           {endArrPt && (
@@ -839,7 +886,17 @@ const PHASE2_CONNECTORS = [
   { label: "Product Telemetry", example: "" },
 ] as const;
 
-function Phase2Integrations() {
+// PHASE2_CONNECTORS cards map 1:1 to CONNECTOR_DEFS by position (CRM →
+// Salesforce, CS Platform → Gainsight, Conversation Intelligence → Gong,
+// Product Telemetry → Product Telemetry).
+const PHASE2_CONNECTOR_IDS: readonly ConnectorId[] = [
+  "salesforce",
+  "gainsight",
+  "gong",
+  "product-telemetry",
+];
+
+function Phase2Integrations({ company, isRaviga }: { company: Company; isRaviga: boolean }) {
   return (
     <div className="mt-4 rounded-xl border border-border bg-card p-6">
       <div className="flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between">
@@ -847,30 +904,53 @@ function Phase2Integrations() {
           <Plug className="h-4 w-4 text-primary/70" />
           <h2 className="text-sm font-semibold text-foreground">Integrations · Phase 2</h2>
         </div>
-        <span className="text-xs text-muted-foreground">Activate in a Phase 2 engagement</span>
+        <span className="text-xs text-muted-foreground">
+          {isRaviga ? "Simulated for this design-partner preview" : "Activate in a Phase 2 engagement"}
+        </span>
       </div>
       <p className="mt-1.5 text-xs text-muted-foreground">
         Telemetry connections activate in a Phase 2 engagement — scores upgrade from external signals (max 16) to the
         weighted proprietary model (max 19.5).
       </p>
       <div className="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
-        {PHASE2_CONNECTORS.map((conn) => (
-          <div key={conn.label} className="rounded-lg border border-border bg-background/40 p-4">
-            <div className="text-xs font-medium text-foreground">{conn.label}</div>
-            {conn.example && (
-              <div className="mt-0.5 text-[11px] text-muted-foreground">{conn.example}</div>
-            )}
-            <div className="mt-3 flex items-center justify-between">
-              <span className="text-[11px] text-muted-foreground">Not connected</span>
-              <button
-                disabled
-                className="cursor-not-allowed rounded border border-border bg-background px-2.5 py-1 text-[11px] font-medium text-muted-foreground opacity-50"
-              >
-                Connect
-              </button>
+        {PHASE2_CONNECTORS.map((conn, i) => {
+          const live = isRaviga ? getConnectorLiveStatus(company.id, PHASE2_CONNECTOR_IDS[i]) : null;
+          return (
+            <div key={conn.label} className="rounded-lg border border-border bg-background/40 p-4">
+              <div className="text-xs font-medium text-foreground">{conn.label}</div>
+              {conn.example && (
+                <div className="mt-0.5 text-[11px] text-muted-foreground">{conn.example}</div>
+              )}
+              <div className="mt-3 flex items-center justify-between">
+                {live ? (
+                  <span className="inline-flex items-center gap-1 text-[11px] font-medium text-emerald-400">
+                    <span className="h-1.5 w-1.5 rounded-full bg-emerald-400" /> Connected
+                  </span>
+                ) : (
+                  <span className="text-[11px] text-muted-foreground">Not connected</span>
+                )}
+                <button
+                  disabled
+                  className={`cursor-not-allowed rounded border px-2.5 py-1 text-[11px] font-medium ${
+                    live
+                      ? "border-emerald-500/30 bg-emerald-500/10 text-emerald-400"
+                      : "border-border bg-background text-muted-foreground opacity-50"
+                  }`}
+                >
+                  {live ? "Connected" : "Connect"}
+                </button>
+              </div>
+              {live && (
+                <div className="mt-2 space-y-0.5">
+                  <div className="text-[10px] text-muted-foreground">
+                    Last synced {live.lastSyncedMinutesAgo}m ago · {live.recordCount.toLocaleString()} records
+                  </div>
+                  <div className="text-[10px] italic text-amber-300/70">{live.label}</div>
+                </div>
+              )}
             </div>
-          </div>
-        ))}
+          );
+        })}
       </div>
     </div>
   );
@@ -970,6 +1050,16 @@ export default function PortfolioCompany() {
                 </span>
                 <ConfidenceBadge confidence={company.confidence} />
               </div>
+              {isRaviga && company.weightedMax > 0 && (
+                <div className="mt-3 inline-flex items-center gap-2 rounded-lg border border-emerald-500/30 bg-emerald-500/10 px-3 py-1.5">
+                  <span className="font-mono text-sm font-semibold text-emerald-400">
+                    {company.weightedComposite} / {company.weightedMax}
+                  </span>
+                  <span className="text-[10px] font-medium uppercase tracking-wide text-emerald-400/80">
+                    Phase 2 weighted score — powered by connected data
+                  </span>
+                </div>
+              )}
             </div>
           </div>
           <div className="grid grid-cols-2 gap-x-8 gap-y-4 sm:grid-cols-3 lg:grid-cols-2">
@@ -977,6 +1067,16 @@ export default function PortfolioCompany() {
             <Meta icon={MapPin} label="HQ" value={company.hq} />
             <Meta icon={Users} label="Headcount" value={company.employeesDisplay} />
             <Meta icon={CalendarClock} label="Last assessed" value={formatDate(company.lastDiagnostic)} />
+            {isRaviga &&
+              (() => {
+                const { nrr, grr } = getRetentionMetrics(company);
+                return (
+                  <>
+                    <Meta icon={Percent} label="NRR" value={`${nrr}%`} />
+                    <Meta icon={Percent} label="GRR" value={`${grr}%`} />
+                  </>
+                );
+              })()}
           </div>
         </div>
         <p className="mt-5 border-t border-border pt-4 text-sm text-muted-foreground">{company.summary}</p>
@@ -1153,7 +1253,7 @@ export default function PortfolioCompany() {
       <ForecastSection company={company} firmSlug={firmSlug} />
 
       {/* Phase 2 integrations */}
-      <Phase2Integrations />
+      <Phase2Integrations company={company} isRaviga={isRaviga} />
 
       {/* Phase footer + CTA */}
       <div className="mt-4 flex flex-col gap-4 rounded-xl border border-border bg-card p-6 sm:flex-row sm:items-center sm:justify-between">

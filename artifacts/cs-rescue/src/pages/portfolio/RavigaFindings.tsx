@@ -1,16 +1,35 @@
 import { useState, useMemo } from "react";
 import { useRoute, Link } from "wouter";
-import { AlertTriangle, ArrowRight, Building2 } from "lucide-react";
+import { AlertTriangle, ArrowRight, Building2, Cloud, Activity, Phone, Radio } from "lucide-react";
 import {
   getFirm,
   getFirmCompanies,
   gapTitle,
+  getLiveSignalsForCompanies,
   type Company,
   type GapItem,
+  type ConnectorId,
+  type LiveSignal,
+  type LiveSignalSeverity,
 } from "@/data/portfolio";
 import { RavigaShell } from "@/components/portfolio/RavigaShell";
 
 type Severity = "All" | "High" | "Medium";
+type LiveSeverityFilter = "All" | LiveSignalSeverity;
+type LiveSourceFilter = "All" | ConnectorId;
+
+const SOURCE_ICON: Record<ConnectorId, typeof Cloud> = {
+  salesforce: Cloud,
+  gainsight: Activity,
+  gong: Phone,
+  "product-telemetry": Radio,
+};
+
+const LIVE_SEVERITY_STYLES: Record<LiveSignalSeverity, string> = {
+  High: "border-rose-300 bg-rose-100 text-rose-800",
+  Medium: "border-amber-300 bg-amber-100 text-amber-800",
+  Low: "border-sky-300 bg-sky-100 text-sky-800",
+};
 
 // ---------------------------------------------------------------------------
 // Finding shape
@@ -140,6 +159,7 @@ export default function RavigaFindings() {
   const firm = getFirm(firmSlug);
   if (!firm) return <FirmNotFound />;
 
+  const isRaviga = firmSlug === "raviga";
   const companies = getFirmCompanies(firmSlug);
   const allFindings = useMemo(() => buildFindings(companies), [companies]);
 
@@ -150,6 +170,19 @@ export default function RavigaFindings() {
 
   const highCount = allFindings.filter((f) => f.severity === "High").length;
   const medCount = allFindings.filter((f) => f.severity === "Medium").length;
+
+  // ── Live Signals (Raviga only, simulated connected-data feed) ────────────
+  const liveSignals: LiveSignal[] = useMemo(
+    () => (isRaviga ? getLiveSignalsForCompanies(companies) : []),
+    [companies, isRaviga],
+  );
+  const [signalSource, setSignalSource] = useState<LiveSourceFilter>("All");
+  const [signalSeverity, setSignalSeverity] = useState<LiveSeverityFilter>("All");
+  const filteredSignals = liveSignals.filter(
+    (s) =>
+      (signalSource === "All" || s.source === signalSource) &&
+      (signalSeverity === "All" || s.severity === signalSeverity),
+  );
 
   return (
     <RavigaShell firm={firm}>
@@ -204,6 +237,97 @@ export default function RavigaFindings() {
           {filtered.map((f) => (
             <FindingCard key={f.key} finding={f} firmSlug={firmSlug} />
           ))}
+        </div>
+      )}
+
+      {isRaviga && liveSignals.length > 0 && (
+        <div className="mt-10 border-t border-border pt-6">
+          <div className="mb-4 flex flex-wrap items-start justify-between gap-4">
+            <div>
+              <h2 className="text-lg font-bold text-foreground">Live Signals</h2>
+              <p className="mt-1 text-sm text-muted-foreground">
+                {filteredSignals.length} of {liveSignals.length} signals · simulated connected-data
+                feed · events from the last 14 days
+              </p>
+            </div>
+            <div className="flex flex-wrap items-center gap-2">
+              <select
+                value={signalSource}
+                onChange={(e) => setSignalSource(e.target.value as LiveSourceFilter)}
+                className="rounded border border-border bg-background px-2 py-1.5 text-xs text-foreground"
+              >
+                <option value="All">All sources</option>
+                <option value="salesforce">Salesforce</option>
+                <option value="gainsight">Gainsight</option>
+                <option value="gong">Gong</option>
+                <option value="product-telemetry">Product Telemetry</option>
+              </select>
+              <select
+                value={signalSeverity}
+                onChange={(e) => setSignalSeverity(e.target.value as LiveSeverityFilter)}
+                className="rounded border border-border bg-background px-2 py-1.5 text-xs text-foreground"
+              >
+                <option value="All">All severities</option>
+                <option value="High">High</option>
+                <option value="Medium">Medium</option>
+                <option value="Low">Low</option>
+              </select>
+            </div>
+          </div>
+
+          {filteredSignals.length === 0 ? (
+            <div className="py-8 text-center text-sm text-muted-foreground">
+              No live signals match these filters.
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 gap-3 lg:grid-cols-2">
+              {filteredSignals.map((s) => {
+                const SourceIcon = SOURCE_ICON[s.source];
+                return (
+                  <div
+                    key={s.id}
+                    className="flex items-start gap-3 rounded-lg border border-border bg-card p-3.5"
+                  >
+                    <div
+                      className={`mt-0.5 flex h-7 w-7 flex-none items-center justify-center rounded-full border ${LIVE_SEVERITY_STYLES[s.severity]}`}
+                    >
+                      <SourceIcon className="h-3.5 w-3.5" />
+                    </div>
+                    <div className="min-w-0 flex-1">
+                      <div className="flex flex-wrap items-center gap-2">
+                        <Link
+                          href={`/${firmSlug}/portfolio/${s.companyId}`}
+                          className="text-xs font-semibold text-foreground transition-colors hover:text-primary"
+                        >
+                          {s.companyName}
+                        </Link>
+                        <span className="rounded border border-border px-1.5 py-0.5 text-[10px] text-muted-foreground">
+                          {s.pillarName}
+                        </span>
+                        <span
+                          className={`rounded-full border px-1.5 py-0.5 text-[10px] font-medium ${LIVE_SEVERITY_STYLES[s.severity]}`}
+                        >
+                          {s.severity}
+                        </span>
+                      </div>
+                      <p className="mt-1.5 text-xs leading-relaxed text-muted-foreground">
+                        {s.message}
+                      </p>
+                      <div className="mt-1.5 flex items-center gap-1 text-[10px] text-muted-foreground/70">
+                        <SourceIcon className="h-3 w-3" /> {s.sourceLabel} ·{" "}
+                        {s.daysAgo === 0 ? "Today" : `${s.daysAgo}d ago`}
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+
+          <p className="mt-4 text-[10px] italic text-amber-600/70">
+            Simulated connection — demo environment. Signals illustrate what a live Phase 2
+            connected-data feed would surface once activated.
+          </p>
         </div>
       )}
 

@@ -65,3 +65,26 @@ export {
   type ArrTooltipData,
   type ArrForecastPoint,
 } from "./engine";
+
+// Raviga-tenant-only simulated live-data layer (Phase 2 connected-data demo).
+// Never import these from non-Raviga call sites.
+export {
+  CONNECTOR_DEFS,
+  SIMULATED_CONNECTION_LABEL,
+  getConnectorLiveStatus,
+  getFirmConnectorSummary,
+  getArrConfidenceBandPct,
+  getRetentionMetrics,
+  getLiveSignalsForCompany,
+  getLiveSignalsForCompanies,
+  GOVERNANCE_MATRIX,
+  SEMANTIC_LAYER,
+  type ConnectorId,
+  type ConnectorLiveStatus,
+  type ConnectorFirmSummary,
+  type RetentionMetrics,
+  type LiveSignal,
+  type LiveSignalSeverity,
+  type GovernanceRow,
+  type SemanticLayerEntity,
+} from "./ravigaLiveData";

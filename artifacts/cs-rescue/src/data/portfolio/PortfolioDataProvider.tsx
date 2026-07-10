@@ -68,7 +68,7 @@ export function usePortfolioData(): PortfolioDataContextValue {
 // regardless of bootstrap status. Keep FIRM_SCOPED_RE in sync with the
 // identically-named pattern in App.tsx's Shell().
 // ---------------------------------------------------------------------------
-const FIRM_SCOPED_RE = /^\/[^/]+\/(portfolio|findings|benchmarks|risk)(\/|$)/;
+const FIRM_SCOPED_RE = /^\/[^/]+\/(portfolio|findings|benchmarks|risk|data-sources)(\/|$)/;
 
 function needsPortfolioData(location: string): boolean {
   return location === "/firms" || FIRM_SCOPED_RE.test(location);
