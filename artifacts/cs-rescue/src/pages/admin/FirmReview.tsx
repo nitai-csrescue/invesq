@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { useRoute, useLocation, Link } from "wouter";
-import { Loader2, PlusCircle, CheckCircle2 } from "lucide-react";
+import { Loader2, PlusCircle, CheckCircle2, Mail } from "lucide-react";
 import { PageHeader } from "@/components/cs/PageHeader";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -132,6 +132,24 @@ export default function FirmReview() {
           </Link>
         }
       />
+
+      {firm.status === "ready" && (
+        <div
+          className="mb-6 flex items-center justify-between gap-3 rounded-md border border-emerald-500/30 bg-emerald-500/10 px-4 py-3"
+          data-testid="banner-firm-ready"
+        >
+          <p className="flex items-center gap-2 text-sm text-emerald-300">
+            <CheckCircle2 className="h-4 w-4 shrink-0" />
+            Diagnostic build complete — every active company has been scored across all 8 pillars.
+          </p>
+          {firm.createdByEmail && (
+            <span className="flex items-center gap-1.5 whitespace-nowrap text-xs text-emerald-300/80" data-testid="text-notified-email">
+              <Mail className="h-3.5 w-3.5" />
+              Notified {firm.createdByEmail}
+            </span>
+          )}
+        </div>
+      )}
 
       <Card data-testid="card-companies">
         <CardHeader>

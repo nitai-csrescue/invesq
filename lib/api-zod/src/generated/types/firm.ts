@@ -13,5 +13,11 @@ export interface Firm {
   website: string | null;
   slug: string;
   status: string;
+  /**
+   * Email of the admin who created this firm, captured from their session at creation time. Used to notify them when the build job finishes. Null for firms created before this field existed or outside an authenticated session.
+
+   * @nullable
+   */
+  createdByEmail?: string | null;
   createdAt: Date;
 }

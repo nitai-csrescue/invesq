@@ -4,7 +4,10 @@ import { PILLARS, scoreToText } from "@workspace/portfolio-engine";
 import { logger } from "../logger.js";
 import { writeDiagnosticToNotion } from "../notion.js";
 import { scoreCompanyPillars, type PillarResult } from "./scoring.js";
-import { startProgressSimulation } from "./common.js";
+import { createJobTicker } from "./common.js";
+import { sendBuildCompleteEmail } from "../email.js";
+
+const PER_COMPANY_TARGET_MS = 90_000;
 
 export interface CompanyScoreOutcome {
   companyId: number;
@@ -61,9 +64,16 @@ async function scoreAndPersistCompany(company: Company, firm: Firm): Promise<Com
 // under the job's firm, scores all 8 pillars via Claude, writes the
 // assessment row to Postgres (source of truth), best-effort mirrors it to
 // Notion, and updates job progress. Marks the job completed + firm "ready"
-// only if every active company was scored successfully. Safe to call
-// multiple times for the same job id — it no-ops if already finished.
-export async function runBuildJob(jobId: number): Promise<void> {
+// only if every active company was scored successfully, and (best-effort)
+// emails the firm's creator once it does. Safe to call multiple times for
+// the same job id — it no-ops if already finished.
+//
+// `originHint` is the public origin (e.g. "https://foo.replit.dev") to build
+// the completion email's link to the firm's admin review page. It's only
+// available when the job is kicked off from an HTTP request (the confirm
+// route); startup-resumed jobs have no request to read it from, so
+// `sendBuildCompleteEmail` falls back to the REPLIT_DOMAINS env var.
+export async function runBuildJob(jobId: number, originHint?: string): Promise<void> {
   const [job] = await db.select().from(jobsTable).where(eq(jobsTable.id, jobId)).limit(1);
   if (!job) {
     logger.error({ jobId }, "runBuildJob: job not found");
@@ -109,7 +119,12 @@ export async function runBuildJob(jobId: number): Promise<void> {
     return;
   }
 
-  await db.update(jobsTable).set({ status: "running", progressPct: 2, error: null }).where(eq(jobsTable.id, jobId));
+  const totalMs = activeCompanies.length * PER_COMPANY_TARGET_MS;
+  const ticker = createJobTicker(jobId, totalMs);
+  await db
+    .update(jobsTable)
+    .set({ status: "running", progressPct: 2, etaSeconds: ticker.etaSeconds(), error: null })
+    .where(eq(jobsTable.id, jobId));
 
   const outcomes: CompanyScoreOutcome[] = [];
   const perCompanySlice = Math.floor(90 / activeCompanies.length);
@@ -119,7 +134,7 @@ export async function runBuildJob(jobId: number): Promise<void> {
       const company = activeCompanies[i]!;
       const floor = 2 + i * perCompanySlice;
       const cap = i === activeCompanies.length - 1 ? 95 : floor + perCompanySlice;
-      const stopProgress = startProgressSimulation(jobId, 45_000, cap, floor);
+      const stopProgress = ticker.tick(PER_COMPANY_TARGET_MS, cap, floor);
 
       try {
         const outcome = await scoreAndPersistCompany(company, firm);
@@ -132,12 +147,12 @@ export async function runBuildJob(jobId: number): Promise<void> {
         stopProgress();
       }
 
-      await db.update(jobsTable).set({ progressPct: cap }).where(eq(jobsTable.id, jobId));
+      await db.update(jobsTable).set({ progressPct: cap, etaSeconds: ticker.etaSeconds() }).where(eq(jobsTable.id, jobId));
     }
 
     await db
       .update(jobsTable)
-      .set({ status: "completed", progressPct: 100, completedAt: new Date(), error: null })
+      .set({ status: "completed", progressPct: 100, etaSeconds: 0, completedAt: new Date(), error: null })
       .where(eq(jobsTable.id, jobId));
     await db.update(firmsTable).set({ status: "ready" }).where(eq(firmsTable.id, firmId));
 
@@ -146,6 +161,19 @@ export async function runBuildJob(jobId: number): Promise<void> {
       { jobId, firmId, companyCount: outcomes.length, notionSuccessCount },
       "Build job completed — firm marked ready",
     );
+
+    if (firm.createdByEmail) {
+      const emailResult = await sendBuildCompleteEmail({
+        to: firm.createdByEmail,
+        firmName: firm.name,
+        firmId,
+        companyCount: outcomes.length,
+        originHint,
+      });
+      logger.info({ jobId, firmId, to: firm.createdByEmail, ...emailResult }, "Build-complete email attempted");
+    } else {
+      logger.info({ jobId, firmId }, "Build job completed — no createdByEmail on firm, skipping notification email");
+    }
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);
     logger.error({ err, jobId, firmId, scoredSoFar: outcomes.map((o) => o.companyName) }, "Build job failed");
@@ -153,6 +181,7 @@ export async function runBuildJob(jobId: number): Promise<void> {
       .update(jobsTable)
       .set({
         status: "failed",
+        etaSeconds: null,
         completedAt: new Date(),
         error: `${message.slice(0, 1800)} (scored before failure: ${outcomes.map((o) => o.companyName).join(", ") || "none"})`,
       })

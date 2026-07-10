@@ -13,6 +13,7 @@ import type {
 import { PILLARS, getTier, textToScore } from "@workspace/portfolio-engine";
 import { runDiscoveryJob } from "../lib/jobs/discovery.js";
 import { runBuildJob } from "../lib/jobs/build.js";
+import { getOrigin } from "../lib/http.js";
 
 const router: IRouter = Router();
 
@@ -114,7 +115,7 @@ router.post("/firms", async (req, res) => {
 
     const [firm] = await db
       .insert(firmsTable)
-      .values({ name, website, slug, status: "pending" })
+      .values({ name, website, slug, status: "pending", createdByEmail: req.user?.email ?? null })
       .returning();
 
     if (!firm) {
@@ -141,6 +142,7 @@ router.post("/firms", async (req, res) => {
         website: firm.website,
         slug: firm.slug,
         status: firm.status,
+        createdByEmail: firm.createdByEmail,
         createdAt: firm.createdAt,
       },
       job: {
@@ -201,6 +203,7 @@ router.get("/firms/:id", async (req, res) => {
         website: firm.website,
         slug: firm.slug,
         status: firm.status,
+        createdByEmail: firm.createdByEmail,
         createdAt: firm.createdAt,
       },
       companies: companies.map((company) => toCompany(company, assessed.has(company.id))),
@@ -321,6 +324,7 @@ router.post("/firms/:id/confirm", async (req, res) => {
         website: updatedFirm.website,
         slug: updatedFirm.slug,
         status: updatedFirm.status,
+        createdByEmail: updatedFirm.createdByEmail,
         createdAt: updatedFirm.createdAt,
       },
       job: {
@@ -340,7 +344,7 @@ router.post("/firms/:id/confirm", async (req, res) => {
     // (tens of seconds each) and writes assessments while the HTTP response
     // above has already returned. Failures are caught and persisted onto the
     // job row itself, not thrown here.
-    void runBuildJob(job.id).catch((err) => {
+    void runBuildJob(job.id, getOrigin(req)).catch((err) => {
       req.log.error({ err, jobId: job.id }, "Build job crashed outside its own error handling");
     });
   } catch (err) {

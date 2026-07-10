@@ -921,6 +921,12 @@ export const GetAdminFirmResponse = zod.object({
     website: zod.string().nullable(),
     slug: zod.string(),
     status: zod.string(),
+    createdByEmail: zod
+      .string()
+      .nullish()
+      .describe(
+        "Email of the admin who created this firm, captured from their session at creation time. Used to notify them when the build job finishes. Null for firms created before this field existed or outside an authenticated session.\n",
+      ),
     createdAt: zod.coerce.date(),
   }),
   companies: zod.array(
@@ -973,6 +979,12 @@ export const ConfirmAdminFirmResponse = zod.object({
     website: zod.string().nullable(),
     slug: zod.string(),
     status: zod.string(),
+    createdByEmail: zod
+      .string()
+      .nullish()
+      .describe(
+        "Email of the admin who created this firm, captured from their session at creation time. Used to notify them when the build job finishes. Null for firms created before this field existed or outside an authenticated session.\n",
+      ),
     createdAt: zod.coerce.date(),
   }),
   job: zod.object({

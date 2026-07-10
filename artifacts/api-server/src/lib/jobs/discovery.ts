@@ -2,7 +2,7 @@ import { and, eq, inArray } from "drizzle-orm";
 import { db, companiesTable, firmsTable, jobsTable, type Firm } from "@workspace/db";
 import { getAnthropicClient, extractText, extractJsonFence } from "../anthropic.js";
 import { logger } from "../logger.js";
-import { startProgressSimulation } from "./common.js";
+import { createJobTicker } from "./common.js";
 
 const DISCOVERY_MODEL = "claude-sonnet-4-6";
 
@@ -149,8 +149,13 @@ export async function runDiscoveryJob(jobId: number): Promise<void> {
     return;
   }
 
-  await db.update(jobsTable).set({ status: "running", progressPct: 5, error: null }).where(eq(jobsTable.id, jobId));
-  const stopProgress = startProgressSimulation(jobId, 45_000, 90);
+  const DISCOVERY_TARGET_MS = 45_000;
+  const ticker = createJobTicker(jobId, DISCOVERY_TARGET_MS);
+  await db
+    .update(jobsTable)
+    .set({ status: "running", progressPct: 5, etaSeconds: ticker.etaSeconds(), error: null })
+    .where(eq(jobsTable.id, jobId));
+  const stopProgress = ticker.tick(DISCOVERY_TARGET_MS, 90, 5);
 
   try {
     const candidates = await discoverCandidates(firm);
@@ -171,7 +176,7 @@ export async function runDiscoveryJob(jobId: number): Promise<void> {
 
     await db
       .update(jobsTable)
-      .set({ status: "completed", progressPct: 100, completedAt: new Date(), error: null })
+      .set({ status: "completed", progressPct: 100, etaSeconds: 0, completedAt: new Date(), error: null })
       .where(eq(jobsTable.id, jobId));
 
     logger.info({ jobId, firmId, candidateCount: candidates.length }, "Discovery job completed");
@@ -181,7 +186,7 @@ export async function runDiscoveryJob(jobId: number): Promise<void> {
     logger.error({ err, jobId, firmId }, "Discovery job failed");
     await db
       .update(jobsTable)
-      .set({ status: "failed", completedAt: new Date(), error: message.slice(0, 2000) })
+      .set({ status: "failed", etaSeconds: null, completedAt: new Date(), error: message.slice(0, 2000) })
       .where(eq(jobsTable.id, jobId));
   }
 }

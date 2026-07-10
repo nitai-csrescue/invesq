@@ -1,5 +1,5 @@
 import { useRoute, Link } from "wouter";
-import { Loader2, Timer } from "lucide-react";
+import { Loader2, Timer, CheckCircle2, XCircle, ArrowRight } from "lucide-react";
 import { PageHeader } from "@/components/cs/PageHeader";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
@@ -102,6 +102,35 @@ export default function JobStatus() {
               <dt>Job ID</dt>
               <dd className="text-foreground">#{job.id}</dd>
             </dl>
+
+            {job.type === "build" && job.status === "completed" && (
+              <div
+                className="flex items-center justify-between gap-3 rounded-md border border-emerald-500/30 bg-emerald-500/10 px-4 py-3"
+                data-testid="banner-job-ready"
+              >
+                <p className="flex items-center gap-2 text-sm text-emerald-300">
+                  <CheckCircle2 className="h-4 w-4" />
+                  Build complete — firm is ready.
+                </p>
+                <Link
+                  href={`/admin/firms/${job.targetId}`}
+                  className="inline-flex items-center gap-1 whitespace-nowrap rounded-md border border-emerald-500/30 bg-emerald-500/10 px-3 py-1.5 text-xs text-emerald-300 hover:bg-emerald-500/20 transition-colors"
+                  data-testid="link-view-firm"
+                >
+                  View firm <ArrowRight className="h-3 w-3" />
+                </Link>
+              </div>
+            )}
+
+            {job.status === "failed" && (
+              <div
+                className="flex items-start gap-2 rounded-md border border-rose-500/30 bg-rose-500/10 px-4 py-3 text-sm text-rose-300"
+                data-testid="banner-job-failed"
+              >
+                <XCircle className="h-4 w-4 mt-0.5 shrink-0" />
+                <span>{job.error ?? "Job failed with no error detail."}</span>
+              </div>
+            )}
           </CardContent>
         </Card>
       )}
