@@ -26,3 +26,21 @@ export function textToScore(text: string | null): PillarScore {
   }
   return n as PillarScore;
 }
+
+// ---------------------------------------------------------------------------
+// Company name normalization — canonical slug used for cross-request dedup
+// (companies.normalizedName, see ARCHITECTURE-UNIFIED-DB.md Section 3.2).
+// Deliberately identical to the ad-hoc `slugify()` already used by
+// `routes/admin.ts`'s `/admin/backfill-pipeline-meta` repair endpoint (grouping
+// active companies by `slugify(c.name)` per firm) — this is a single canonical
+// copy of that same normalization so the DB-level unique index and the
+// pre-existing repair endpoint's notion of "duplicate" never disagree.
+// ---------------------------------------------------------------------------
+export function normalizeCompanyName(name: string): string {
+  const base = name
+    .toLowerCase()
+    .trim()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "");
+  return base || "company";
+}

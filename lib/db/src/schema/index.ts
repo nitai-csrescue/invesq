@@ -23,3 +23,6 @@ export * from "./companies";
 export * from "./assessments";
 export * from "./jobs";
 export * from "./reportExports";
+export * from "./findings";
+export * from "./notionSyncState";
+export * from "./ingestionSources";

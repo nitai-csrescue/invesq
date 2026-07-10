@@ -35,7 +35,7 @@ export {
   getTier,
 } from "./pillars";
 
-export { PILLAR_IDS, scoreToText, textToScore } from "./mapping";
+export { PILLAR_IDS, scoreToText, textToScore, normalizeCompanyName } from "./mapping";
 
 export {
   AS_OF_DATE,

@@ -10,7 +10,11 @@
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "migrate-portfolio": "tsx ./scripts/migrate-portfolio-to-db.ts",
     "backfill-portfolio-meta": "tsx ./scripts/backfill-portfolio-meta.ts",
-    "verify-portfolio-parity": "tsx ./scripts/verify-portfolio-parity.ts"
+    "verify-portfolio-parity": "tsx ./scripts/verify-portfolio-parity.ts",
+    "normalize-name-matrix": "tsx ./scripts/normalize-name-matrix.ts",
+    "dedup-repair-companies": "tsx ./scripts/dedup-repair-companies.ts",
+    "backfill-unified-db": "tsx ./scripts/backfill-unified-db.ts",
+    "verify-db-invariants": "tsx ./scripts/verify-db-invariants.ts"
   },
   "devDependencies": {
     "@hookform/resolvers": "^3.10.0",
