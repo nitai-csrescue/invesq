@@ -99,3 +99,95 @@ Separate entries with a `---` line.
   - `jobs.ts` was intentionally left untouched (Risk #4's job-target-model decision was out of scope for this pass) — documented inline in the architecture doc rather than silently skipped.
   - Spot-checked `/stg/portfolio` and `/raviga/portfolio` live in the running preview after restart — both render correctly (KPI strip, sortable company table, tier badges, Raviga's extra Risk & ROI/Data Sources nav and "Demo Sandbox" pill) — confirms the additive schema changes did not disturb any existing read path.
   - `proposeFollowUpTasks` was not called for this task per the standing instruction (refs #27/#28 already used for the prior "cut over tenant portals to database" task); no existing follow-up task was made obsolete, since Phase 1/2 here are prerequisites for, not replacements of, that follow-up work.
+
+---
+
+## Production assessments dedup repair (diagnosis only — deletion blocked, needs human decision)
+- Date: 2026-07-10 21:15 UTC
+- Status: **partial — diagnosis and root cause complete; no rows deleted; Publish still blocked**
+- Files changed: BUILD-LOG.md only. No application code, schema, or data was modified. All queries below were read-only `SELECT`s against the production replica (`executeSql({ environment: "production" })`), which enforces read-only access — the agent has no supported path to write/delete production data (see "Why nothing was deleted" below).
+- Validation: n/a (read-only investigation)
+- Republish needed: no code change; **production Publish of the pending schema diff (Phase 1: `assessments_company_date_uq`, `firms.dataAuthority`, `companies.normalizedName`, `findings`/`ingestion_sources`/`notion_sync_state` tables, `sourceJobId` columns, FK/index tightening) is still blocked** and cannot be retried successfully until the duplicate rows below are resolved by a human.
+- QA notes:
+
+### Step 1 — Diagnosis (read-only, against production replica)
+
+Confirmed the reported migration failure is real and current in production (not stale, unlike the earlier dev report which was already resolved). `information_schema` inspection shows **production's `assessments`/`companies`/`firms` schema never received any of Phase 1's additions** — not just the one failing unique index. Missing entirely from production: `findings`, `ingestion_sources`, `notion_sync_state` tables; `firms.data_authority`; `companies.normalized_name`; `assessments.source_job_id`/`companies.source_job_id`; the new FK/index tightening. Only `assessments_pkey` exists on `assessments`. This means the Phase 1 diff was applied as a single all-or-nothing transaction that rolled back entirely when the `CREATE UNIQUE INDEX assessments_company_date_uq` statement hit duplicate data — the failure isn't localized to that one index.
+
+Duplicate `(company_id, date)` scope, full production DB: **exactly 6 groups, all under one firm** — no duplicates anywhere else in production:
+
+| company_id | company name | firm | date | duplicate row ids | count |
+|---|---|---|---|---|---|
+| 1 | CalcFocus | Pamlico Capital (`pamlico-capital`, firm id 1 — an AI-onboarded pipeline firm, **not** the legacy hand-authored `pamlico` tenant, firm id 3) | 2026-07-10 | 1, 2, 4, 156 | 4 |
+| 2 | ClarisHealth | same | 2026-07-10 | 3, 6, 7, 157 | 4 |
+| 3 | Key Data Dashboard | same | 2026-07-10 | 5, 9, 10, 158 | 4 |
+| 4 | Veson Nautical | same | 2026-07-10 | 8, 12, 13, 159 | 4 |
+| 5 | EHS Insight | same | 2026-07-10 | 11, 15, 16, 160 | 4 |
+| 6 | ClarisHealth (**a second, separately-created company row** — same firm, same normalized name as company_id 2; not part of the requested assessments scope but found alongside it) | same | 2026-07-10 | 14, 17, 18, 161 | 4 |
+
+Full row-level content (all 8 pillar scores `p1..p8`, an `md5` hash of the 8 evidence text fields concatenated, and `created_at`) for all 24 rows:
+
+```
+id,company_id,date,p1,p2,p3,p4,p5,p6,p7,p8,evidence_hash,created_at
+1,1,2026-07-10,1,1,0,NA,1,2,0,0,bf12c6f71efe4681b2bbd65492c40064,2026-07-10 00:35:22.207214+00
+2,1,2026-07-10,1,1,0,NA,1,2,0,0,ae00114b305b9016b3a3571dd882ea3c,2026-07-10 00:36:05.615372+00
+4,1,2026-07-10,1,1,0,0,1,2,NA,0,1c5813e99ae096c09978ff6748dd4438,2026-07-10 00:36:52.717145+00
+156,1,2026-07-10,0,1,0,NA,1,1,1,0,8821dd048b5263204af1099437eb2560,2026-07-10 19:00:39.567274+00
+3,2,2026-07-10,1,1,0,NA,1,1,0,1,81bb650c5a2e37362a8f10f045178cbc,2026-07-10 00:36:13.715437+00
+6,2,2026-07-10,1,NA,0,NA,1,1,NA,1,dc4c555902379c8acdec1ba9e90997ee,2026-07-10 00:37:06.614118+00
+7,2,2026-07-10,1,NA,NA,NA,1,1,NA,1,6bbc95bd85497a7d2363e5471de500b8,2026-07-10 00:37:39.214149+00
+157,2,2026-07-10,0,1,0,NA,1,1,0,1,2710b21aba9eb4d0fe4e67ef27063ebb,2026-07-10 19:01:46.667886+00
+5,3,2026-07-10,1,NA,NA,0,NA,1,NA,1,c8d52b08df6c8470b7650b1448a1128f,2026-07-10 00:36:59.870927+00
+9,3,2026-07-10,1,1,NA,NA,NA,1,NA,1,76fdeeed9e6145a45342b58b2da21ef0,2026-07-10 00:38:06.414314+00
+10,3,2026-07-10,1,1,0,0,0,1,NA,1,4e8204575b0ded7dac74cf4ce701dcb9,2026-07-10 00:38:25.834147+00
+158,3,2026-07-10,0,1,0,NA,0,1,0,1,cde0447b43b9136a3e836ece7ffd98fd,2026-07-10 19:02:45.368585+00
+8,4,2026-07-10,2,2,0,1,2,2,2,1,aa9a4966f52e3b5bcb2fb5303781af5d,2026-07-10 00:37:54.313847+00
+12,4,2026-07-10,2,2,NA,1,NA,2,1,2,d5077d999555543cf2e3a8918b80fded,2026-07-10 00:39:03.514548+00
+13,4,2026-07-10,2,1,NA,NA,1,2,1,1,da9702195da3432ac430d878d73541c7,2026-07-10 00:39:21.02391+00
+159,4,2026-07-10,1,2,0,1,1,1,1,2,c7358e50077610542cf3216debdb9477,2026-07-10 19:03:49.770314+00
+11,5,2026-07-10,1,1,0,1,1,0,0,2,44b7e5dc71ae63d1b25989fa44dc0279,2026-07-10 00:38:47.413973+00
+15,5,2026-07-10,1,1,0,1,0,0,0,1,654415b8bdaefae70eb1e38bd3dff09b,2026-07-10 00:39:58.115843+00
+16,5,2026-07-10,1,1,0,1,0,0,0,1,b8ba174de7e81a13cc62dad3cba0e52f,2026-07-10 00:40:08.114191+00
+160,5,2026-07-10,1,1,0,1,1,1,0,2,7aa629ab530d42bd039b568f09d09baa,2026-07-10 19:04:59.466751+00
+14,6,2026-07-10,1,1,0,NA,1,1,1,1,7988b73345584ca9302e9ea6154b56a6,2026-07-10 00:39:41.315018+00
+17,6,2026-07-10,1,1,0,0,1,1,0,1,d45778d0697b1cdb116cc22c737f3992,2026-07-10 00:40:49.814969+00
+18,6,2026-07-10,1,NA,0,0,1,NA,2,44b1485dd6a7a37b8cb8c1307ffce352,2026-07-10 00:41:08.815084+00
+161,6,2026-07-10,1,1,0,NA,1,1,1,1,ecbeb62fea0608deecaaef00f998e552,2026-07-10 19:06:16.370493+00
+```
+
+`assessments.source_job_id` does not exist in production (see above), so per-row provenance could not be read from that column. Provenance was instead reconstructed from the `jobs` table by timestamp correlation: `jobs` (id, type, target_id=1, status, created_at, completed_at) shows firm 1 had **1 discovery job (id 1) and 4 build jobs (ids 2, 3, 4, 5)** — discovery completed 00:32:46; builds 2/3/4 ran back-to-back within the same ~9-minute window (00:34–00:41, each ~5-6 min); build 5 ran ~18.5 hours later (18:59–19:06) **on the same calendar date**. This lines up exactly with the row groups: 3 rows per company clustered 00:35–00:41 (builds 2/3/4) plus 1 row per company at ~19:00–19:06 (build 5).
+
+### Step 2 — Repair rule applied
+
+**Zero rows are exact/identical duplicates.** Every one of the 24 rows has a unique evidence-text hash (visible in the table above — no two hashes match, even within the same company), and in every group at least one pillar score also differs between rows (e.g. company 4: p1 is `2,2,2,1` across its 4 rows). Two rows can share the same scores (company 5's rows 15 and 16 both score `1,1,0,1,0,0,0,1`) but still have different evidence text, so they are not byte-identical either. **Per the stated repair rule, this means all 6 groups are the CONFLICTING case, not the pure-double-write case — no row was deleted.** This is a genuine root-cause finding, not a case where the rule was under-applied: each "duplicate" is an independently-generated Claude scoring pass (see Step 4), so no two rows were ever going to match byte-for-byte.
+
+One additional fact relevant to picking a canonical row: `report_exports` (3 rows total in production) already references two of these specific rows as the assessment an export was generated from — `report_exports.id=3` (rubric v5, current) references assessment id **1** (company 1, CalcFocus's first-generated row); `report_exports.id=2` (rubric v2, an old version) references assessment id **3** (company 2, ClarisHealth's first-generated row). Both recompute cleanly against their linked assessment (composite/compositeMax match, no drift). This is presented as context, not a recommendation — no row was auto-selected as canonical.
+
+**Why nothing was deleted, even hypothetically:** the agent's production database access is read-only by platform design (`executeSql({ environment: "production" })` only permits `SELECT`; `INSERT`/`UPDATE`/`DELETE`/DDL all fail, confirmed in `.local/skills/database/SKILL.md` and `references/database-migrations-on-publish.md`). The only sanctioned production-write path is the Publish schema-diff flow, and that is schema-only, not data. So even if some rows here had turned out to be exact duplicates, this agent has no supported mechanism to execute the DELETE directly against production — that would need either a human running it through Replit's own production DB access, or a one-time authenticated admin repair endpoint shipped in application code and invoked against the live (already-deployed) production app, which does have full read/write access to its own database at runtime. Since the outcome here is "conflicting, do not delete" regardless, this wasn't exercised, but it directly affects Step 3 below.
+
+### Step 3 — Verification / Publish readiness
+
+Duplicate count is **unchanged**: still 6 groups / 24 rows (nothing was deleted, nothing could safely be deleted without a human picking a canonical row per company). **The `assessments_company_date_uq` migration will fail again if Publish is retried right now.**
+
+Ran the applicable parts of `verify-db-invariants.ts`'s logic as manual read-only queries against production (the script itself can't run against production directly — it connects via `DATABASE_URL`, which is the dev database — so its 4 checks were re-derived by hand):
+- **(a) findings completeness** — not checkable; the `findings` table does not exist in production yet (Phase 1 never landed there).
+- **(b) company dedup by normalized name** — `companies.normalized_name` doesn't exist in production; approximated with `lower(trim(name))` grouped by firm instead. Found exactly one collision: firm 1's two "ClarisHealth" rows (company ids 2 and 6, see Step 1) — a second, adjacent issue that will independently block the `companies_firm_normalized_name_active_uq` partial index once that ships, on top of the assessments issue.
+- **(c) report_exports composite recompute** — ran against all 3 production `report_exports` rows. All 3 pass (frozen `reportData.scores` recompute matches a fresh recompute from the linked assessment's `p1..p8`, including the 2 rows referencing the duplicate-affected assessments above).
+- **(d) FK integrity** — 0 orphan `companies.firm_id`, 0 orphan `assessments.company_id`, 0 orphan `report_exports.company_id`/`assessment_id`. Clean.
+- **(d) append-only duplicate check** — the 6 groups above; everywhere else in production, zero duplicate `(company_id, date)` pairs.
+
+**Publish cannot be safely retried yet.** Two independent, pre-existing data conditions in production (the 6 duplicate-assessment groups above, and the 1 duplicate-company pair) will make the pending schema diff fail again exactly as before. Both require a human decision (which assessment row is canonical per company; whether to keep, merge, or exclude one of the two ClarisHealth company rows) before any schema retry, since neither can be resolved by an automated "keep earliest" rule without discarding real, distinct AI-generated content.
+
+### Step 4 — Root cause
+
+**Confirmed via code (`artifacts/api-server/src/lib/jobs/build.ts`) and the `jobs` table history: yes, the pipeline write path can and did double-insert (here, quadruple-insert) on repeated build runs.** `scoreAndPersistCompany()` unconditionally runs `db.insert(assessmentsTable).values(...)` for every active company on every build job run — there is no check for an existing `(companyId, date)` row before insert, and no upsert. Firm 1's `jobs` history shows 4 separate `build` jobs (ids 2, 3, 4 within the same 9-minute window, id 5 about 18.5 hours later, same calendar date) all completed successfully against the same 5 active companies, so each one independently re-scored every company from scratch (fresh Claude + web-search calls) and inserted a brand-new row — explaining both why there are exactly 4 duplicates per company and why they conflict (each run is an independent LLM generation, not a literal retry of the same content). Separately, the discovery job's company-insert step also lacks within-run dedup: firm 1's single discovery job (id 1) inserted "ClarisHealth" twice (00:32:27 and 00:32:46) in what looks like two separate result batches from the same run.
+
+**An interim guard is recommended now, ahead of Phase 5's `notion_sync_state`/provenance work:** `scoreAndPersistCompany` should check for an existing `assessments` row at `(companyId, todayIso())` before scoring/inserting (skip-if-exists, or explicit re-score-replaces-today's-row semantics — a product decision, not just a technical one) rather than relying solely on the pending DB-level unique constraint, which today would surface as an unhandled insert error and fail the whole job partway through rather than degrading gracefully. This is scoped as a recommendation, not implemented in this pass — the task was diagnosis, not a pipeline code change, and changing `scoreAndPersistCompany`'s semantics deserves its own review given it affects the real AI onboarding flow.
+
+### Open item for the user
+
+This task is diagnosis-complete but **repair is blocked pending two decisions no automated rule should make**:
+1. For each of the 6 companies under Pamlico Capital (`pamlico-capital`, firm id 1), which of the 4 generated assessment rows (or none) should remain as of today's date — keep exactly one, keep more than one under a corrected date, or something else?
+2. For the duplicate "ClarisHealth" company row (ids 2 and 6) — same question, plus which one (if either) `report_exports.id=2` should be re-pointed at if the other is removed.
+
+Once those are decided, execution still needs a sanctioned write path since this agent's production access is read-only (see Step 2) — flagged to the user directly outside this log rather than guessed at here.
