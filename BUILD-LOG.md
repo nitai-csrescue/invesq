@@ -66,3 +66,18 @@ Separate entries with a `---` line.
   - Ask INVESQ copy-policy guard verified end-to-end (real Claude calls, `ANTHROPIC_API_KEY` present, not the canned fallback): a `pamlico` benchmark request came back with generic "Diagnostic Output"/"Peer Universe" framing and no NRR/GRR/Glassdoor/call-transcript references; the same prompt for `raviga` came back listing "NRR, Churn, CAC Payback" — confirming `firmSlug` now reaches `invesq.ts` and `isRaviga` branches both the system prompt and the canned-response fallback (including the benchmark NRR line).
   - Excluded-by-design and confirmed untouched: ARR forecast View B, Risk & ROI tab, weighted `/19.5` badge, Live Signals, Data Sources page, connector simulation — all remain gated behind the same `isRaviga` check inside `PortfolioCompany.tsx`/`RavigaFindings.tsx`, which already existed and needed no changes.
   - `lib/portfolio-engine` composite/weighted scoring math was not touched.
+
+---
+
+## Unified DB architecture proposal
+- Date: 2026-07-10 00:00 UTC
+- Status: complete
+- Files changed: ARCHITECTURE-UNIFIED-DB.md (new); BUILD-LOG.md
+- Validation: n/a — documentation-only task, no application code changed; no typecheck/build/workflow impact
+- Republish needed: no
+- QA notes:
+  - Deliverable is a proposal document only, per explicit task scope — no schema, route, or script files were modified.
+  - Audited real ground truth before writing: read every table in `lib/db/src/schema/*`, `lib/portfolio-engine/src/{engine.ts,types.ts,data/firmsMeta.ts}`, `artifacts/api-server/src/lib/portfolioData.ts`, `notion.ts`'s `writeDiagnosticToNotion` (confirmed always `POST`s, no upsert — root cause of the duplicate-Notion-pages issue), `routes/admin.ts`'s `/backfill-pipeline-meta` dedup repair endpoint, and all three existing migration/parity scripts (`migrate-portfolio-to-db.ts`, `backfill-portfolio-meta.ts`, `verify-portfolio-parity.ts`).
+  - Live-queried the dev database directly (read-only) to ground the current-state numbers in the doc: 6 firms (5 legacy + `mainsail-partners`), 30 companies, 140 assessments, 12 `report_exports` rows, 2 completed `jobs` rows — confirmed no duplicate rows exist right now (the duplicate-handling risks described are real, already-mitigated-once failure modes, not hypotheticals).
+  - Document covers all 8 required sections: single-source-of-truth convergence (replacing the `LEGACY_SLUGS` behavioral fork with a `firms.dataAuthority` column, not a storage-location change — the static files are already unread at runtime, only read by 3 migration/parity scripts); scalability (indexed FKs, a `findings` table for queryable per-pillar evidence, `sourceJobId` provenance, partial-unique dedup constraint, `ingestion_sources` Phase-2 placeholder); compute-never-store enforcement (already true in `engine.ts`; extended to guard `report_exports.meta.composite`, the one existing stored-derived-value example found); a redesigned Notion sync boundary (new `notion_sync_state` idempotency table, POST-then-PATCH); auth-ready `roles`/firm-membership table plus RLS notes (deferred, with an explicit trigger-condition open question); a 5-phase migration plan with dev/prod divergence handling tied to the existing Publish-flow diff process; a confirmed Postgres+Drizzle tech recommendation with relative phase sizing; and Risks/Open Questions sections.
+  - `proposeFollowUpTasks` was not called again per prior instruction (already invoked for refs #27/#28 on the prior task); no existing follow-up tasks were made obsolete by this document, since it does not implement anything those tasks depend on differently than assumed.
