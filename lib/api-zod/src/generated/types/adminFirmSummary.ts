@@ -5,6 +5,7 @@
  * CS Rescue API specification
  * OpenAPI spec version: 0.1.0
  */
+import type { Job } from "./job";
 
 export interface AdminFirmSummary {
   id: number;
@@ -14,5 +15,7 @@ export interface AdminFirmSummary {
   slug: string;
   status: string;
   companyCount: number;
+  /** The most recently created job (any status) targeting this firm, or null if none exists. */
+  latestJob: Job | null;
   createdAt: Date;
 }

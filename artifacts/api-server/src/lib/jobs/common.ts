@@ -1,4 +1,4 @@
-import { eq } from "drizzle-orm";
+import { and, eq, inArray } from "drizzle-orm";
 import { db, jobsTable } from "@workspace/db";
 import { logger } from "../logger.js";
 
@@ -8,6 +8,30 @@ export async function setJobProgress(jobId: number, progressPct: number, etaSeco
   } catch (err) {
     logger.error({ err, jobId }, "Failed to update job progress");
   }
+}
+
+// Atomically transitions a job from a claimable status to "running" so two
+// concurrent callers for the same job id (e.g. a fresh route-triggered kickoff
+// racing a startup resume scan) can't both start executing it. Returns
+// whether THIS call won the claim.
+//
+// By default only "queued" is claimable — a job already "running" is assumed
+// to be owned by another in-flight call in this same process. Pass
+// `allowReclaimRunning: true` only from the boot-time resume scan, where a
+// "running" row can only mean the previous process died mid-job and nothing
+// else in the new process could already own it.
+export async function claimJob(
+  jobId: number,
+  type: string,
+  { allowReclaimRunning = false }: { allowReclaimRunning?: boolean } = {}
+): Promise<boolean> {
+  const claimableStatuses = allowReclaimRunning ? ["queued", "running"] : ["queued"];
+  const [claimed] = await db
+    .update(jobsTable)
+    .set({ status: "running" })
+    .where(and(eq(jobsTable.id, jobId), eq(jobsTable.type, type), inArray(jobsTable.status, claimableStatuses)))
+    .returning({ id: jobsTable.id });
+  return Boolean(claimed);
 }
 
 export interface JobTicker {

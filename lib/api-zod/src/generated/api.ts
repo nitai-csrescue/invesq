@@ -892,6 +892,22 @@ export const ListAdminFirmsResponseItem = zod.object({
   slug: zod.string(),
   status: zod.string(),
   companyCount: zod.number(),
+  latestJob: zod
+    .union([
+      zod.object({
+        id: zod.number(),
+        type: zod.string(),
+        targetId: zod.string(),
+        status: zod.string(),
+        progressPct: zod.number(),
+        etaSeconds: zod.number().nullable(),
+        error: zod.string().nullable(),
+      }),
+      zod.null(),
+    ])
+    .describe(
+      "The most recently created job (any status) targeting this firm, or null if none exists.",
+    ),
   createdAt: zod.coerce.date(),
 });
 export const ListAdminFirmsResponse = zod.array(ListAdminFirmsResponseItem);
@@ -945,6 +961,22 @@ export const GetAdminFirmResponse = zod.object({
         ),
     }),
   ),
+  latestJob: zod
+    .union([
+      zod.object({
+        id: zod.number(),
+        type: zod.string(),
+        targetId: zod.string(),
+        status: zod.string(),
+        progressPct: zod.number(),
+        etaSeconds: zod.number().nullable(),
+        error: zod.string().nullable(),
+      }),
+      zod.null(),
+    ])
+    .describe(
+      "The most recently created job (any status) targeting this firm, or null if none exists.",
+    ),
 });
 
 /**
@@ -1030,6 +1062,20 @@ export const GetAdminCompanyReportDataResponse = zod
       p7: zod.string(),
       p8: zod.string(),
     }),
+    evidence: zod
+      .object({
+        p1: zod.string().nullable(),
+        p2: zod.string().nullable(),
+        p3: zod.string().nullable(),
+        p4: zod.string().nullable(),
+        p5: zod.string().nullable(),
+        p6: zod.string().nullable(),
+        p7: zod.string().nullable(),
+        p8: zod.string().nullable(),
+      })
+      .describe(
+        "Per-pillar evidence text Claude produced during scoring (assessments.p{n}Evidence), for admin QA review alongside the scorecard. Null for a pillar with no evidence on file.\n",
+      ),
     composite: zod.number(),
     compositeMax: zod.number(),
     tier: zod.string(),

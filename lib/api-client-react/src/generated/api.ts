@@ -18,6 +18,7 @@ import type {
 
 import type {
   Account,
+  ActiveJobConflict,
   AddAdminCompanyInput,
   AdminCompanyReportData,
   AdminFirmConfirmResult,
@@ -2143,7 +2144,7 @@ export const confirmAdminFirm = async (
 };
 
 export const getConfirmAdminFirmMutationOptions = <
-  TError = ErrorType<ErrorEnvelope>,
+  TError = ErrorType<ErrorEnvelope | ActiveJobConflict>,
   TContext = unknown,
 >(options?: {
   mutation?: UseMutationOptions<
@@ -2184,13 +2185,15 @@ export type ConfirmAdminFirmMutationResult = NonNullable<
   Awaited<ReturnType<typeof confirmAdminFirm>>
 >;
 export type ConfirmAdminFirmMutationBody = BodyType<ConfirmAdminFirmInput>;
-export type ConfirmAdminFirmMutationError = ErrorType<ErrorEnvelope>;
+export type ConfirmAdminFirmMutationError = ErrorType<
+  ErrorEnvelope | ActiveJobConflict
+>;
 
 /**
  * @summary Confirm the reviewed company selection and queue a build job
  */
 export const useConfirmAdminFirm = <
-  TError = ErrorType<ErrorEnvelope>,
+  TError = ErrorType<ErrorEnvelope | ActiveJobConflict>,
   TContext = unknown,
 >(options?: {
   mutation?: UseMutationOptions<

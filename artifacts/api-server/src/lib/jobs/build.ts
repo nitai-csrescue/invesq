@@ -4,7 +4,7 @@ import { PILLARS, scoreToText } from "@workspace/portfolio-engine";
 import { logger } from "../logger.js";
 import { writeDiagnosticToNotion } from "../notion.js";
 import { scoreCompanyPillars, type PillarResult } from "./scoring.js";
-import { createJobTicker } from "./common.js";
+import { claimJob, createJobTicker } from "./common.js";
 import { sendBuildCompleteEmail } from "../email.js";
 
 const PER_COMPANY_TARGET_MS = 90_000;
@@ -73,7 +73,11 @@ async function scoreAndPersistCompany(company: Company, firm: Firm): Promise<Com
 // available when the job is kicked off from an HTTP request (the confirm
 // route); startup-resumed jobs have no request to read it from, so
 // `sendBuildCompleteEmail` falls back to the REPLIT_DOMAINS env var.
-export async function runBuildJob(jobId: number, originHint?: string): Promise<void> {
+export async function runBuildJob(
+  jobId: number,
+  originHint?: string,
+  opts: { allowReclaimRunning?: boolean } = {}
+): Promise<void> {
   const [job] = await db.select().from(jobsTable).where(eq(jobsTable.id, jobId)).limit(1);
   if (!job) {
     logger.error({ jobId }, "runBuildJob: job not found");
@@ -85,6 +89,12 @@ export async function runBuildJob(jobId: number, originHint?: string): Promise<v
   }
   if (job.status === "completed" || job.status === "failed") {
     logger.info({ jobId, status: job.status }, "runBuildJob: job already finished, skipping");
+    return;
+  }
+
+  const claimed = await claimJob(jobId, "build", opts);
+  if (!claimed) {
+    logger.info({ jobId }, "runBuildJob: job already running elsewhere, skipping duplicate run");
     return;
   }
 
@@ -200,7 +210,9 @@ export async function resumeQueuedBuildJobs(): Promise<void> {
 
     for (const job of pending) {
       logger.info({ jobId: job.id }, "Resuming build job from startup scan");
-      void runBuildJob(job.id).catch((err) => logger.error({ err, jobId: job.id }, "Resumed build job crashed"));
+      void runBuildJob(job.id, undefined, { allowReclaimRunning: true }).catch((err) =>
+        logger.error({ err, jobId: job.id }, "Resumed build job crashed"),
+      );
     }
   } catch (err) {
     logger.error({ err }, "Failed to scan for queued build jobs at startup");

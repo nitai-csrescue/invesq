@@ -47,6 +47,27 @@ export interface ErrorEnvelope {
   error: string;
 }
 
+export interface Job {
+  id: number;
+  type: string;
+  targetId: string;
+  status: string;
+  progressPct: number;
+  /** @nullable */
+  etaSeconds: number | null;
+  /** @nullable */
+  error: string | null;
+}
+
+/**
+ * Returned instead of creating a duplicate job when the target already has a queued/running job of the requested type.
+
+ */
+export interface ActiveJobConflict {
+  error: string;
+  job: Job;
+}
+
 export interface CreateAdminFirmInput {
   /** @minLength 1 */
   name: string;
@@ -70,18 +91,6 @@ export interface Firm {
   createdAt: string;
 }
 
-export interface Job {
-  id: number;
-  type: string;
-  targetId: string;
-  status: string;
-  progressPct: number;
-  /** @nullable */
-  etaSeconds: number | null;
-  /** @nullable */
-  error: string | null;
-}
-
 export interface CreateAdminFirmResponse {
   firm: Firm;
   job: Job;
@@ -95,6 +104,8 @@ export interface AdminFirmSummary {
   slug: string;
   status: string;
   companyCount: number;
+  /** The most recently created job (any status) targeting this firm, or null if none exists. */
+  latestJob: Job | null;
   createdAt: string;
 }
 
@@ -124,6 +135,29 @@ export type AdminCompanyReportDataScores = {
 };
 
 /**
+ * Per-pillar evidence text Claude produced during scoring (assessments.p{n}Evidence), for admin QA review alongside the scorecard. Null for a pillar with no evidence on file.
+
+ */
+export type AdminCompanyReportDataEvidence = {
+  /** @nullable */
+  p1: string | null;
+  /** @nullable */
+  p2: string | null;
+  /** @nullable */
+  p3: string | null;
+  /** @nullable */
+  p4: string | null;
+  /** @nullable */
+  p5: string | null;
+  /** @nullable */
+  p6: string | null;
+  /** @nullable */
+  p7: string | null;
+  /** @nullable */
+  p8: string | null;
+};
+
+/**
  * Assembled report-data.json payload for the Diagnostic Report export pattern, sourced from a company's latest assessment. Narrative fields (execSummary, gaps, nextSteps) are left empty since they come from Claude's research, not the raw scoring data.
 
  */
@@ -138,6 +172,9 @@ export interface AdminCompanyReportData {
   /** Date of the source assessment used (ISO date). */
   assessmentDate: string;
   scores: AdminCompanyReportDataScores;
+  /** Per-pillar evidence text Claude produced during scoring (assessments.p{n}Evidence), for admin QA review alongside the scorecard. Null for a pillar with no evidence on file.
+   */
+  evidence: AdminCompanyReportDataEvidence;
   composite: number;
   compositeMax: number;
   tier: string;
@@ -149,6 +186,8 @@ export interface AdminCompanyReportData {
 export interface AdminFirmDetail {
   firm: Firm;
   companies: Company[];
+  /** The most recently created job (any status) targeting this firm, or null if none exists. */
+  latestJob: Job | null;
 }
 
 export interface AddAdminCompanyInput {

@@ -2,7 +2,7 @@ import { and, eq, inArray } from "drizzle-orm";
 import { db, companiesTable, firmsTable, jobsTable, type Firm } from "@workspace/db";
 import { getAnthropicClient, extractText, extractJsonFence } from "../anthropic.js";
 import { logger } from "../logger.js";
-import { createJobTicker } from "./common.js";
+import { claimJob, createJobTicker } from "./common.js";
 
 const DISCOVERY_MODEL = "claude-sonnet-4-6";
 
@@ -116,7 +116,7 @@ async function discoverCandidates(firm: Pick<Firm, "name" | "website">): Promise
 // writes them as `companies` rows with status "candidate", and marks the job
 // completed/failed. Safe to call multiple times for the same job id — it
 // no-ops if the job is already finished.
-export async function runDiscoveryJob(jobId: number): Promise<void> {
+export async function runDiscoveryJob(jobId: number, opts: { allowReclaimRunning?: boolean } = {}): Promise<void> {
   const [job] = await db.select().from(jobsTable).where(eq(jobsTable.id, jobId)).limit(1);
   if (!job) {
     logger.error({ jobId }, "runDiscoveryJob: job not found");
@@ -128,6 +128,12 @@ export async function runDiscoveryJob(jobId: number): Promise<void> {
   }
   if (job.status === "completed" || job.status === "failed") {
     logger.info({ jobId, status: job.status }, "runDiscoveryJob: job already finished, skipping");
+    return;
+  }
+
+  const claimed = await claimJob(jobId, "discovery", opts);
+  if (!claimed) {
+    logger.info({ jobId }, "runDiscoveryJob: job already running elsewhere, skipping duplicate run");
     return;
   }
 
@@ -202,7 +208,7 @@ export async function resumeQueuedDiscoveryJobs(): Promise<void> {
 
     for (const job of pending) {
       logger.info({ jobId: job.id }, "Resuming discovery job from startup scan");
-      void runDiscoveryJob(job.id).catch((err) =>
+      void runDiscoveryJob(job.id, { allowReclaimRunning: true }).catch((err) =>
         logger.error({ err, jobId: job.id }, "Resumed discovery job crashed"),
       );
     }

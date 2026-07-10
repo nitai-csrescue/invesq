@@ -7,8 +7,11 @@
  */
 import type { Company } from "./company";
 import type { Firm } from "./firm";
+import type { Job } from "./job";
 
 export interface AdminFirmDetail {
   firm: Firm;
   companies: Company[];
+  /** The most recently created job (any status) targeting this firm, or null if none exists. */
+  latestJob: Job | null;
 }

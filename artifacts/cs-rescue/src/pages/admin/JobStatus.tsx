@@ -4,25 +4,7 @@ import { PageHeader } from "@/components/cs/PageHeader";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
 import { useGetJob, getGetJobQueryKey } from "@workspace/api-client-react";
-
-const STATUS_STYLES: Record<string, string> = {
-  queued: "border-amber-500/30 bg-amber-500/10 text-amber-300",
-  running: "border-cyan-500/30 bg-cyan-500/10 text-cyan-300",
-  completed: "border-emerald-500/30 bg-emerald-500/10 text-emerald-300",
-  failed: "border-rose-500/30 bg-rose-500/10 text-rose-300",
-};
-
-function statusPillClass(status: string) {
-  return STATUS_STYLES[status] ?? "border-slate-500/30 bg-slate-500/10 text-slate-300";
-}
-
-function formatEta(etaSeconds: number | null): string {
-  if (etaSeconds === null) return "ETA unknown";
-  if (etaSeconds <= 0) return "Finishing up…";
-  if (etaSeconds < 60) return `~${etaSeconds}s remaining`;
-  const minutes = Math.round(etaSeconds / 60);
-  return `~${minutes} min remaining`;
-}
+import { jobStatusPillClass, formatJobEta, isJobActive } from "@/lib/adminJobs";
 
 export default function JobStatus() {
   const [, params] = useRoute("/admin/jobs/:id");
@@ -32,10 +14,7 @@ export default function JobStatus() {
     query: {
       queryKey: getGetJobQueryKey(id),
       enabled: Number.isInteger(id) && id > 0,
-      refetchInterval: (query) => {
-        const status = query.state.data?.status;
-        return status === "completed" || status === "failed" ? false : 4000;
-      },
+      refetchInterval: (query) => (isJobActive(query.state.data) ? 4000 : false),
     },
   });
 
@@ -73,7 +52,7 @@ export default function JobStatus() {
             <div className="flex items-center justify-between">
               <CardTitle className="text-base capitalize">{job.type} job</CardTitle>
               <span
-                className={`inline-flex items-center rounded-full border px-2.5 py-0.5 text-[11px] font-medium capitalize ${statusPillClass(job.status)}`}
+                className={`inline-flex items-center rounded-full border px-2.5 py-0.5 text-[11px] font-medium capitalize ${jobStatusPillClass(job.status)}`}
                 data-testid="text-job-status"
               >
                 {job.status}
@@ -93,7 +72,7 @@ export default function JobStatus() {
 
             <div className="flex items-center gap-1.5 text-sm text-muted-foreground" data-testid="text-job-eta">
               <Timer className="h-3.5 w-3.5" />
-              {formatEta(job.etaSeconds)}
+              {formatJobEta(job.etaSeconds)}
             </div>
 
             <dl className="grid grid-cols-2 gap-x-4 gap-y-1 text-sm text-muted-foreground border-t border-border pt-4">

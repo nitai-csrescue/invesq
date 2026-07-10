@@ -9,6 +9,8 @@ import type {
   AdminFirmSummary,
   Company,
   CreateAdminFirmResponse,
+  Firm,
+  Job,
 } from "@workspace/api-zod";
 import { PILLARS, getTier, textToScore } from "@workspace/portfolio-engine";
 import { runDiscoveryJob } from "../lib/jobs/discovery.js";
@@ -55,6 +57,30 @@ function toCompany(row: typeof companiesTable.$inferSelect, hasAssessment: boole
   };
 }
 
+function toFirmResponse(row: typeof firmsTable.$inferSelect): Firm {
+  return {
+    id: row.id,
+    name: row.name,
+    website: row.website,
+    slug: row.slug,
+    status: row.status,
+    createdByEmail: row.createdByEmail,
+    createdAt: row.createdAt,
+  };
+}
+
+function toJobResponse(row: typeof jobsTable.$inferSelect): Job {
+  return {
+    id: row.id,
+    type: row.type,
+    targetId: row.targetId,
+    status: row.status,
+    progressPct: row.progressPct,
+    etaSeconds: row.etaSeconds,
+    error: row.error,
+  };
+}
+
 async function companiesWithAssessments(companyIds: number[]): Promise<Set<number>> {
   if (companyIds.length === 0) return new Set();
   const rows = await db
@@ -64,7 +90,33 @@ async function companiesWithAssessments(companyIds: number[]): Promise<Set<numbe
   return new Set(rows.map((row) => row.companyId));
 }
 
-// Internal admin firms index: every firm with its current company count.
+// Every "discovery"/"build" job's targetId is a firm id (as text) — the only
+// job types in the system today are both firm-scoped. Loads the single most
+// recently created job (any status) per requested firm id in one query
+// (not N+1), so list/detail admin views can always link to a firm's current
+// job without an extra round trip per row.
+async function getLatestJobsByFirmId(firmIds: number[]): Promise<Map<number, Job>> {
+  if (firmIds.length === 0) return new Map();
+  const targetIds = firmIds.map(String);
+  const rows = await db
+    .select()
+    .from(jobsTable)
+    .where(inArray(jobsTable.targetId, targetIds))
+    .orderBy(desc(jobsTable.createdAt));
+
+  const latestByFirmId = new Map<number, Job>();
+  for (const row of rows) {
+    const firmId = Number(row.targetId);
+    if (!latestByFirmId.has(firmId)) {
+      latestByFirmId.set(firmId, toJobResponse(row));
+    }
+  }
+  return latestByFirmId;
+}
+
+// Internal admin firms index: every firm with its current company count and
+// its latest job (so the list can always link to a firm's current state —
+// in-progress job vs. review screen — without a follow-up request).
 router.get("/firms", async (_req, res) => {
   try {
     const rows = await db
@@ -82,6 +134,8 @@ router.get("/firms", async (_req, res) => {
       .groupBy(firmsTable.id)
       .orderBy(firmsTable.createdAt);
 
+    const latestJobs = await getLatestJobsByFirmId(rows.map((row) => row.id));
+
     const response: AdminFirmSummary[] = rows.map((row) => ({
       id: row.id,
       name: row.name,
@@ -89,6 +143,7 @@ router.get("/firms", async (_req, res) => {
       slug: row.slug,
       status: row.status,
       companyCount: Number(row.companyCount),
+      latestJob: latestJobs.get(row.id) ?? null,
       createdAt: row.createdAt,
     }));
 
@@ -136,24 +191,8 @@ router.post("/firms", async (req, res) => {
     }
 
     const response: CreateAdminFirmResponse = {
-      firm: {
-        id: firm.id,
-        name: firm.name,
-        website: firm.website,
-        slug: firm.slug,
-        status: firm.status,
-        createdByEmail: firm.createdByEmail,
-        createdAt: firm.createdAt,
-      },
-      job: {
-        id: job.id,
-        type: job.type,
-        targetId: job.targetId,
-        status: job.status,
-        progressPct: job.progressPct,
-        etaSeconds: job.etaSeconds,
-        error: job.error,
-      },
+      firm: toFirmResponse(firm),
+      job: toJobResponse(job),
     };
 
     res.status(201).json(response);
@@ -195,18 +234,12 @@ router.get("/firms/:id", async (req, res) => {
       .orderBy(companiesTable.id);
 
     const assessed = await companiesWithAssessments(companies.map((c) => c.id));
+    const latestJobs = await getLatestJobsByFirmId([id]);
 
     const response: AdminFirmDetail = {
-      firm: {
-        id: firm.id,
-        name: firm.name,
-        website: firm.website,
-        slug: firm.slug,
-        status: firm.status,
-        createdByEmail: firm.createdByEmail,
-        createdAt: firm.createdAt,
-      },
+      firm: toFirmResponse(firm),
       companies: companies.map((company) => toCompany(company, assessed.has(company.id))),
+      latestJob: latestJobs.get(id) ?? null,
     };
 
     res.json(response);
@@ -277,6 +310,30 @@ router.post("/firms/:id/confirm", async (req, res) => {
       return;
     }
 
+    // Guard against duplicate build jobs: "Confirm & queue build" can be
+    // clicked again for a firm that already has one in flight (double
+    // click, or navigating back to an already-reviewed firm). The unique
+    // partial index on jobs(type, target_id) for queued/running rows is the
+    // hard backstop for a genuine race between two concurrent requests; this
+    // check is what turns that race into a clean 409 instead of a 500 in the
+    // common case.
+    const [activeBuildJob] = await db
+      .select()
+      .from(jobsTable)
+      .where(
+        and(eq(jobsTable.type, "build"), eq(jobsTable.targetId, String(id)), inArray(jobsTable.status, ["queued", "running"]))
+      )
+      .orderBy(desc(jobsTable.createdAt))
+      .limit(1);
+
+    if (activeBuildJob) {
+      res.status(409).json({
+        error: "A build job for this firm is already in progress.",
+        job: toJobResponse(activeBuildJob),
+      });
+      return;
+    }
+
     const { companyIds } = parsed.data;
 
     if (companyIds.length > 0) {
@@ -304,38 +361,47 @@ router.post("/firms/:id/confirm", async (req, res) => {
       throw new Error("Firm update returned no row");
     }
 
-    const [job] = await db
-      .insert(jobsTable)
-      .values({
-        type: "build",
-        targetId: String(id),
-        status: "queued",
-      })
-      .returning();
+    let job: typeof jobsTable.$inferSelect;
+    try {
+      const [inserted] = await db
+        .insert(jobsTable)
+        .values({
+          type: "build",
+          targetId: String(id),
+          status: "queued",
+        })
+        .returning();
 
-    if (!job) {
-      throw new Error("Job insert returned no row");
+      if (!inserted) {
+        throw new Error("Job insert returned no row");
+      }
+      job = inserted;
+    } catch (err) {
+      // Backstop for the rare race where two concurrent confirm requests
+      // both pass the activeBuildJob check above before either inserts: the
+      // partial unique index on jobs(type, target_id) rejects the second
+      // insert, and we turn that into the same 409 shape instead of a 500.
+      if ((err as { code?: string }).code === "23505") {
+        const [active] = await db
+          .select()
+          .from(jobsTable)
+          .where(
+            and(eq(jobsTable.type, "build"), eq(jobsTable.targetId, String(id)), inArray(jobsTable.status, ["queued", "running"]))
+          )
+          .orderBy(desc(jobsTable.createdAt))
+          .limit(1);
+        res.status(409).json({
+          error: "A build job for this firm is already in progress.",
+          job: active ? toJobResponse(active) : null,
+        });
+        return;
+      }
+      throw err;
     }
 
     const response: AdminFirmConfirmResult = {
-      firm: {
-        id: updatedFirm.id,
-        name: updatedFirm.name,
-        website: updatedFirm.website,
-        slug: updatedFirm.slug,
-        status: updatedFirm.status,
-        createdByEmail: updatedFirm.createdByEmail,
-        createdAt: updatedFirm.createdAt,
-      },
-      job: {
-        id: job.id,
-        type: job.type,
-        targetId: job.targetId,
-        status: job.status,
-        progressPct: job.progressPct,
-        etaSeconds: job.etaSeconds,
-        error: job.error,
-      },
+      firm: toFirmResponse(updatedFirm),
+      job: toJobResponse(job),
     };
 
     res.json(response);
@@ -399,6 +465,17 @@ router.get("/companies/:id/report-data", async (req, res) => {
       p8: assessment.p8,
     };
 
+    const evidence = {
+      p1: assessment.p1Evidence,
+      p2: assessment.p2Evidence,
+      p3: assessment.p3Evidence,
+      p4: assessment.p4Evidence,
+      p5: assessment.p5Evidence,
+      p6: assessment.p6Evidence,
+      p7: assessment.p7Evidence,
+      p8: assessment.p8Evidence,
+    };
+
     const pillarScores = Object.fromEntries(
       PILLARS.map((pillar, index) => {
         const key = `p${index + 1}` as keyof typeof scores;
@@ -432,6 +509,16 @@ router.get("/companies/:id/report-data", async (req, res) => {
         p6: scores.p6 ?? "NA",
         p7: scores.p7 ?? "NA",
         p8: scores.p8 ?? "NA",
+      },
+      evidence: {
+        p1: evidence.p1 ?? null,
+        p2: evidence.p2 ?? null,
+        p3: evidence.p3 ?? null,
+        p4: evidence.p4 ?? null,
+        p5: evidence.p5 ?? null,
+        p6: evidence.p6 ?? null,
+        p7: evidence.p7 ?? null,
+        p8: evidence.p8 ?? null,
       },
       composite,
       compositeMax,

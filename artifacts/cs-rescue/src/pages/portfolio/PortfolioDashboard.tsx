@@ -1077,6 +1077,20 @@ function FirmNotFound() {
   );
 }
 
+function FirmDataUnavailable() {
+  return (
+    <div className="flex min-h-screen items-center justify-center bg-background text-foreground">
+      <div className="text-center">
+        <div className="text-6xl font-bold text-muted-foreground/30">···</div>
+        <h1 className="mt-4 text-lg font-semibold text-foreground">Portfolio data unavailable</h1>
+        <p className="mt-2 text-sm text-muted-foreground">
+          This firm's diagnostic data hasn't been loaded yet. Please check back shortly.
+        </p>
+      </div>
+    </div>
+  );
+}
+
 export default function PortfolioDashboard() {
   const [, params] = useRoute("/:firmSlug/portfolio");
   const firmSlug = params?.firmSlug ?? "";
@@ -1085,7 +1099,10 @@ export default function PortfolioDashboard() {
   if (!firm) return <FirmNotFound />;
 
   const companies = getFirmCompanies(firmSlug);
-  const summary = getFirmSummary(firmSlug)!;
+  const summary = getFirmSummary(firmSlug);
+
+  if (!summary) return <FirmDataUnavailable />;
+
   const { tierCounts } = summary;
   const maxTierCount = Math.max(...tierCounts.map((t) => t.count), 1);
 

@@ -1,11 +1,12 @@
 import { useEffect, useState } from "react";
 import { useRoute, useLocation, Link } from "wouter";
-import { Loader2, PlusCircle, CheckCircle2, Mail } from "lucide-react";
+import { Loader2, PlusCircle, CheckCircle2, XCircle, Mail, Search, Lightbulb, ArrowRight } from "lucide-react";
 import { PageHeader } from "@/components/cs/PageHeader";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
+import { Progress } from "@/components/ui/progress";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { useToast } from "@/hooks/use-toast";
 import {
@@ -13,8 +14,11 @@ import {
   useAddAdminFirmCompany,
   useConfirmAdminFirm,
   getGetAdminFirmQueryKey,
+  ApiError,
+  type ActiveJobConflict,
 } from "@workspace/api-client-react";
 import { useQueryClient } from "@tanstack/react-query";
+import { formatJobEta, isJobActive } from "@/lib/adminJobs";
 import ExportPanel from "./ExportPanel";
 
 export default function FirmReview() {
@@ -25,13 +29,21 @@ export default function FirmReview() {
   const queryClient = useQueryClient();
 
   const { data, isLoading, isError } = useGetAdminFirm(id, {
-    query: { queryKey: getGetAdminFirmQueryKey(id), enabled: Number.isInteger(id) && id > 0 },
+    query: {
+      queryKey: getGetAdminFirmQueryKey(id),
+      enabled: Number.isInteger(id) && id > 0,
+      // Keep polling while this firm has a discovery or build job still in
+      // flight, so the review screen (and the "N companies found" / "ready"
+      // banners below) update on their own without a manual refresh.
+      refetchInterval: (query) => (isJobActive(query.state.data?.latestJob) ? 4000 : false),
+    },
   });
 
   const [selected, setSelected] = useState<Set<number>>(new Set());
   const [initialized, setInitialized] = useState(false);
   const [newName, setNewName] = useState("");
   const [newWebsite, setNewWebsite] = useState("");
+  const [duplicateJobNotice, setDuplicateJobNotice] = useState<ActiveJobConflict | null>(null);
 
   useEffect(() => {
     if (data && !initialized) {
@@ -69,6 +81,16 @@ export default function FirmReview() {
         navigate(`/admin/jobs/${result.job.id}`);
       },
       onError: (err) => {
+        if (err instanceof ApiError && err.status === 409 && err.data) {
+          const conflict = err.data as ActiveJobConflict;
+          setDuplicateJobNotice(conflict);
+          toast({
+            title: "Build already in progress",
+            description: "This firm already has a build job running — showing its status below instead.",
+            variant: "destructive",
+          });
+          return;
+        }
         toast({
           title: "Failed to confirm firm",
           description: err instanceof Error ? err.message : "Unexpected error",
@@ -96,6 +118,7 @@ export default function FirmReview() {
   };
 
   const handleConfirm = () => {
+    setDuplicateJobNotice(null);
     confirmFirm.mutate({ id, data: { companyIds: Array.from(selected) } });
   };
 
@@ -118,7 +141,13 @@ export default function FirmReview() {
     );
   }
 
-  const { firm, companies } = data;
+  const { firm, companies, latestJob } = data;
+  const discoveryDone = latestJob?.type === "discovery" && latestJob.status === "completed";
+  const discoveryRunning = latestJob?.type === "discovery" && isJobActive(latestJob);
+  const discoveryFailed = latestJob?.type === "discovery" && latestJob.status === "failed";
+  const buildRunning = latestJob?.type === "build" && isJobActive(latestJob);
+  const buildFailed = latestJob?.type === "build" && latestJob.status === "failed";
+  const conflictJob = duplicateJobNotice?.job ?? null;
 
   return (
     <div className="p-6 max-w-[900px] mx-auto" data-testid="admin-firm-review-page">
@@ -133,7 +162,91 @@ export default function FirmReview() {
         }
       />
 
-      {firm.status === "ready" && (
+      {conflictJob && (
+        <div
+          className="mb-6 flex items-center justify-between gap-3 rounded-md border border-amber-500/30 bg-amber-500/10 px-4 py-3"
+          data-testid="banner-build-conflict"
+        >
+          <p className="flex items-center gap-2 text-sm text-amber-300">
+            <Loader2 className="h-4 w-4 shrink-0 animate-spin" />
+            A build is already in progress for this firm (job #{conflictJob.id}, {conflictJob.progressPct}%). Wait for
+            it to finish before confirming again.
+          </p>
+          <Link
+            href={`/admin/jobs/${conflictJob.id}`}
+            className="whitespace-nowrap text-xs text-amber-300 hover:underline"
+            data-testid="link-conflict-job"
+          >
+            View job <ArrowRight className="inline h-3 w-3" />
+          </Link>
+        </div>
+      )}
+
+      {!conflictJob && discoveryRunning && (
+        <div className="mb-6 rounded-md border border-cyan-500/30 bg-cyan-500/10 px-4 py-3" data-testid="banner-discovery-running">
+          <p className="flex items-center gap-2 text-sm text-cyan-300">
+            <Search className="h-4 w-4 shrink-0 animate-pulse" />
+            Discovering this firm's real portfolio via web search…
+          </p>
+          <div className="mt-2 flex items-center gap-3">
+            <Progress value={latestJob.progressPct} className="h-1.5 flex-1" />
+            <span className="whitespace-nowrap text-xs text-cyan-300/80">{formatJobEta(latestJob.etaSeconds)}</span>
+          </div>
+          <p className="mt-1 text-[11px] text-cyan-300/70">
+            This page updates automatically as companies are found — no need to refresh.
+          </p>
+        </div>
+      )}
+
+      {!conflictJob && discoveryFailed && (
+        <div
+          className="mb-6 flex items-center gap-2 rounded-md border border-rose-500/30 bg-rose-500/10 px-4 py-3 text-sm text-rose-300"
+          data-testid="banner-discovery-failed"
+        >
+          <XCircle className="h-4 w-4 shrink-0" />
+          Discovery failed{latestJob?.error ? `: ${latestJob.error}` : "."} You can still add companies manually below.
+        </div>
+      )}
+
+      {!conflictJob && discoveryDone && firm.status === "pending" && (
+        <div
+          className="mb-6 flex items-center gap-2 rounded-md border border-emerald-500/30 bg-emerald-500/10 px-4 py-3 text-sm text-emerald-300"
+          data-testid="banner-discovery-found"
+        >
+          <CheckCircle2 className="h-4 w-4 shrink-0" />
+          Discovery found {companies.length} compan{companies.length === 1 ? "y" : "ies"}. Review the list below,
+          adjust selections, then confirm to kick off the diagnostic build.
+        </div>
+      )}
+
+      {!conflictJob && buildRunning && (
+        <div className="mb-6 rounded-md border border-cyan-500/30 bg-cyan-500/10 px-4 py-3" data-testid="banner-build-running">
+          <p className="flex items-center gap-2 text-sm text-cyan-300">
+            <Loader2 className="h-4 w-4 shrink-0 animate-spin" />
+            Diagnostic build in progress — scoring active companies across all 8 pillars…
+          </p>
+          <div className="mt-2 flex items-center gap-3">
+            <Progress value={latestJob.progressPct} className="h-1.5 flex-1" />
+            <span className="whitespace-nowrap text-xs text-cyan-300/80">{formatJobEta(latestJob.etaSeconds)}</span>
+          </div>
+          <Link href={`/admin/jobs/${latestJob.id}`} className="mt-1 inline-block text-[11px] text-cyan-300/70 hover:underline">
+            View job #{latestJob.id} →
+          </Link>
+        </div>
+      )}
+
+      {!conflictJob && buildFailed && (
+        <div
+          className="mb-6 flex items-center gap-2 rounded-md border border-rose-500/30 bg-rose-500/10 px-4 py-3 text-sm text-rose-300"
+          data-testid="banner-build-failed"
+        >
+          <XCircle className="h-4 w-4 shrink-0" />
+          Diagnostic build failed{latestJob?.error ? `: ${latestJob.error}` : "."} Adjust the selection and confirm
+          again to retry.
+        </div>
+      )}
+
+      {!conflictJob && firm.status === "ready" && (
         <div
           className="mb-6 flex items-center justify-between gap-3 rounded-md border border-emerald-500/30 bg-emerald-500/10 px-4 py-3"
           data-testid="banner-firm-ready"
@@ -188,6 +301,11 @@ export default function FirmReview() {
             <p className="text-sm font-medium text-foreground flex items-center gap-1.5">
               <PlusCircle className="h-3.5 w-3.5 text-primary" /> Add a company
             </p>
+            <p className="flex items-start gap-1.5 text-xs text-muted-foreground" data-testid="text-add-company-hint">
+              <Lightbulb className="h-3.5 w-3.5 shrink-0 mt-0.5 text-amber-400/80" />
+              Discovery only lists holdings it can verify via web search — if a known portfolio company is missing,
+              add it here manually and it'll be included the next time you confirm.
+            </p>
             <div className="grid gap-3 sm:grid-cols-2">
               <div className="space-y-1.5">
                 <Label htmlFor="company-name">Company name</Label>
@@ -225,9 +343,13 @@ export default function FirmReview() {
         <p className="text-sm text-muted-foreground">
           {selected.size} of {companies.length} compan{companies.length === 1 ? "y" : "ies"} selected
         </p>
-        <Button onClick={handleConfirm} disabled={confirmFirm.isPending} data-testid="button-confirm-firm">
+        <Button
+          onClick={handleConfirm}
+          disabled={confirmFirm.isPending || buildRunning || !!conflictJob}
+          data-testid="button-confirm-firm"
+        >
           {confirmFirm.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <CheckCircle2 className="h-4 w-4" />}
-          Confirm & queue build
+          {buildRunning || conflictJob ? "Build in progress…" : "Confirm & queue build"}
         </Button>
       </div>
 

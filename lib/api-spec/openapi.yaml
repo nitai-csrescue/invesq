@@ -560,6 +560,12 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/ErrorEnvelope"
+        "409":
+          description: A build job for this firm is already queued or running
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ActiveJobConflict"
 
   /admin/companies/{id}/report-data:
     get:
@@ -814,6 +820,18 @@ components:
         error:
           type: string
 
+    ActiveJobConflict:
+      type: object
+      description: >
+        Returned instead of creating a duplicate job when the target already
+        has a queued/running job of the requested type.
+      required: [error, job]
+      properties:
+        error:
+          type: string
+        job:
+          $ref: "#/components/schemas/Job"
+
     CreateAdminFirmInput:
       type: object
       required: [name, website]
@@ -880,7 +898,7 @@ components:
 
     AdminFirmSummary:
       type: object
-      required: [id, name, website, slug, status, companyCount, createdAt]
+      required: [id, name, website, slug, status, companyCount, createdAt, latestJob]
       properties:
         id:
           type: integer
@@ -894,6 +912,11 @@ components:
           type: string
         companyCount:
           type: integer
+        latestJob:
+          description: The most recently created job (any status) targeting this firm, or null if none exists.
+          oneOf:
+            - $ref: "#/components/schemas/Job"
+            - type: "null"
         createdAt:
           type: string
           format: date-time
@@ -938,6 +961,7 @@ components:
           reportDate,
           assessmentDate,
           scores,
+          evidence,
           composite,
           compositeMax,
           tier,
@@ -982,6 +1006,30 @@ components:
               type: string
             p8:
               type: string
+        evidence:
+          type: object
+          description: >
+            Per-pillar evidence text Claude produced during scoring
+            (assessments.p{n}Evidence), for admin QA review alongside the
+            scorecard. Null for a pillar with no evidence on file.
+          required: [p1, p2, p3, p4, p5, p6, p7, p8]
+          properties:
+            p1:
+              type: [string, "null"]
+            p2:
+              type: [string, "null"]
+            p3:
+              type: [string, "null"]
+            p4:
+              type: [string, "null"]
+            p5:
+              type: [string, "null"]
+            p6:
+              type: [string, "null"]
+            p7:
+              type: [string, "null"]
+            p8:
+              type: [string, "null"]
         composite:
           type: number
         compositeMax:
@@ -999,7 +1047,7 @@ components:
 
     AdminFirmDetail:
       type: object
-      required: [firm, companies]
+      required: [firm, companies, latestJob]
       properties:
         firm:
           $ref: "#/components/schemas/Firm"
@@ -1007,6 +1055,11 @@ components:
           type: array
           items:
             $ref: "#/components/schemas/Company"
+        latestJob:
+          description: The most recently created job (any status) targeting this firm, or null if none exists.
+          oneOf:
+            - $ref: "#/components/schemas/Job"
+            - type: "null"
 
     AddAdminCompanyInput:
       type: object

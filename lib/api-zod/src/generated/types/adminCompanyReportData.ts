@@ -5,6 +5,7 @@
  * CS Rescue API specification
  * OpenAPI spec version: 0.1.0
  */
+import type { AdminCompanyReportDataEvidence } from "./adminCompanyReportDataEvidence";
 import type { AdminCompanyReportDataScores } from "./adminCompanyReportDataScores";
 
 /**
@@ -22,6 +23,9 @@ export interface AdminCompanyReportData {
   /** Date of the source assessment used (ISO date). */
   assessmentDate: string;
   scores: AdminCompanyReportDataScores;
+  /** Per-pillar evidence text Claude produced during scoring (assessments.p{n}Evidence), for admin QA review alongside the scorecard. Null for a pillar with no evidence on file.
+   */
+  evidence: AdminCompanyReportDataEvidence;
   composite: number;
   compositeMax: number;
   tier: string;
