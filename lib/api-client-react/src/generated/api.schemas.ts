@@ -123,7 +123,34 @@ export interface Company {
   hasAssessment: boolean;
 }
 
-export type AdminCompanyReportDataScores = {
+export type AdminCompanyReportDataMeta = {
+  companyId: number;
+  /** Date of the source assessment used (ISO date). */
+  assessmentDate: string;
+  composite: number;
+  compositeMax: number;
+  tier: string;
+};
+
+/**
+ * Raw pillar scores 0/1/2, or "NA" for Insufficient Data.
+ */
+export type DiagnosticReportDataScores = {
+  p1: number | string;
+  p2: number | string;
+  p3: number | string;
+  p4: number | string;
+  p5: number | string;
+  p6: number | string;
+  p7: number | string;
+  p8: number | string;
+};
+
+/**
+ * One-line "what the signals show" per pillar (scorecard column). Left "" when no data beyond the raw score is on file.
+
+ */
+export type DiagnosticReportDataPillarSignals = {
   p1: string;
   p2: string;
   p3: string;
@@ -135,52 +162,67 @@ export type AdminCompanyReportDataScores = {
 };
 
 /**
- * Per-pillar evidence text Claude produced during scoring (assessments.p{n}Evidence), for admin QA review alongside the scorecard. Null for a pillar with no evidence on file.
+ * Longer pillar-by-pillar narrative Claude produced during scoring (assessments.p{n}Evidence). Left "" when no evidence is on file.
 
  */
-export type AdminCompanyReportDataEvidence = {
-  /** @nullable */
-  p1: string | null;
-  /** @nullable */
-  p2: string | null;
-  /** @nullable */
-  p3: string | null;
-  /** @nullable */
-  p4: string | null;
-  /** @nullable */
-  p5: string | null;
-  /** @nullable */
-  p6: string | null;
-  /** @nullable */
-  p7: string | null;
-  /** @nullable */
-  p8: string | null;
+export type DiagnosticReportDataPillarEvidence = {
+  p1: string;
+  p2: string;
+  p3: string;
+  p4: string;
+  p5: string;
+  p6: string;
+  p7: string;
+  p8: string;
+};
+
+export type DiagnosticReportDataGapsItem = {
+  title: string;
+  description: string;
+  impact: string;
+  recommendation: string;
 };
 
 /**
- * Assembled report-data.json payload for the Diagnostic Report export pattern, sourced from a company's latest assessment. Narrative fields (execSummary, gaps, nextSteps) are left empty since they come from Claude's research, not the raw scoring data.
+ * Exact shape of report-data.json per the Notion scoring rubric's Step 7 ("Producing the Branded Client PDF"). Fields with no real data yet are left as "" / [] — the branded report template treats a blank field as an accepted, designed fallback (a neutral placeholder), not an error.
 
  */
-export interface AdminCompanyReportData {
-  companyId: number;
+export interface DiagnosticReportData {
   companyName: string;
   parentFund: string;
   preparedForName: string;
   preparedForTitle: string;
   /** Date this report-data.json was assembled (ISO date). */
   reportDate: string;
-  /** Date of the source assessment used (ISO date). */
-  assessmentDate: string;
-  scores: AdminCompanyReportDataScores;
-  /** Per-pillar evidence text Claude produced during scoring (assessments.p{n}Evidence), for admin QA review alongside the scorecard. Null for a pillar with no evidence on file.
+  csHeadcount: string;
+  /** One string per paragraph. */
+  execSummary: string[];
+  compositeContext: string;
+  existingSystems: string;
+  pathForward: string;
+  /** Raw pillar scores 0/1/2, or "NA" for Insufficient Data. */
+  scores: DiagnosticReportDataScores;
+  /** One-line "what the signals show" per pillar (scorecard column). Left "" when no data beyond the raw score is on file.
    */
-  evidence: AdminCompanyReportDataEvidence;
-  composite: number;
-  compositeMax: number;
-  tier: string;
-  execSummary: string;
-  gaps: string[];
-  nextSteps: string;
+  pillarSignals: DiagnosticReportDataPillarSignals;
+  /** Longer pillar-by-pillar narrative Claude produced during scoring (assessments.p{n}Evidence). Left "" when no evidence is on file.
+   */
+  pillarEvidence: DiagnosticReportDataPillarEvidence;
+  /** Derived from the p6 (CS Leadership) score: 2 = "Retain and Develop", 1 = "Augment", 0 = "Replace". Empty if p6 is "NA".
+   */
+  p6Recommendation: string;
+  /** Top 3 identified gaps (the three lowest-scoring pillars). */
+  gaps: DiagnosticReportDataGapsItem[];
+  nextSteps: string[];
+}
+
+/**
+ * Assembled report-data.json export payload for the Diagnostic Report pattern. `reportData` matches the external report-data.json schema (Notion: "External CS Diagnostic — Scoring Rubric & Cowork Instructions", Step 7) field-for-field, so it is safe to copy verbatim into the Claude design-file prompt. `meta` carries admin-only context (assessment provenance, derived composite/tier) that must NOT be included in the exported JSON.
+
+ */
+export interface AdminCompanyReportData {
+  reportData: DiagnosticReportData;
+  meta: AdminCompanyReportDataMeta;
 }
 
 export interface AdminFirmDetail {

@@ -9,6 +9,7 @@ import type {
   AdminFirmSummary,
   Company,
   CreateAdminFirmResponse,
+  DiagnosticReportData,
   Firm,
   Job,
   SeedLegacyTenantsResult,
@@ -429,9 +430,14 @@ router.post("/firms/:id/confirm", async (req, res) => {
 });
 
 // Assembles the report-data.json export payload (Diagnostic Report runbook)
-// from a company's latest assessment: raw p1-p8 scores plus derived
-// composite/tier. Narrative fields (execSummary, gaps, nextSteps) are left
-// empty — those come from Claude's research, not this endpoint.
+// from a company's latest assessment. `reportData` matches the Notion
+// Step-7 schema field-for-field; fields this app has no data source for yet
+// (execSummary, compositeContext, existingSystems, pathForward, csHeadcount,
+// pillarSignals, per-gap impact/recommendation) are left as their neutral
+// placeholder ("" / []) for Claude's research to fill in later — that's the
+// schema's own designed fallback, not missing data. `meta` carries
+// admin-only provenance/derived fields and must never be copied into the
+// exported JSON itself.
 router.get("/companies/:id/report-data", async (req, res) => {
   const id = Number(req.params.id);
   if (!Number.isInteger(id) || id <= 0) {
@@ -485,11 +491,10 @@ router.get("/companies/:id/report-data", async (req, res) => {
       p8: assessment.p8Evidence,
     };
 
+    const pillarKeys = PILLARS.map((_, index) => `p${index + 1}` as keyof typeof scores);
+
     const pillarScores = Object.fromEntries(
-      PILLARS.map((pillar, index) => {
-        const key = `p${index + 1}` as keyof typeof scores;
-        return [pillar.id, textToScore(scores[key])];
-      })
+      PILLARS.map((pillar, index) => [pillar.id, textToScore(scores[pillarKeys[index]])])
     );
 
     const scoredPillars = PILLARS.filter((p) => pillarScores[p.id] !== null);
@@ -501,40 +506,89 @@ router.get("/companies/:id/report-data", async (req, res) => {
     }, 0);
     const tier = getTier(tierComposite);
 
-    const response: AdminCompanyReportData = {
-      companyId: company.id,
+    // report-data.json scores are raw numbers 0/1/2, or the literal "NA" for
+    // Insufficient Data — never the stringified "0"/"1"/"2" the DB stores.
+    const reportScores = Object.fromEntries(
+      PILLARS.map((pillar, index) => {
+        const score = pillarScores[pillar.id];
+        return [pillarKeys[index], score === null ? "NA" : score];
+      })
+    ) as DiagnosticReportData["scores"];
+
+    // Blank ("") is the schema's own designed fallback for a pillar with no
+    // narrative on file — never null, per the Notion Step-7 spec.
+    const reportEvidence = Object.fromEntries(
+      PILLARS.map((pillar, index) => [pillarKeys[index], evidence[pillarKeys[index]] ?? ""])
+    ) as DiagnosticReportData["pillarEvidence"];
+
+    // pillarSignals (the short one-line "what the signals show" per pillar)
+    // has no data source anywhere in this app yet — every build job only
+    // ever captured the longer evidence narrative. Left blank until
+    // scoring.ts is extended to also produce it.
+    const reportSignals = Object.fromEntries(
+      PILLARS.map((pillar, index) => [pillarKeys[index], ""])
+    ) as DiagnosticReportData["pillarSignals"];
+
+    // P6 (CS Leadership) recommendation is fully derivable from its score —
+    // no new research needed.
+    const leadershipIndex = PILLARS.findIndex((p) => p.id === "leadership");
+    const p6Score = leadershipIndex >= 0 ? pillarScores[PILLARS[leadershipIndex].id] : null;
+    const p6Evidence = leadershipIndex >= 0 ? evidence[pillarKeys[leadershipIndex]] : null;
+    const p6Label = p6Score === 2 ? "Retain and Develop" : p6Score === 1 ? "Augment" : p6Score === 0 ? "Replace" : "";
+    const p6Recommendation = p6Label
+      ? p6Evidence
+        ? `${p6Label} — ${p6Evidence}`
+        : p6Label
+      : "";
+
+    // Top 3 Identified Gaps = the three lowest-scoring pillars (NA treated
+    // as the tier-composite substitution value of 1, same rule used for the
+    // tier itself, so a pillar we simply don't know about isn't
+    // automatically flagged as the worst gap). Ties keep PILLARS order.
+    const gaps = [...PILLARS]
+      .map((pillar, index) => ({
+        pillar,
+        index,
+        effectiveScore: pillarScores[pillar.id] === null ? 1 : (pillarScores[pillar.id] as number),
+        evidenceText: evidence[pillarKeys[index]],
+      }))
+      .sort((a, b) => a.effectiveScore - b.effectiveScore || a.index - b.index)
+      .slice(0, 3)
+      .map(({ pillar, evidenceText }) => ({
+        title: pillar.name,
+        description: evidenceText ?? pillar.gapNote,
+        impact: "",
+        recommendation: "",
+      }));
+
+    const reportData: DiagnosticReportData = {
       companyName: company.name,
       parentFund: firm.name,
       preparedForName: "",
       preparedForTitle: "",
       reportDate: new Date().toISOString().slice(0, 10),
-      assessmentDate: assessment.date,
-      scores: {
-        p1: scores.p1 ?? "NA",
-        p2: scores.p2 ?? "NA",
-        p3: scores.p3 ?? "NA",
-        p4: scores.p4 ?? "NA",
-        p5: scores.p5 ?? "NA",
-        p6: scores.p6 ?? "NA",
-        p7: scores.p7 ?? "NA",
-        p8: scores.p8 ?? "NA",
+      csHeadcount: "",
+      execSummary: [],
+      compositeContext: "",
+      existingSystems: "",
+      pathForward: "",
+      scores: reportScores,
+      pillarSignals: reportSignals,
+      pillarEvidence: reportEvidence,
+      p6Recommendation,
+      gaps,
+      nextSteps: [],
+    };
+
+    const response: AdminCompanyReportData = {
+      reportData,
+      meta: {
+        companyId: company.id,
+        assessmentDate: assessment.date,
+        composite,
+        compositeMax,
+        tier: `Tier ${tier.id} · ${tier.label}`,
       },
-      evidence: {
-        p1: evidence.p1 ?? null,
-        p2: evidence.p2 ?? null,
-        p3: evidence.p3 ?? null,
-        p4: evidence.p4 ?? null,
-        p5: evidence.p5 ?? null,
-        p6: evidence.p6 ?? null,
-        p7: evidence.p7 ?? null,
-        p8: evidence.p8 ?? null,
-      },
-      composite,
-      compositeMax,
-      tier: `Tier ${tier.id} · ${tier.label}`,
-      execSummary: "",
-      gaps: [],
-      nextSteps: "",
     };
 
     res.json(response);

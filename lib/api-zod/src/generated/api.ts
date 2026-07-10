@@ -1031,7 +1031,7 @@ export const ConfirmAdminFirmResponse = zod.object({
 });
 
 /**
- * Builds the report-data.json object for the Diagnostic Report export runbook from the company's most recent assessment: raw p1-p8 scores, derived composite/tier, and firm name as parentFund. Narrative fields (execSummary, gaps, nextSteps) are left empty for Claude's research to fill in later.
+ * Builds the report-data.json object for the Diagnostic Report export runbook from the company's most recent assessment: raw p1-p8 scores, derived composite/tier, and firm name as parentFund. Fields that require dedicated research not yet captured anywhere in this app's data (execSummary, compositeContext, existingSystems, pathForward, pillarSignals, csHeadcount, gap impact/recommendation) are left as their neutral placeholder ("" or []) for Claude's research to fill in later — this is the schema's own designed fallback, not missing data.
 
  * @summary Assemble the report-data.json export payload from a company's latest assessment
  */
@@ -1041,50 +1041,98 @@ export const GetAdminCompanyReportDataParams = zod.object({
 
 export const GetAdminCompanyReportDataResponse = zod
   .object({
-    companyId: zod.number(),
-    companyName: zod.string(),
-    parentFund: zod.string(),
-    preparedForName: zod.string(),
-    preparedForTitle: zod.string(),
-    reportDate: zod
-      .string()
-      .describe("Date this report-data.json was assembled (ISO date)."),
-    assessmentDate: zod
-      .string()
-      .describe("Date of the source assessment used (ISO date)."),
-    scores: zod.object({
-      p1: zod.string(),
-      p2: zod.string(),
-      p3: zod.string(),
-      p4: zod.string(),
-      p5: zod.string(),
-      p6: zod.string(),
-      p7: zod.string(),
-      p8: zod.string(),
-    }),
-    evidence: zod
+    reportData: zod
       .object({
-        p1: zod.string().nullable(),
-        p2: zod.string().nullable(),
-        p3: zod.string().nullable(),
-        p4: zod.string().nullable(),
-        p5: zod.string().nullable(),
-        p6: zod.string().nullable(),
-        p7: zod.string().nullable(),
-        p8: zod.string().nullable(),
+        companyName: zod.string(),
+        parentFund: zod.string(),
+        preparedForName: zod.string(),
+        preparedForTitle: zod.string(),
+        reportDate: zod
+          .string()
+          .describe("Date this report-data.json was assembled (ISO date)."),
+        csHeadcount: zod.string(),
+        execSummary: zod
+          .array(zod.string())
+          .describe("One string per paragraph."),
+        compositeContext: zod.string(),
+        existingSystems: zod.string(),
+        pathForward: zod.string(),
+        scores: zod
+          .object({
+            p1: zod.union([zod.number(), zod.string()]),
+            p2: zod.union([zod.number(), zod.string()]),
+            p3: zod.union([zod.number(), zod.string()]),
+            p4: zod.union([zod.number(), zod.string()]),
+            p5: zod.union([zod.number(), zod.string()]),
+            p6: zod.union([zod.number(), zod.string()]),
+            p7: zod.union([zod.number(), zod.string()]),
+            p8: zod.union([zod.number(), zod.string()]),
+          })
+          .describe(
+            'Raw pillar scores 0\/1\/2, or \"NA\" for Insufficient Data.',
+          ),
+        pillarSignals: zod
+          .object({
+            p1: zod.string(),
+            p2: zod.string(),
+            p3: zod.string(),
+            p4: zod.string(),
+            p5: zod.string(),
+            p6: zod.string(),
+            p7: zod.string(),
+            p8: zod.string(),
+          })
+          .describe(
+            'One-line \"what the signals show\" per pillar (scorecard column). Left \"\" when no data beyond the raw score is on file.\n',
+          ),
+        pillarEvidence: zod
+          .object({
+            p1: zod.string(),
+            p2: zod.string(),
+            p3: zod.string(),
+            p4: zod.string(),
+            p5: zod.string(),
+            p6: zod.string(),
+            p7: zod.string(),
+            p8: zod.string(),
+          })
+          .describe(
+            'Longer pillar-by-pillar narrative Claude produced during scoring (assessments.p{n}Evidence). Left \"\" when no evidence is on file.\n',
+          ),
+        p6Recommendation: zod
+          .string()
+          .describe(
+            'Derived from the p6 (CS Leadership) score: 2 = \"Retain and Develop\", 1 = \"Augment\", 0 = \"Replace\". Empty if p6 is \"NA\".\n',
+          ),
+        gaps: zod
+          .array(
+            zod.object({
+              title: zod.string(),
+              description: zod.string(),
+              impact: zod.string(),
+              recommendation: zod.string(),
+            }),
+          )
+          .describe(
+            "Top 3 identified gaps (the three lowest-scoring pillars).",
+          ),
+        nextSteps: zod.array(zod.string()),
       })
       .describe(
-        "Per-pillar evidence text Claude produced during scoring (assessments.p{n}Evidence), for admin QA review alongside the scorecard. Null for a pillar with no evidence on file.\n",
+        'Exact shape of report-data.json per the Notion scoring rubric\'s Step 7 (\"Producing the Branded Client PDF\"). Fields with no real data yet are left as \"\" \/ [] — the branded report template treats a blank field as an accepted, designed fallback (a neutral placeholder), not an error.\n',
       ),
-    composite: zod.number(),
-    compositeMax: zod.number(),
-    tier: zod.string(),
-    execSummary: zod.string(),
-    gaps: zod.array(zod.string()),
-    nextSteps: zod.string(),
+    meta: zod.object({
+      companyId: zod.number(),
+      assessmentDate: zod
+        .string()
+        .describe("Date of the source assessment used (ISO date)."),
+      composite: zod.number(),
+      compositeMax: zod.number(),
+      tier: zod.string(),
+    }),
   })
   .describe(
-    "Assembled report-data.json payload for the Diagnostic Report export pattern, sourced from a company's latest assessment. Narrative fields (execSummary, gaps, nextSteps) are left empty since they come from Claude's research, not the raw scoring data.\n",
+    'Assembled report-data.json export payload for the Diagnostic Report pattern. `reportData` matches the external report-data.json schema (Notion: \"External CS Diagnostic — Scoring Rubric & Cowork Instructions\", Step 7) field-for-field, so it is safe to copy verbatim into the Claude design-file prompt. `meta` carries admin-only context (assessment provenance, derived composite\/tier) that must NOT be included in the exported JSON.\n',
   );
 
 /**

@@ -5,31 +5,14 @@
  * CS Rescue API specification
  * OpenAPI spec version: 0.1.0
  */
-import type { AdminCompanyReportDataEvidence } from "./adminCompanyReportDataEvidence";
-import type { AdminCompanyReportDataScores } from "./adminCompanyReportDataScores";
+import type { AdminCompanyReportDataMeta } from "./adminCompanyReportDataMeta";
+import type { DiagnosticReportData } from "./diagnosticReportData";
 
 /**
- * Assembled report-data.json payload for the Diagnostic Report export pattern, sourced from a company's latest assessment. Narrative fields (execSummary, gaps, nextSteps) are left empty since they come from Claude's research, not the raw scoring data.
+ * Assembled report-data.json export payload for the Diagnostic Report pattern. `reportData` matches the external report-data.json schema (Notion: "External CS Diagnostic — Scoring Rubric & Cowork Instructions", Step 7) field-for-field, so it is safe to copy verbatim into the Claude design-file prompt. `meta` carries admin-only context (assessment provenance, derived composite/tier) that must NOT be included in the exported JSON.
 
  */
 export interface AdminCompanyReportData {
-  companyId: number;
-  companyName: string;
-  parentFund: string;
-  preparedForName: string;
-  preparedForTitle: string;
-  /** Date this report-data.json was assembled (ISO date). */
-  reportDate: string;
-  /** Date of the source assessment used (ISO date). */
-  assessmentDate: string;
-  scores: AdminCompanyReportDataScores;
-  /** Per-pillar evidence text Claude produced during scoring (assessments.p{n}Evidence), for admin QA review alongside the scorecard. Null for a pillar with no evidence on file.
-   */
-  evidence: AdminCompanyReportDataEvidence;
-  composite: number;
-  compositeMax: number;
-  tier: string;
-  execSummary: string;
-  gaps: string[];
-  nextSteps: string;
+  reportData: DiagnosticReportData;
+  meta: AdminCompanyReportDataMeta;
 }

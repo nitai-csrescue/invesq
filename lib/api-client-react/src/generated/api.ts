@@ -2214,7 +2214,7 @@ export const useConfirmAdminFirm = <
 };
 
 /**
- * Builds the report-data.json object for the Diagnostic Report export runbook from the company's most recent assessment: raw p1-p8 scores, derived composite/tier, and firm name as parentFund. Narrative fields (execSummary, gaps, nextSteps) are left empty for Claude's research to fill in later.
+ * Builds the report-data.json object for the Diagnostic Report export runbook from the company's most recent assessment: raw p1-p8 scores, derived composite/tier, and firm name as parentFund. Fields that require dedicated research not yet captured anywhere in this app's data (execSummary, compositeContext, existingSystems, pathForward, pillarSignals, csHeadcount, gap impact/recommendation) are left as their neutral placeholder ("" or []) for Claude's research to fill in later — this is the schema's own designed fallback, not missing data.
 
  * @summary Assemble the report-data.json export payload from a company's latest assessment
  */

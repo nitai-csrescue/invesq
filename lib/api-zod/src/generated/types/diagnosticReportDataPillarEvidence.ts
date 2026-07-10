@@ -6,7 +6,11 @@
  * OpenAPI spec version: 0.1.0
  */
 
-export type AdminCompanyReportDataScores = {
+/**
+ * Longer pillar-by-pillar narrative Claude produced during scoring (assessments.p{n}Evidence). Left "" when no evidence is on file.
+
+ */
+export type DiagnosticReportDataPillarEvidence = {
   p1: string;
   p2: string;
   p3: string;

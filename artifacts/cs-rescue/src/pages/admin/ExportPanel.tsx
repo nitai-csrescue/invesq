@@ -36,7 +36,7 @@ export default function ExportPanel({ companies }: ExportPanelProps) {
     },
   });
 
-  const json = data ? JSON.stringify(data, null, 2) : "";
+  const json = data ? JSON.stringify(data.reportData, null, 2) : "";
 
   const prompt = data
     ? format === "client-pdf"
@@ -130,7 +130,7 @@ export default function ExportPanel({ companies }: ExportPanelProps) {
                 <div className="space-y-3">
                   <div className="flex items-center justify-between">
                     <p className="text-xs text-muted-foreground">
-                      report-data.json · {data.assessmentDate} assessment · {data.tier}
+                      report-data.json · {data.meta.assessmentDate} assessment · {data.meta.tier}
                     </p>
                     <Button
                       size="sm"

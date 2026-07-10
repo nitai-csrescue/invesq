@@ -575,9 +575,13 @@ paths:
       description: >
         Builds the report-data.json object for the Diagnostic Report export
         runbook from the company's most recent assessment: raw p1-p8 scores,
-        derived composite/tier, and firm name as parentFund. Narrative fields
-        (execSummary, gaps, nextSteps) are left empty for Claude's research to
-        fill in later.
+        derived composite/tier, and firm name as parentFund. Fields that
+        require dedicated research not yet captured anywhere in this app's
+        data (execSummary, compositeContext, existingSystems, pathForward,
+        pillarSignals, csHeadcount, gap impact/recommendation) are left as
+        their neutral placeholder ("" or []) for Claude's research to fill
+        in later — this is the schema's own designed fallback, not missing
+        data.
       parameters:
         - name: id
           in: path
@@ -980,31 +984,61 @@ components:
     AdminCompanyReportData:
       type: object
       description: >
-        Assembled report-data.json payload for the Diagnostic Report export
-        pattern, sourced from a company's latest assessment. Narrative fields
-        (execSummary, gaps, nextSteps) are left empty since they come from
-        Claude's research, not the raw scoring data.
+        Assembled report-data.json export payload for the Diagnostic Report
+        pattern. `reportData` matches the external report-data.json schema
+        (Notion: "External CS Diagnostic — Scoring Rubric & Cowork
+        Instructions", Step 7) field-for-field, so it is safe to copy
+        verbatim into the Claude design-file prompt. `meta` carries
+        admin-only context (assessment provenance, derived composite/tier)
+        that must NOT be included in the exported JSON.
+      required: [reportData, meta]
+      properties:
+        reportData:
+          $ref: "#/components/schemas/DiagnosticReportData"
+        meta:
+          type: object
+          required: [companyId, assessmentDate, composite, compositeMax, tier]
+          properties:
+            companyId:
+              type: integer
+            assessmentDate:
+              type: string
+              description: Date of the source assessment used (ISO date).
+            composite:
+              type: number
+            compositeMax:
+              type: number
+            tier:
+              type: string
+
+    DiagnosticReportData:
+      type: object
+      description: >
+        Exact shape of report-data.json per the Notion scoring rubric's Step
+        7 ("Producing the Branded Client PDF"). Fields with no real data yet
+        are left as "" / [] — the branded report template treats a blank
+        field as an accepted, designed fallback (a neutral placeholder), not
+        an error.
       required:
         [
-          companyId,
           companyName,
           parentFund,
           preparedForName,
           preparedForTitle,
           reportDate,
-          assessmentDate,
-          scores,
-          evidence,
-          composite,
-          compositeMax,
-          tier,
+          csHeadcount,
           execSummary,
+          compositeContext,
+          existingSystems,
+          pathForward,
+          scores,
+          pillarSignals,
+          pillarEvidence,
+          p6Recommendation,
           gaps,
           nextSteps,
         ]
       properties:
-        companyId:
-          type: integer
         companyName:
           type: string
         parentFund:
@@ -1016,67 +1050,110 @@ components:
         reportDate:
           type: string
           description: Date this report-data.json was assembled (ISO date).
-        assessmentDate:
-          type: string
-          description: Date of the source assessment used (ISO date).
-        scores:
-          type: object
-          required: [p1, p2, p3, p4, p5, p6, p7, p8]
-          properties:
-            p1:
-              type: string
-            p2:
-              type: string
-            p3:
-              type: string
-            p4:
-              type: string
-            p5:
-              type: string
-            p6:
-              type: string
-            p7:
-              type: string
-            p8:
-              type: string
-        evidence:
-          type: object
-          description: >
-            Per-pillar evidence text Claude produced during scoring
-            (assessments.p{n}Evidence), for admin QA review alongside the
-            scorecard. Null for a pillar with no evidence on file.
-          required: [p1, p2, p3, p4, p5, p6, p7, p8]
-          properties:
-            p1:
-              type: [string, "null"]
-            p2:
-              type: [string, "null"]
-            p3:
-              type: [string, "null"]
-            p4:
-              type: [string, "null"]
-            p5:
-              type: [string, "null"]
-            p6:
-              type: [string, "null"]
-            p7:
-              type: [string, "null"]
-            p8:
-              type: [string, "null"]
-        composite:
-          type: number
-        compositeMax:
-          type: number
-        tier:
+        csHeadcount:
           type: string
         execSummary:
+          type: array
+          description: One string per paragraph.
+          items:
+            type: string
+        compositeContext:
           type: string
+        existingSystems:
+          type: string
+        pathForward:
+          type: string
+        scores:
+          type: object
+          description: Raw pillar scores 0/1/2, or "NA" for Insufficient Data.
+          required: [p1, p2, p3, p4, p5, p6, p7, p8]
+          properties:
+            p1:
+              type: [integer, string]
+            p2:
+              type: [integer, string]
+            p3:
+              type: [integer, string]
+            p4:
+              type: [integer, string]
+            p5:
+              type: [integer, string]
+            p6:
+              type: [integer, string]
+            p7:
+              type: [integer, string]
+            p8:
+              type: [integer, string]
+        pillarSignals:
+          type: object
+          description: >
+            One-line "what the signals show" per pillar (scorecard column).
+            Left "" when no data beyond the raw score is on file.
+          required: [p1, p2, p3, p4, p5, p6, p7, p8]
+          properties:
+            p1:
+              type: string
+            p2:
+              type: string
+            p3:
+              type: string
+            p4:
+              type: string
+            p5:
+              type: string
+            p6:
+              type: string
+            p7:
+              type: string
+            p8:
+              type: string
+        pillarEvidence:
+          type: object
+          description: >
+            Longer pillar-by-pillar narrative Claude produced during scoring
+            (assessments.p{n}Evidence). Left "" when no evidence is on file.
+          required: [p1, p2, p3, p4, p5, p6, p7, p8]
+          properties:
+            p1:
+              type: string
+            p2:
+              type: string
+            p3:
+              type: string
+            p4:
+              type: string
+            p5:
+              type: string
+            p6:
+              type: string
+            p7:
+              type: string
+            p8:
+              type: string
+        p6Recommendation:
+          type: string
+          description: >
+            Derived from the p6 (CS Leadership) score: 2 = "Retain and
+            Develop", 1 = "Augment", 0 = "Replace". Empty if p6 is "NA".
         gaps:
+          type: array
+          description: Top 3 identified gaps (the three lowest-scoring pillars).
+          items:
+            type: object
+            required: [title, description, impact, recommendation]
+            properties:
+              title:
+                type: string
+              description:
+                type: string
+              impact:
+                type: string
+              recommendation:
+                type: string
+        nextSteps:
           type: array
           items:
             type: string
-        nextSteps:
-          type: string
 
     AdminFirmDetail:
       type: object
