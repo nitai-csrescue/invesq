@@ -96,3 +96,20 @@ export async function authMiddleware(
   req.user = refreshed.user;
   next();
 }
+
+// Server-side gate for any router that must reject unauthenticated/
+// non-allowlisted requests outright (e.g. the /admin API). `authMiddleware`
+// above only *populates* req.user when a valid, allowlisted session exists —
+// it never blocks a request on its own, so routers that need real enforcement
+// (not just client-side redirects) must apply this explicitly.
+export function requireAdminAuth(
+  req: Request,
+  res: Response,
+  next: NextFunction,
+) {
+  if (!req.user) {
+    res.status(401).json({ error: "Not authenticated" });
+    return;
+  }
+  next();
+}

@@ -2,7 +2,12 @@ import { Link } from "wouter";
 import { Building2, Loader2, PlusCircle } from "lucide-react";
 import { PageHeader } from "@/components/cs/PageHeader";
 import { Button } from "@/components/ui/button";
-import { useListAdminFirms } from "@workspace/api-client-react";
+import {
+  useListAdminFirms,
+  getListAdminFirmsQueryKey,
+  type AdminFirmSummary,
+} from "@workspace/api-client-react";
+import { isJobActive, jobStatusPillClass } from "@/lib/adminJobs";
 
 const STATUS_STYLES: Record<string, string> = {
   pending: "border-amber-500/30 bg-amber-500/10 text-amber-300",
@@ -23,8 +28,20 @@ function formatDate(iso: string) {
   });
 }
 
+function hasActiveJob(firms: AdminFirmSummary[] | undefined): boolean {
+  return !!firms?.some((f) => isJobActive(f.latestJob));
+}
+
 export default function FirmsList() {
-  const { data: firms, isLoading, isError } = useListAdminFirms();
+  const { data: firms, isLoading, isError } = useListAdminFirms({
+    query: {
+      queryKey: getListAdminFirmsQueryKey(),
+      // Keep the list live while any firm has a discovery/build job in
+      // flight, so status pills and review links update without a manual
+      // refresh.
+      refetchInterval: (query) => (hasActiveJob(query.state.data) ? 4000 : false),
+    },
+  });
 
   return (
     <div className="p-6 max-w-[1200px] mx-auto" data-testid="admin-firms-list-page">
@@ -113,20 +130,35 @@ export default function FirmsList() {
                     </div>
                   </td>
                   <td className="px-5 py-4">
-                    <span
-                      className={`inline-flex items-center rounded-full border px-2.5 py-0.5 text-[11px] font-medium ${statusPillClass(firm.status)}`}
-                    >
-                      {firm.status}
-                    </span>
+                    <div className="flex flex-wrap items-center gap-1.5">
+                      <span
+                        className={`inline-flex items-center rounded-full border px-2.5 py-0.5 text-[11px] font-medium ${statusPillClass(firm.status)}`}
+                      >
+                        {firm.status}
+                      </span>
+                      {firm.latestJob && isJobActive(firm.latestJob) && (
+                        <span
+                          className={`inline-flex items-center gap-1 rounded-full border px-2.5 py-0.5 text-[11px] font-medium ${jobStatusPillClass(firm.latestJob.status)}`}
+                          data-testid={`badge-job-status-${firm.id}`}
+                        >
+                          <Loader2 className="h-3 w-3 animate-spin" />
+                          {firm.latestJob.type} {firm.latestJob.status}
+                        </span>
+                      )}
+                    </div>
                   </td>
                   <td className="px-5 py-4 text-muted-foreground">{formatDate(firm.createdAt)}</td>
                   <td className="px-5 py-4 text-right">
                     <Link
-                      href={`/admin/firms/${firm.id}`}
+                      href={
+                        firm.latestJob && isJobActive(firm.latestJob)
+                          ? `/admin/jobs/${firm.latestJob.id}`
+                          : `/admin/firms/${firm.id}`
+                      }
                       className="inline-flex items-center gap-1 rounded-md border border-border bg-card px-3 py-1.5 text-xs text-foreground hover:border-primary/40 hover:text-primary transition-colors"
                       data-testid={`link-review-firm-${firm.id}`}
                     >
-                      Review →
+                      {firm.latestJob && isJobActive(firm.latestJob) ? "View progress →" : "Review →"}
                     </Link>
                   </td>
                 </tr>

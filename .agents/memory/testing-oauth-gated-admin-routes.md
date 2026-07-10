@@ -1,19 +1,23 @@
 ---
-name: Screenshotting/testing OAuth-gated admin routes without a real IdP login
-description: Technique for verifying a Google/Replit-OIDC-gated admin UI end-to-end when no real login session exists in the environment (0-row users table, no browser SSO available).
+name: Testing OAuth-gated admin routes without a real IdP login
+description: Techniques for verifying a Google/Replit-OIDC-gated admin route or UI end-to-end when no real login session exists in the environment (no browser SSO available).
 ---
 
 ## Problem
 
-Client-side `ProtectedRoute` admin pages (gated via a real OAuth provider, e.g. Google Workspace domain allowlist) can't be screenshotted or curled through their real flow in this sandbox — there's no way to complete an actual Google/OIDC consent screen from an automated tool, and the screenshot tool has no way to inject cookies.
+Client-side `ProtectedRoute` admin pages and server routes gated via a real OAuth provider (e.g. a Google Workspace domain allowlist) can't be exercised through their real flow in this sandbox — there's no way to complete an actual Google/OIDC consent screen from an automated tool.
 
-## Technique
+## Technique A: direct session row (fastest, for API-route verification via curl)
 
-Temporarily add a dev-only route (guarded by `process.env.NODE_ENV !== "production"`) that calls the app's own `createSession`/session-cookie helpers directly with a synthetic user, then redirects to the target page. Hit it once via the screenshot tool's `path` param (e.g. `/api/dev/test-login?email=...&returnTo=/admin/...`) — the browser follows the redirect within the same navigation and keeps the cookie, landing authenticated on the real page.
+Insert a throwaway row directly into the `sessions` table with a `sess` JSON blob shaped like the app's real `SessionData` (e.g. `{ user: { id, email: "<addr>@<allowed-domain>", firstName, lastName, profileImageUrl }, access_token: "<any-string>" }`) and no `expires_at` field (an absent `expires_at` is commonly treated as never-expiring by the refresh-check logic — verify this against the actual middleware first). Send that row's `sid` as the session cookie (`Cookie: sid=<value>`) on `curl` requests through the shared proxy. Delete the row immediately after verification.
 
-**Why:** this exercises the exact same session/cookie mechanism the real login uses (not a mocked component), so the resulting screenshot reflects genuine authenticated rendering, not a guess.
+## Technique B: dev-only login route + screenshot tool (for full-page screenshots)
+
+The screenshot tool has no way to inject cookies, so for verifying rendered UI (not just an API response), temporarily add a dev-only route (guarded by `process.env.NODE_ENV !== "production"`) that calls the app's own `createSession`/session-cookie helpers directly with a synthetic user, then redirects to the target page. Hit it once via the screenshot tool's `path` param (e.g. `/api/dev/test-login?email=...&returnTo=/admin/...`) — the browser follows the redirect within the same navigation and keeps the cookie, landing authenticated on the real page.
+
+**Why:** both exercise the exact same session/cookie mechanism the real login uses (not a mocked component), so results reflect genuine authenticated behavior, not a guess.
 
 **How to apply:**
-1. Add the route, restart the server, curl it once to confirm it 302s and sets a cookie.
-2. Screenshot with `path` set to that route + query string (not the final destination path).
-3. Remove the route from source immediately after (never ship it, even prod-gated) and delete any synthetic session/user rows it created, then restart the server again.
+- Technique A: check the session-expiry/refresh logic first so the synthetic row won't be rejected; delete the row right after the curl call.
+- Technique B: add the route, restart the server, curl it once to confirm it 302s and sets a cookie, screenshot with `path` set to that route + query string (not the final destination path), then remove the route from source immediately after (never ship it, even prod-gated) and delete any synthetic session/user rows it created, then restart the server again.
+- Either way: never reuse these techniques against a production database.

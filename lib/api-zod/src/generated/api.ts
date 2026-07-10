@@ -1088,6 +1088,29 @@ export const GetAdminCompanyReportDataResponse = zod
   );
 
 /**
+ * Inserts firm/company/assessment rows for any of the 5 legacy demo tenant slugs (stg, pamlico, raviga, longarc, solen) not already present in the firms table. Any slug that already exists — including an unrelated real client firm — is left completely untouched and reported as "skipped". Safe to call repeatedly: a partial prior run (e.g. a crash mid-seed) only fills in whatever slugs are still missing on the next call.
+
+ * @summary One-time idempotent seed of the 5 legacy demo tenants (stg/pamlico/raviga/longarc/solen)
+ */
+export const SeedLegacyTenantsResponse = zod.object({
+  results: zod.array(
+    zod.object({
+      slug: zod.string(),
+      displayName: zod.string(),
+      status: zod.enum(["seeded", "skipped"]),
+      companiesInserted: zod.number(),
+      assessmentsInserted: zod.number(),
+      reason: zod
+        .string()
+        .nullable()
+        .describe(
+          'Set when status is \"skipped\" — e.g. \"firm slug already exists\".',
+        ),
+    }),
+  ),
+});
+
+/**
  * @summary Get a job's current status, progress, and ETA
  */
 export const GetJobParams = zod.object({

@@ -598,6 +598,39 @@ paths:
               schema:
                 $ref: "#/components/schemas/ErrorEnvelope"
 
+  /admin/seed-legacy-tenants:
+    post:
+      operationId: seedLegacyTenants
+      tags: [admin]
+      summary: One-time idempotent seed of the 5 legacy demo tenants (stg/pamlico/raviga/longarc/solen)
+      description: >
+        Inserts firm/company/assessment rows for any of the 5 legacy demo
+        tenant slugs (stg, pamlico, raviga, longarc, solen) not already
+        present in the firms table. Any slug that already exists — including
+        an unrelated real client firm — is left completely untouched and
+        reported as "skipped". Safe to call repeatedly: a partial prior run
+        (e.g. a crash mid-seed) only fills in whatever slugs are still
+        missing on the next call.
+      responses:
+        "200":
+          description: Per-slug seed result
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SeedLegacyTenantsResult"
+        "401":
+          description: Not authenticated as an allowed admin
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+        "500":
+          description: Seeding failed
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+
   /jobs/{id}:
     get:
       operationId: getJob
@@ -1089,6 +1122,34 @@ components:
           $ref: "#/components/schemas/Firm"
         job:
           $ref: "#/components/schemas/Job"
+
+    LegacyTenantSeedItem:
+      type: object
+      required: [slug, displayName, status, companiesInserted, assessmentsInserted, reason]
+      properties:
+        slug:
+          type: string
+        displayName:
+          type: string
+        status:
+          type: string
+          enum: [seeded, skipped]
+        companiesInserted:
+          type: integer
+        assessmentsInserted:
+          type: integer
+        reason:
+          type: [string, "null"]
+          description: Set when status is "skipped" — e.g. "firm slug already exists".
+
+    SeedLegacyTenantsResult:
+      type: object
+      required: [results]
+      properties:
+        results:
+          type: array
+          items:
+            $ref: "#/components/schemas/LegacyTenantSeedItem"
 
     HealthStatus:
       type: object

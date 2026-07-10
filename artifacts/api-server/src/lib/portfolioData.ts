@@ -134,3 +134,12 @@ export async function getPortfolioBootstrap(): Promise<PortfolioLoadResult> {
   }
   return inflight;
 }
+
+// Forces the next getPortfolioBootstrap() call to reload from the DB instead
+// of serving the cached payload. Must be called after any direct DB write
+// that changes firms/companies/assessments outside the normal /admin
+// onboarding flow (e.g. the legacy-tenant seed endpoint) — otherwise
+// production would keep serving the pre-write bootstrap until a restart.
+export function invalidatePortfolioCache(): void {
+  cached = null;
+}

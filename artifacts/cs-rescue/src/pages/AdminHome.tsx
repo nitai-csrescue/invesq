@@ -7,9 +7,15 @@ import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@workspace/replit-auth-web";
-import { useCreateAdminFirm } from "@workspace/api-client-react";
-import type { CreateAdminFirmResponse } from "@workspace/api-client-react";
-import { Loader2, PlusCircle } from "lucide-react";
+import {
+  useCreateAdminFirm,
+  useSeedLegacyTenants,
+  useListAdminFirms,
+  getListAdminFirmsQueryKey,
+} from "@workspace/api-client-react";
+import type { CreateAdminFirmResponse, SeedLegacyTenantsResult } from "@workspace/api-client-react";
+import { Loader2, PlusCircle, DatabaseZap, ArrowRight } from "lucide-react";
+import { isJobActive } from "@/lib/adminJobs";
 
 export default function AdminHome() {
   const { user, logout } = useAuth();
@@ -17,6 +23,7 @@ export default function AdminHome() {
   const [name, setName] = useState("");
   const [website, setWebsite] = useState("");
   const [lastResult, setLastResult] = useState<CreateAdminFirmResponse | null>(null);
+  const [seedResult, setSeedResult] = useState<SeedLegacyTenantsResult | null>(null);
 
   const createFirm = useCreateAdminFirm({
     mutation: {
@@ -38,6 +45,39 @@ export default function AdminHome() {
       },
     },
   });
+
+  const seedLegacyTenants = useSeedLegacyTenants({
+    mutation: {
+      onSuccess: (data) => {
+        setSeedResult(data);
+        const seeded = data.results.filter((r) => r.status === "seeded");
+        const skipped = data.results.filter((r) => r.status === "skipped");
+        toast({
+          title: "Legacy tenant seed complete",
+          description:
+            seeded.length > 0
+              ? `Seeded: ${seeded.map((r) => r.slug).join(", ")}. Skipped (already present): ${skipped.length}.`
+              : `All 5 legacy tenants already present — nothing to do.`,
+        });
+      },
+      onError: (err) => {
+        toast({
+          title: "Failed to seed legacy tenants",
+          description: err instanceof Error ? err.message : "Unexpected error",
+          variant: "destructive",
+        });
+      },
+    },
+  });
+
+  const { data: firms } = useListAdminFirms({
+    query: {
+      queryKey: getListAdminFirmsQueryKey(),
+      refetchInterval: (query) =>
+        query.state.data?.some((f) => isJobActive(f.latestJob)) ? 4000 : false,
+    },
+  });
+  const inProgressFirms = firms?.filter((f) => isJobActive(f.latestJob)) ?? [];
 
   const canSubmit = name.trim().length > 0 && website.trim().length > 0 && !createFirm.isPending;
 
@@ -61,6 +101,34 @@ export default function AdminHome() {
           </Link>
         }
       />
+
+      {inProgressFirms.length > 0 && (
+        <div
+          className="mb-6 rounded-md border border-cyan-500/30 bg-cyan-500/10 p-4"
+          data-testid="banner-firms-in-progress"
+        >
+          <p className="mb-2 text-sm font-medium text-cyan-300">
+            {inProgressFirms.length} firm{inProgressFirms.length === 1 ? "" : "s"} with a job in progress
+          </p>
+          <ul className="space-y-1.5">
+            {inProgressFirms.map((firm) => (
+              <li key={firm.id} className="flex items-center justify-between gap-3 text-sm">
+                <span className="text-cyan-300/90">
+                  {firm.name} — {firm.latestJob?.type} {firm.latestJob?.status}
+                  {firm.latestJob?.progressPct != null ? ` (${firm.latestJob.progressPct}%)` : ""}
+                </span>
+                <Link
+                  href={`/admin/jobs/${firm.latestJob?.id}`}
+                  className="flex shrink-0 items-center gap-1 text-xs text-cyan-300 hover:underline"
+                  data-testid={`link-in-progress-job-${firm.id}`}
+                >
+                  View job <ArrowRight className="h-3 w-3" />
+                </Link>
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
 
       <div className="grid gap-6 md:grid-cols-[1.4fr_1fr]">
         <Card data-testid="card-new-firm">
@@ -162,6 +230,67 @@ export default function AdminHome() {
             <Button variant="outline" size="sm" onClick={logout} data-testid="admin-logout-btn">
               Log out
             </Button>
+          </CardContent>
+        </Card>
+
+        <Card className="md:col-span-2" data-testid="card-seed-legacy-tenants">
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2 text-base">
+              <DatabaseZap className="h-4 w-4 text-primary" />
+              Seed legacy demo tenants
+            </CardTitle>
+            <CardDescription>
+              One-time data repair: inserts any of the 5 legacy demo tenants (stg, pamlico, raviga,
+              longarc, solen) that are missing from this database. Firms that already exist — including
+              any unrelated real client firm — are left completely untouched. Safe to click more than
+              once; already-present tenants are reported as skipped.
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <Button
+              variant="outline"
+              size="sm"
+              disabled={seedLegacyTenants.isPending}
+              onClick={() => seedLegacyTenants.mutate()}
+              data-testid="button-seed-legacy-tenants"
+            >
+              {seedLegacyTenants.isPending && <Loader2 className="h-4 w-4 animate-spin" />}
+              Seed legacy demo tenants
+            </Button>
+
+            {seedResult && (
+              <div
+                className="rounded-md border border-border bg-muted/40 p-4 text-sm"
+                data-testid="text-seed-legacy-tenants-result"
+              >
+                <table className="w-full text-left">
+                  <thead>
+                    <tr className="text-xs text-muted-foreground">
+                      <th className="pb-1 pr-4 font-medium">Slug</th>
+                      <th className="pb-1 pr-4 font-medium">Status</th>
+                      <th className="pb-1 pr-4 font-medium">Companies</th>
+                      <th className="pb-1 pr-4 font-medium">Assessments</th>
+                      <th className="pb-1 font-medium">Detail</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {seedResult.results.map((r) => (
+                      <tr key={r.slug} className="border-t border-border/60">
+                        <td className="py-1.5 pr-4">
+                          <code className="text-xs">{r.slug}</code>
+                        </td>
+                        <td className="py-1.5 pr-4 text-foreground">
+                          {r.status === "seeded" ? "Seeded" : "Skipped"}
+                        </td>
+                        <td className="py-1.5 pr-4 text-foreground">{r.companiesInserted}</td>
+                        <td className="py-1.5 pr-4 text-foreground">{r.assessmentsInserted}</td>
+                        <td className="py-1.5 text-muted-foreground">{r.reason ?? "—"}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
           </CardContent>
         </Card>
       </div>

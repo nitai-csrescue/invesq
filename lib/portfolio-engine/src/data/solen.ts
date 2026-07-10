@@ -6,7 +6,7 @@
 // Note: 5 of 6 companies scored all 8 pillars Insufficient Data (NA) — they
 // tier as Tier 2 via the NA-substitution rule and carry no displayed composite.
 // ---------------------------------------------------------------------------
-import type { RawCompany } from "./types";
+import type { RawCompany } from "../types";
 
 const SOLEN_COMPANIES: RawCompany[] = [
   {

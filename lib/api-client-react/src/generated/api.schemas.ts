@@ -206,6 +206,31 @@ export interface AdminFirmConfirmResult {
   job: Job;
 }
 
+export type LegacyTenantSeedItemStatus =
+  (typeof LegacyTenantSeedItemStatus)[keyof typeof LegacyTenantSeedItemStatus];
+
+export const LegacyTenantSeedItemStatus = {
+  seeded: "seeded",
+  skipped: "skipped",
+} as const;
+
+export interface LegacyTenantSeedItem {
+  slug: string;
+  displayName: string;
+  status: LegacyTenantSeedItemStatus;
+  companiesInserted: number;
+  assessmentsInserted: number;
+  /**
+   * Set when status is "skipped" — e.g. "firm slug already exists".
+   * @nullable
+   */
+  reason: string | null;
+}
+
+export interface SeedLegacyTenantsResult {
+  results: LegacyTenantSeedItem[];
+}
+
 export interface HealthStatus {
   status: string;
 }

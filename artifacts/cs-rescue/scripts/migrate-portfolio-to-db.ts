@@ -15,16 +15,17 @@ import { sql, inArray } from "drizzle-orm";
 import { db, pool, firmsTable, companiesTable, assessmentsTable } from "@workspace/db";
 
 import { buildFirmPortfolio } from "@workspace/portfolio-engine";
+import {
+  LEGACY_FIRMS_META as FIRMS,
+  STG_COMPANIES,
+  PAMLICO_COMPANIES,
+  RAVIGA_COMPANIES,
+  LONGARC_COMPANIES,
+  SOLEN_COMPANIES,
+} from "@workspace/portfolio-engine/data";
 
-import { FIRMS } from "../src/data/portfolio/firms";
 import { PILLARS, TIERS } from "../src/data/portfolio/pillars";
 import type { RawCompany, PillarScore, TierCount } from "../src/data/portfolio/types";
-
-import STG_COMPANIES from "../src/data/portfolio/stg";
-import PAMLICO_COMPANIES from "../src/data/portfolio/pamlico";
-import RAVIGA_COMPANIES from "../src/data/portfolio/raviga";
-import LONGARC_COMPANIES from "../src/data/portfolio/longarc";
-import SOLEN_COMPANIES from "../src/data/portfolio/solen";
 
 const RAW_COMPANIES_BY_FIRM: Readonly<Record<string, RawCompany[]>> = {
   stg: STG_COMPANIES,

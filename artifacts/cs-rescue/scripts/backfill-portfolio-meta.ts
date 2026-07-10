@@ -19,13 +19,14 @@
 import { eq } from "drizzle-orm";
 import { db, pool, firmsTable, companiesTable } from "@workspace/db";
 import type { CompanyMeta, FirmMeta, RawCompany } from "@workspace/portfolio-engine";
-
-import { FIRMS } from "../src/data/portfolio/firms";
-import STG_COMPANIES from "../src/data/portfolio/stg";
-import PAMLICO_COMPANIES from "../src/data/portfolio/pamlico";
-import RAVIGA_COMPANIES from "../src/data/portfolio/raviga";
-import LONGARC_COMPANIES from "../src/data/portfolio/longarc";
-import SOLEN_COMPANIES from "../src/data/portfolio/solen";
+import {
+  LEGACY_FIRMS_META as FIRMS,
+  STG_COMPANIES,
+  PAMLICO_COMPANIES,
+  RAVIGA_COMPANIES,
+  LONGARC_COMPANIES,
+  SOLEN_COMPANIES,
+} from "@workspace/portfolio-engine/data";
 
 const RAW_COMPANIES_BY_FIRM: Readonly<Record<string, RawCompany[]>> = {
   stg: STG_COMPANIES,

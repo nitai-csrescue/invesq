@@ -3,7 +3,7 @@
 // Each company has one assessment — its initial diagnostic.
 // Append new assessments to perform re-runs (see FIRM-ONBOARDING.md).
 // ---------------------------------------------------------------------------
-import type { RawCompany } from "./types";
+import type { RawCompany } from "../types";
 
 const STG_COMPANIES: RawCompany[] = [
   {

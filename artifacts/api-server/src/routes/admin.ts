@@ -11,13 +11,22 @@ import type {
   CreateAdminFirmResponse,
   Firm,
   Job,
+  SeedLegacyTenantsResult,
 } from "@workspace/api-zod";
 import { PILLARS, getTier, textToScore } from "@workspace/portfolio-engine";
 import { runDiscoveryJob } from "../lib/jobs/discovery.js";
 import { runBuildJob } from "../lib/jobs/build.js";
 import { getOrigin } from "../lib/http.js";
+import { seedLegacyTenants } from "../lib/seedLegacyTenants.js";
+import { requireAdminAuth } from "../middlewares/authMiddleware.js";
 
 const router: IRouter = Router();
+
+// Every /admin/* route is internal-only and must reject unauthenticated /
+// non-allowlisted requests server-side. The /admin frontend page is also
+// gated client-side, but that alone does not protect these API routes from
+// being called directly.
+router.use(requireAdminAuth);
 
 function slugify(name: string): string {
   const base = name
@@ -532,6 +541,20 @@ router.get("/companies/:id/report-data", async (req, res) => {
   } catch (err) {
     req.log.error({ err }, "Failed to assemble company report data");
     res.status(500).json({ error: "Failed to assemble report data" });
+  }
+});
+
+// One-time (idempotent) production data-repair endpoint: seeds the 5 legacy
+// demo tenants (stg/pamlico/raviga/longarc/solen) if any are missing from
+// `firms`. Auth is enforced by the router-level `requireAdminAuth` above.
+router.post("/seed-legacy-tenants", async (req, res) => {
+  try {
+    const results = await seedLegacyTenants();
+    const response: SeedLegacyTenantsResult = { results };
+    res.json(response);
+  } catch (err) {
+    req.log.error({ err }, "Failed to seed legacy tenants");
+    res.status(500).json({ error: "Failed to seed legacy tenants" });
   }
 });
 

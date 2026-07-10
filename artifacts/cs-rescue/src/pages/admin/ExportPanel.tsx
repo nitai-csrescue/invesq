@@ -11,6 +11,7 @@ import {
   getGetAdminCompanyReportDataQueryKey,
 } from "@workspace/api-client-react";
 import type { Company } from "@workspace/api-client-react";
+import { AdminReportPreview } from "./AdminReportPreview";
 
 type ExportFormat = "editable" | "client-pdf";
 
@@ -123,27 +124,31 @@ export default function ExportPanel({ companies }: ExportPanelProps) {
             )}
 
             {data && !isFetching && (
-              <div className="space-y-3">
-                <div className="flex items-center justify-between">
-                  <p className="text-xs text-muted-foreground">
-                    report-data.json · {data.assessmentDate} assessment · {data.tier}
-                  </p>
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    onClick={handleCopy}
-                    data-testid="button-copy-export-prompt"
+              <div className="space-y-4">
+                <AdminReportPreview data={data} />
+
+                <div className="space-y-3">
+                  <div className="flex items-center justify-between">
+                    <p className="text-xs text-muted-foreground">
+                      report-data.json · {data.assessmentDate} assessment · {data.tier}
+                    </p>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={handleCopy}
+                      data-testid="button-copy-export-prompt"
+                    >
+                      {copied ? <Check className="h-3.5 w-3.5" /> : <ClipboardCopy className="h-3.5 w-3.5" />}
+                      Copy prompt
+                    </Button>
+                  </div>
+                  <pre
+                    className="max-h-96 overflow-auto rounded-md border border-border bg-background/60 p-4 text-xs text-foreground"
+                    data-testid="text-export-json"
                   >
-                    {copied ? <Check className="h-3.5 w-3.5" /> : <ClipboardCopy className="h-3.5 w-3.5" />}
-                    Copy prompt
-                  </Button>
+                    {json}
+                  </pre>
                 </div>
-                <pre
-                  className="max-h-96 overflow-auto rounded-md border border-border bg-background/60 p-4 text-xs text-foreground"
-                  data-testid="text-export-json"
-                >
-                  {json}
-                </pre>
               </div>
             )}
           </>

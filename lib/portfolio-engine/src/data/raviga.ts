@@ -3,7 +3,7 @@
 // parody universe). Internal sales demo only — no real company data.
 // 10 portfolio companies, each with 12 monthly assessments (Jul 2025 – Jun 2026).
 // ---------------------------------------------------------------------------
-import type { RawCompany } from "./types";
+import type { RawCompany } from "../types";
 
 // Monthly assessment dates: the 15th of each month, Jul 2025 → Jun 2026
 const M = [
