@@ -8,6 +8,12 @@ export const firmsTable = pgTable("firms", {
   website: text("website"),
   slug: text("slug").notNull().unique(),
   status: text("status").notNull().default("active"),
+  // Email of the admin who created this firm via /admin (captured from the
+  // authenticated session at creation time). Null for firms created before
+  // this column existed, or created outside an authenticated session (e.g.
+  // scripts/migrations). Used to notify the creator when a build job
+  // finishes scoring the firm's portfolio companies.
+  createdByEmail: text("created_by_email"),
   // Portal display metadata (statusLabel, internalOnly). Shape is FirmMeta
   // in @workspace/portfolio-engine.
   meta: jsonb("meta"),
