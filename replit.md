@@ -67,7 +67,7 @@ Sidebar group `Platform` (demoted, kept for technical buyers)
 - `/platform/architecture` — original React Flow graph
 - `/platform/ai-copilot` — supports `?prompt=&accountId=&autoRun=1` deep-link from the Dashboard insight rail
 
-`/admin` (internal, unlinked from the sidebar) — gated by Replit Auth (Google OAuth via `@csrescue.com` allowlist), see "Admin auth" below. Includes a firm-onboarding CRUD scaffold: `/admin/firms` (list), `/admin/firms/:id` (`FirmReview.tsx` — add/select companies, confirm & queue a stub build job, plus the Export panel described below).
+`/admin` (internal, unlinked from the sidebar) — gated by Replit Auth (Google OAuth via `@csrescue.com` allowlist), see "Admin auth" below. Includes a firm-onboarding flow: `/admin/firms` (list), `/admin/firms/:id` (`FirmReview.tsx` — add/select companies, confirm & queue a real build job, plus the Export panel described below). See "AI-powered firm onboarding" below for the discovery/build job pipeline behind this flow.
 
 **Redirects:**
 - `/resources`, `/deployments`, `/connectors` → `/overview` (files kept in `src/pages/` with archive header, not routed)
@@ -110,9 +110,23 @@ All new pages read from `src/data/*` — one coherent universe of 18 accounts, 7
 - The panel's "Client PDF" vs "Editable" toggle only changes the wording of the copy-to-clipboard prompt (target format PDF vs PPTX) — the underlying JSON is identical either way.
 - Verified against real data: STG firm / Nomis Solutions (company id 1, one of the 5 migrated tenants) — independently recomputed composite (3) and tier (`Tier 1 · Significant Opportunities`) match the endpoint's output for that company's real assessment row.
 
+## AI-powered firm onboarding: discovery + build jobs (`/admin/firms/:id`)
+
+Confirming a firm's portfolio companies in `FirmReview.tsx` kicks off a real, asynchronous two-job pipeline (`artifacts/api-server/src/lib/jobs/{discovery,build}.ts`) backed by the `jobs` table. Both call Claude directly via `ANTHROPIC_API_KEY` (`artifacts/api-server/src/lib/anthropic.ts` — NOT the Replit AI Integrations proxy) with the `web_search_20250305` tool, and both are fire-and-forget from their route handler (response returns immediately; the job runs in the background and persists its own status/progress/error onto its `jobs` row).
+
+- **Discovery** (`POST /api/admin/firms` on create): researches the firm's real, current portfolio via web search and inserts 0–5 verified `companies` rows with `status: "candidate"`. Never invents a company — if it can't verify a holding, it's left out (may return 0 candidates).
+- **Confirm** (`POST /api/admin/firms/:id/confirm`): flips the picked companies to `status: "active"` (rest to `"excluded"`), firm to `status: "reviewed"`, inserts a `type: "build"` job, then fires `runBuildJob`.
+- **Build** (`runBuildJob` in `build.ts`): for each `active` company under the firm, calls Claude (`lib/jobs/scoring.ts`, same `PILLARS` rubric — measures/signals — as the rest of the app) to score all 8 pillars as `0`/`1`/`2`/`"Insufficient Data"` with 1–3 sentence evidence per pillar, grounded in web search. The prompt explicitly forbids guessing on thin signal — anything under-evidenced must come back `"Insufficient Data"`, never a guessed 0/1/2.
+  - Writes one `assessments` row per company (Postgres is the source of truth; this write must succeed for the company to count as scored).
+  - Best-effort mirrors the same scores/evidence to Notion's "Portfolio Company Diagnostics" DB (`lib/notion.ts`, raw `fetch` against the Notion API, `NOTION_API_KEY`, no SDK dependency added). Property names/types in that DB are discovered at runtime (title/type search, not hardcoded) since this integration doesn't own that schema. A Notion failure is logged clearly but **never** fails the job or blocks the Postgres write — see the sharing-gap note below.
+  - Updates `jobs.progressPct` after each company; marks the job `"completed"` and the firm `"ready"` only once every active company is scored. If any company's Claude call fails, the whole job is marked `"failed"` (assessments already written for prior companies in the loop are kept — they're independent Postgres writes).
+- **Startup resume**: both `resumeQueuedDiscoveryJobs()` and `resumeQueuedBuildJobs()` run on server boot (`index.ts`) and re-execute ANY `jobs` row still `queued`/`running` — including stray rows from manual/ad-hoc testing. Clean up scratch `jobs`/`companies`/`firms` rows before restarting the API server, or they'll silently re-fire real Claude calls.
+- **Known gap**: as of 2026-07-09 the Notion integration's `NOTION_API_KEY` is valid (bot resolves fine) but no databases are actually shared with it yet — `findDatabaseByTitle` can't find "Portfolio Company Diagnostics", so every build job's Notion mirror currently fails (logged, non-fatal). Fix by sharing that Notion database with the integration; no code change should be needed once it's shared, since `notion.ts` resolves the database and its schema at runtime.
+- Verified end-to-end against a real firm: Mainsail Partners (id 10, mainsailpartners.com) → discovered Syncro/MirrorWeb/Fullbay → confirmed all 3 → build job scored all 8 pillars with real, citation-backed evidence for each (e.g. Fullbay p1=2 citing a named CS director + JD role separation + Gainsight in its stack) → firm flipped to `"ready"`. Notion mirror failed as expected per the gap above; Postgres writes succeeded for all 3 companies.
+
 ## Database
 
-Postgres (Replit built-in) via `@workspace/db` (Drizzle). Tables: `users`, `sessions` (Replit Auth), `firms`, `companies`, `assessments`, `jobs` (schema in `lib/db/src/schema/*`). `firms`/`companies`/`assessments` are now the live source for the tenant portal pages (see "Tenant portal DB cutover" below); `jobs` and the rest of `/admin`'s future tooling remain unwired beyond the placeholder page.
+Postgres (Replit built-in) via `@workspace/db` (Drizzle). Tables: `users`, `sessions` (Replit Auth), `firms`, `companies`, `assessments`, `jobs` (schema in `lib/db/src/schema/*`). `firms`/`companies`/`assessments` are now the live source for the tenant portal pages (see "Tenant portal DB cutover" below); `jobs` now drives the discovery/build pipeline above.
 
 ### One-time portfolio data migration
 

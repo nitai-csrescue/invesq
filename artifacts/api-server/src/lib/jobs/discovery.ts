@@ -1,8 +1,8 @@
 import { and, eq, inArray } from "drizzle-orm";
-import type Anthropic from "@anthropic-ai/sdk";
 import { db, companiesTable, firmsTable, jobsTable, type Firm } from "@workspace/db";
-import { getAnthropicClient } from "../anthropic.js";
+import { getAnthropicClient, extractText, extractJsonFence } from "../anthropic.js";
 import { logger } from "../logger.js";
+import { startProgressSimulation } from "./common.js";
 
 const DISCOVERY_MODEL = "claude-sonnet-4-6";
 
@@ -38,17 +38,6 @@ function buildSystemPrompt(): string {
   ].join("\n");
 }
 
-function isTextBlock(block: Anthropic.Messages.ContentBlock): block is Anthropic.Messages.TextBlock {
-  return block.type === "text";
-}
-
-function extractText(message: Anthropic.Messages.Message): string {
-  return message.content
-    .filter(isTextBlock)
-    .map((block) => block.text)
-    .join("\n");
-}
-
 function isCandidate(value: unknown): value is Candidate {
   if (typeof value !== "object" || value === null) return false;
   const record = value as Record<string, unknown>;
@@ -60,8 +49,7 @@ function isCandidate(value: unknown): value is Candidate {
 }
 
 function extractCandidates(text: string): Candidate[] {
-  const fenceMatch = text.match(/```json\s*([\s\S]*?)```/i) ?? text.match(/```\s*([\s\S]*?)```/);
-  const raw = (fenceMatch ? fenceMatch[1] : text).trim();
+  const raw = extractJsonFence(text);
 
   let parsed: unknown;
   try {
@@ -121,26 +109,6 @@ async function discoverCandidates(firm: Pick<Firm, "name" | "website">): Promise
   }
 
   return extractCandidates(text);
-}
-
-async function setProgress(jobId: number, progressPct: number): Promise<void> {
-  try {
-    await db.update(jobsTable).set({ progressPct }).where(eq(jobsTable.id, jobId));
-  } catch (err) {
-    logger.error({ err, jobId }, "Failed to update discovery job progress");
-  }
-}
-
-function startProgressSimulation(jobId: number, targetMs: number, cap: number): () => void {
-  const stepMs = 3000;
-  const steps = Math.max(1, Math.round(targetMs / stepMs));
-  const increment = Math.max(1, Math.round((cap - 5) / steps));
-  let current = 5;
-  const interval = setInterval(() => {
-    current = Math.min(cap, current + increment);
-    void setProgress(jobId, current);
-  }, stepMs);
-  return () => clearInterval(interval);
 }
 
 // Runs a queued/running "discovery" job end to end: calls Claude (with web

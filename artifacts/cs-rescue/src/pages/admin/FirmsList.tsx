@@ -8,6 +8,7 @@ const STATUS_STYLES: Record<string, string> = {
   pending: "border-amber-500/30 bg-amber-500/10 text-amber-300",
   reviewed: "border-cyan-500/30 bg-cyan-500/10 text-cyan-300",
   active: "border-emerald-500/30 bg-emerald-500/10 text-emerald-300",
+  ready: "border-emerald-500/30 bg-emerald-500/10 text-emerald-300",
 };
 
 function statusPillClass(status: string) {

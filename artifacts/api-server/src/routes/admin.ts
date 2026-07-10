@@ -12,6 +12,7 @@ import type {
 } from "@workspace/api-zod";
 import { PILLARS, getTier, textToScore } from "@workspace/portfolio-engine";
 import { runDiscoveryJob } from "../lib/jobs/discovery.js";
+import { runBuildJob } from "../lib/jobs/build.js";
 
 const router: IRouter = Router();
 
@@ -334,6 +335,14 @@ router.post("/firms/:id/confirm", async (req, res) => {
     };
 
     res.json(response);
+
+    // Fire-and-forget: the build job scores each active company via Claude
+    // (tens of seconds each) and writes assessments while the HTTP response
+    // above has already returned. Failures are caught and persisted onto the
+    // job row itself, not thrown here.
+    void runBuildJob(job.id).catch((err) => {
+      req.log.error({ err, jobId: job.id }, "Build job crashed outside its own error handling");
+    });
   } catch (err) {
     req.log.error({ err }, "Failed to confirm admin firm");
     res.status(500).json({ error: "Failed to confirm firm" });
