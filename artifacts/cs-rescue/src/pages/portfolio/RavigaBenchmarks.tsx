@@ -8,7 +8,7 @@ import {
   PILLAR_MAX,
   type Company,
 } from "@/data/portfolio";
-import { RavigaShell } from "@/components/portfolio/RavigaShell";
+import { TenantShell } from "@/components/portfolio/TenantShell";
 
 type Tab = "composite" | "arr" | "forecast";
 
@@ -266,7 +266,7 @@ export default function RavigaBenchmarks() {
   ];
 
   return (
-    <RavigaShell firm={firm}>
+    <TenantShell firm={firm}>
       {/* Eyebrow + title */}
       <div className="mb-8">
         <p className="mb-1 text-[11px] font-semibold uppercase tracking-widest text-muted-foreground">
@@ -308,6 +308,6 @@ export default function RavigaBenchmarks() {
       <p className="mt-3 text-[11px] text-muted-foreground">
         Delta = vs portfolio median · Phase 1 external-signal data only
       </p>
-    </RavigaShell>
+    </TenantShell>
   );
 }

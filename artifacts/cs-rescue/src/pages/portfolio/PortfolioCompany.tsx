@@ -25,8 +25,8 @@ import {
   ResponsiveContainer,
   ReferenceLine,
 } from "recharts";
-import { PortfolioLayout, ConfidenceBadge } from "@/components/portfolio/PortfolioLayout";
-import { RavigaShell } from "@/components/portfolio/RavigaShell";
+import { ConfidenceBadge } from "@/components/portfolio/ConfidenceBadge";
+import { TenantShell } from "@/components/portfolio/TenantShell";
 import {
   getFirm,
   getFirmCompany,
@@ -958,7 +958,7 @@ function Phase2Integrations({ company, isRaviga }: { company: Company; isRaviga:
 
 function CompanyNotFound({ firm }: { firm: Firm }) {
   return (
-    <PortfolioLayout firm={firm}>
+    <TenantShell firm={firm}>
       <div className="flex flex-col items-center justify-center py-24 text-center">
         <h1 className="text-lg font-semibold text-foreground">Company not found</h1>
         <p className="mt-1 text-sm text-muted-foreground">
@@ -971,7 +971,7 @@ function CompanyNotFound({ firm }: { firm: Firm }) {
           <ArrowLeft className="h-4 w-4" /> Back to portfolio
         </Link>
       </div>
-    </PortfolioLayout>
+    </TenantShell>
   );
 }
 
@@ -1000,10 +1000,8 @@ export default function PortfolioCompany() {
   const { tier } = company;
   const isRaviga = firmSlug === "raviga";
   const allCompanies = isRaviga ? getFirmCompanies(firmSlug) : [];
-  const LayoutShell = (isRaviga ? RavigaShell : PortfolioLayout) as typeof PortfolioLayout;
-
   return (
-    <LayoutShell firm={firm}>
+    <TenantShell firm={firm}>
       {isRaviga && allCompanies.length > 1 && (
         <div className="mb-5">
           <div className="flex gap-1.5 overflow-x-auto pb-1">
@@ -1288,6 +1286,6 @@ export default function PortfolioCompany() {
       <p className="mt-4 text-center text-[11px] text-muted-foreground">
         Prepared for {firm.displayName} · as of {formatDate(AS_OF_DATE)} · Design-partner preview
       </p>
-    </LayoutShell>
+    </TenantShell>
   );
 }

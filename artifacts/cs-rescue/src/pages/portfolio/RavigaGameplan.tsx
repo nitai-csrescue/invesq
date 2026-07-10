@@ -8,7 +8,7 @@ import {
   type Company,
   type GapItem,
 } from "@/data/portfolio";
-import { RavigaShell } from "@/components/portfolio/RavigaShell";
+import { TenantShell } from "@/components/portfolio/TenantShell";
 
 // ---------------------------------------------------------------------------
 // Deterministic mappings from pillar → role + imperative action
@@ -168,7 +168,7 @@ export default function RavigaGameplan() {
   const items = generateItems(company);
 
   return (
-    <RavigaShell firm={firm}>
+    <TenantShell firm={firm}>
       {/* Breadcrumb */}
       <div className="mb-6 flex items-center gap-2 text-sm">
         <Link
@@ -255,6 +255,6 @@ export default function RavigaGameplan() {
         Diagnostic assessment{" "}
         {formatDate(company.lastDiagnostic)}. Not a guarantee of outcomes.
       </div>
-    </RavigaShell>
+    </TenantShell>
   );
 }

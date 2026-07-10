@@ -5,11 +5,43 @@ import { logger } from "../lib/logger.js";
 const router = Router();
 
 // ---------------------------------------------------------------------------
+// Copy-policy overrides
+//
+// Raviga is the only tenant wired to the live-data demo pipeline (connectors,
+// weighted /19.5 scoring, Live Signals, private-call/Glassdoor sourcing). All
+// other tenants only ever have Phase 1 external-signal diagnostics, so the AI
+// draft must never claim NRR/GRR figures or private-source evidence it
+// doesn't actually have for them.
+//
+// Separately, some portfolio companies use "member" rather than "customer"
+// (e.g. CEATI International, an association) — matched by name since the
+// client only sends a lightweight company payload, not the full firm/company
+// record.
+// ---------------------------------------------------------------------------
+const COMPANY_COPY_OVERRIDES: Array<{ match: RegExp; note: string }> = [
+  {
+    match: /\bceati\b/i,
+    note: 'This company is a membership-based association — refer to its customers as "members", never "customers".',
+  },
+];
+
+function companyCopyNotes(company: Record<string, unknown> | null | undefined): string {
+  const name = String(company?.name ?? "");
+  const notes = COMPANY_COPY_OVERRIDES.filter((o) => o.match.test(name)).map((o) => o.note);
+  return notes.length > 0 ? `\n\nCopy policy: ${notes.join(" ")}` : "";
+}
+
+const NON_RAVIGA_COPY_POLICY =
+  "\n\nData-source policy: this firm's diagnostic is Phase 1 external-signal only — there is no live NRR/GRR revenue-retention data, connector telemetry, or private-source evidence (e.g. Glassdoor reviews, private call transcripts) for this tenant. " +
+  "Never cite NRR, GRR, or any specific retention percentage, and never reference Glassdoor or call/transcript sourcing. Frame findings only in terms of the pillar scores and evidence actually provided.";
+
+// ---------------------------------------------------------------------------
 // System prompts by audience mode
 // ---------------------------------------------------------------------------
 function buildSystemPrompt(
   mode: string,
   company: Record<string, unknown> | null | undefined,
+  isRaviga: boolean,
 ): string {
   const gaps = company?.gaps as Array<{ pillarName: string; score: number; note: string }> | undefined;
   // A company with zero scored pillars (displayMax 0) has no composite —
@@ -21,6 +53,7 @@ function buildSystemPrompt(
   const companyCtx = company
     ? `\n\nCompany context:\n- Name: ${company.name}\n- Tier ${company.tier} (${company.tierLabel})\n- Phase 1 composite: ${compositeText}\n- ARR: ${company.arrDisplay}\n- Summary: ${String(company.summary ?? "").slice(0, 300)}\n- Engagement recommendation: ${company.engagement}\n- Open gaps (priority order): ${(gaps ?? []).map((g) => `[${g.score === 0 ? "High" : "Medium"}] ${g.pillarName}: ${g.note}`).join("; ")}`
     : "";
+  const policySuffix = (isRaviga ? "" : NON_RAVIGA_COPY_POLICY) + companyCopyNotes(company);
 
   if (mode === "portco") {
     return (
@@ -29,17 +62,19 @@ function buildSystemPrompt(
       "Use collaborative, constructive language. Ground all recommendations in the diagnostic data provided. " +
       "Do not fabricate metrics not provided. Avoid jargon that implies blame. " +
       "Keep responses concise and actionable (under 350 words)." +
-      companyCtx
+      companyCtx +
+      policySuffix
     );
   }
 
   return (
     "You are INVESQ, an AI assistant supporting PE operators conducting operational due diligence on portfolio companies. " +
     "Be direct, data-driven, and use PE operational vocabulary. " +
-    "Focus on value creation opportunities, NRR impact, and actionable next steps. " +
+    (isRaviga ? "Focus on value creation opportunities, NRR impact, and actionable next steps. " : "Focus on value creation opportunities and actionable next steps. ") +
     "Do not fabricate metrics not provided in the context. " +
     "Keep responses concise and boardroom-ready (under 350 words)." +
-    companyCtx
+    companyCtx +
+    policySuffix
   );
 }
 
@@ -50,6 +85,7 @@ function buildCannedResponse(
   mode: string,
   prompt: string,
   company: Record<string, unknown> | null | undefined,
+  isRaviga: boolean,
 ): string {
   const name = String(company?.name ?? "this company");
   const tierLabel = String(company?.tierLabel ?? "assessed");
@@ -120,7 +156,9 @@ function buildCannedResponse(
           : "N/A (all pillars Insufficient Data)"
       }.\n\n` +
       `For a full cross-portfolio comparison, navigate to the Benchmarks page to see ${name}'s delta vs. portfolio median on composite score, ARR, and 6-month forecast trajectory.\n\n` +
-      `*Phase 1 benchmark comparisons are directional. Phase 2 data unlocks cohort-level NRR comparisons.*`
+      (isRaviga
+        ? `*Phase 1 benchmark comparisons are directional. Phase 2 data unlocks cohort-level NRR comparisons.*`
+        : `*Phase 1 benchmark comparisons are directional. Phase 2 data unlocks deeper cross-portfolio comparisons.*`)
     );
   }
 
@@ -137,18 +175,20 @@ function buildCannedResponse(
 // POST /invesq/draft
 // ---------------------------------------------------------------------------
 router.post("/draft", async (req: Request, res: Response) => {
-  const { mode, prompt, company } = req.body as {
+  const { mode, prompt, company, firmSlug } = req.body as {
     mode: string;
     prompt: string;
     company: Record<string, unknown> | null | undefined;
+    firmSlug?: string;
   };
 
+  const isRaviga = firmSlug === "raviga";
   const apiKey = process.env.ANTHROPIC_API_KEY;
 
   if (!apiKey) {
     logger.info("ANTHROPIC_API_KEY not set — returning canned response");
     return res.json({
-      draft: buildCannedResponse(mode, prompt, company),
+      draft: buildCannedResponse(mode, prompt, company, isRaviga),
       source: "canned",
     });
   }
@@ -158,7 +198,7 @@ router.post("/draft", async (req: Request, res: Response) => {
     const message = await client.messages.create({
       model: "claude-sonnet-4-6",
       max_tokens: 1024,
-      system: buildSystemPrompt(mode, company),
+      system: buildSystemPrompt(mode, company, isRaviga),
       messages: [{ role: "user", content: prompt }],
     });
     const text = message.content[0].type === "text" ? message.content[0].text : "";
@@ -166,7 +206,7 @@ router.post("/draft", async (req: Request, res: Response) => {
   } catch (err) {
     logger.error({ err }, "Anthropic API error — returning canned fallback");
     return res.json({
-      draft: buildCannedResponse(mode, prompt, company),
+      draft: buildCannedResponse(mode, prompt, company, isRaviga),
       source: "canned",
     });
   }

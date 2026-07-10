@@ -1,7 +1,7 @@
 import { Link, useRoute } from "wouter";
 import { ArrowLeft, FileText, Info, TrendingDown } from "lucide-react";
-import { PortfolioLayout, ConfidenceBadge } from "@/components/portfolio/PortfolioLayout";
-import { RavigaShell } from "@/components/portfolio/RavigaShell";
+import { ConfidenceBadge } from "@/components/portfolio/ConfidenceBadge";
+import { TenantShell } from "@/components/portfolio/TenantShell";
 import { PillarScorecard } from "@/components/portfolio/PillarScorecard";
 import {
   AS_OF_DATE,
@@ -42,13 +42,11 @@ export default function PortfolioReport() {
 
   if (!firm) return <FirmNotFound />;
 
-  const Shell = (firmSlug === "raviga" ? RavigaShell : PortfolioLayout) as typeof PortfolioLayout;
-
   const company = params?.companyId ? getFirmCompany(firmSlug, params.companyId) : undefined;
 
   if (!company) {
     return (
-      <Shell firm={firm}>
+      <TenantShell firm={firm}>
         <div className="mx-auto max-w-md py-24 text-center">
           <h1 className="text-lg font-semibold text-foreground">Report not found</h1>
           <p className="mt-2 text-sm text-muted-foreground">
@@ -61,14 +59,14 @@ export default function PortfolioReport() {
             <ArrowLeft className="h-4 w-4" /> Back to portfolio
           </Link>
         </div>
-      </Shell>
+      </TenantShell>
     );
   }
 
   const { tier } = company;
 
   return (
-    <Shell firm={firm}>
+    <TenantShell firm={firm}>
       <Link
         href={`/${firm.slug}/portfolio/${company.id}`}
         className="inline-flex items-center gap-1.5 text-sm text-muted-foreground transition-colors hover:text-primary"
@@ -250,6 +248,6 @@ export default function PortfolioReport() {
       <p className="mt-4 text-center text-[11px] text-muted-foreground">
         Prepared for {firm.displayName} by INVESQ · as of {formatDate(AS_OF_DATE)} · Design-partner preview
       </p>
-    </Shell>
+    </TenantShell>
   );
 }

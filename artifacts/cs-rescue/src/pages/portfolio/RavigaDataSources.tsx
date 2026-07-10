@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { useRoute } from "wouter";
+import { useRoute, Redirect } from "wouter";
 import { Plug, ShieldCheck, Database, CheckCircle2 } from "lucide-react";
 import {
   getFirm,
@@ -9,7 +9,7 @@ import {
   SEMANTIC_LAYER,
   type ConnectorFirmSummary,
 } from "@/data/portfolio";
-import { RavigaShell } from "@/components/portfolio/RavigaShell";
+import { TenantShell } from "@/components/portfolio/TenantShell";
 
 type Tab = "connectors" | "governance" | "semantic";
 
@@ -144,11 +144,18 @@ export default function RavigaDataSources() {
   const [, params] = useRoute("/:firmSlug/data-sources");
   const firmSlug = params?.firmSlug ?? "";
   const firm = getFirm(firmSlug);
+  const [tab, setTab] = useState<Tab>("connectors");
+
   if (!firm) return <FirmNotFound />;
+
+  // Data Sources is a Raviga-only sandbox surface (live-data demo feature);
+  // every other tenant is redirected back to its portfolio overview.
+  if (firmSlug !== "raviga") {
+    return <Redirect to={`/${firmSlug}/portfolio`} />;
+  }
 
   const companies = getFirmCompanies(firmSlug);
   const connectorSummary = getFirmConnectorSummary(companies);
-  const [tab, setTab] = useState<Tab>("connectors");
 
   const tabs: { id: Tab; label: string; icon: typeof Plug }[] = [
     { id: "connectors", label: "Connectors", icon: Plug },
@@ -157,7 +164,7 @@ export default function RavigaDataSources() {
   ];
 
   return (
-    <RavigaShell firm={firm}>
+    <TenantShell firm={firm}>
       {/* Eyebrow + title */}
       <div className="mb-8">
         <p className="mb-1 text-[11px] font-semibold uppercase tracking-widest text-muted-foreground">
@@ -200,6 +207,6 @@ export default function RavigaDataSources() {
         Simulated connection — demo environment. Illustrative of the data infrastructure a Phase 2
         engagement would stand up.
       </p>
-    </RavigaShell>
+    </TenantShell>
   );
 }

@@ -151,7 +151,9 @@ function Router() {
           <Route path="/:firmSlug/portfolio/:companyId/report" component={PortfolioReport} />
           <Route path="/:firmSlug/portfolio/:companyId" component={PortfolioCompany} />
 
-          {/* Raviga-only portfolio pages */}
+          {/* Shared tenant portfolio pages (Findings/Benchmarks now render for every
+              firm). Risk & Data Sources remain a Raviga-only sandbox — each
+              component redirects non-Raviga firms back to /:firmSlug/portfolio. */}
           <Route path="/:firmSlug/findings" component={RavigaFindings} />
           <Route path="/:firmSlug/benchmarks" component={RavigaBenchmarks} />
           <Route path="/:firmSlug/risk" component={RavigaRisk} />

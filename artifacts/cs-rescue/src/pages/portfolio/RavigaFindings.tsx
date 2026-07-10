@@ -12,7 +12,7 @@ import {
   type LiveSignal,
   type LiveSignalSeverity,
 } from "@/data/portfolio";
-import { RavigaShell } from "@/components/portfolio/RavigaShell";
+import { TenantShell } from "@/components/portfolio/TenantShell";
 
 type Severity = "All" | "High" | "Medium";
 type LiveSeverityFilter = "All" | LiveSignalSeverity;
@@ -185,7 +185,7 @@ export default function RavigaFindings() {
   );
 
   return (
-    <RavigaShell firm={firm}>
+    <TenantShell firm={firm}>
       {/* Header */}
       <div className="mb-6 flex flex-wrap items-start justify-between gap-4">
         <div>
@@ -336,6 +336,6 @@ export default function RavigaFindings() {
         postings, press). Phase 2 engagement validates with proprietary CRM, Gainsight, and product
         data.
       </div>
-    </RavigaShell>
+    </TenantShell>
   );
 }

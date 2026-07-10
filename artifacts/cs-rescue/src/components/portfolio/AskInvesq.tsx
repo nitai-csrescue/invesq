@@ -83,7 +83,12 @@ export function AskInvesq({ firm }: AskInvesqProps) {
       const res = await fetch("/api/invesq/draft", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ mode, prompt: text, company: companyPayload }),
+        body: JSON.stringify({
+          mode,
+          prompt: text,
+          company: companyPayload,
+          firmSlug: firm.slug,
+        }),
       });
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       const data = (await res.json()) as { draft: string; source: "ai" | "canned" };

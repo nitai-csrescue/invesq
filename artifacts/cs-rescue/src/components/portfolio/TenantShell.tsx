@@ -1,16 +1,29 @@
 import { type ReactNode, useEffect } from "react";
 import { Link, useLocation } from "wouter";
-import { BarChart3, AlertTriangle, BarChart2, ShieldCheck, TrendingDown, Database } from "lucide-react";
+import {
+  BarChart3,
+  AlertTriangle,
+  BarChart2,
+  ShieldCheck,
+  TrendingDown,
+  Database,
+  ShieldAlert,
+} from "lucide-react";
 import { AskInvesq } from "@/components/portfolio/AskInvesq";
 import { type Firm } from "@/data/portfolio";
 
 // ---------------------------------------------------------------------------
 // Sidebar nav definition
+// Base nav is shared by every tenant; Risk & ROI and Data Sources remain a
+// Raviga-only sandbox (live-data demo features), gated below via isRaviga.
 // ---------------------------------------------------------------------------
-const NAV = [
+const BASE_NAV = [
   { href: "portfolio", label: "Portfolio", icon: BarChart3 },
   { href: "findings", label: "Findings", icon: AlertTriangle },
   { href: "benchmarks", label: "Benchmarks", icon: BarChart2 },
+] as const;
+
+const RAVIGA_ONLY_NAV = [
   { href: "risk", label: "Risk & ROI", icon: TrendingDown },
   { href: "data-sources", label: "Data Sources", icon: Database },
 ] as const;
@@ -46,17 +59,21 @@ function NavItem({
 }
 
 // ---------------------------------------------------------------------------
-// RavigaShell
-// Dark navy sidebar (#1a2332) + light canvas (.raviga-canvas)
-// Only used for slug === "raviga" pages. STG/Pamlico unchanged.
+// TenantShell
+// Dark navy sidebar (#1a2332) + light canvas (.raviga-canvas). Shared shell
+// for every tenant's portfolio surface — never a per-firm layout fork.
+// Raviga keeps two additional sandbox nav items (Risk & ROI, Data Sources);
+// every other tenant sees the shared 3-item nav.
 // ---------------------------------------------------------------------------
-interface RavigaShellProps {
+interface TenantShellProps {
   children: ReactNode;
   firm: Firm;
 }
 
-export function RavigaShell({ children, firm }: RavigaShellProps) {
+export function TenantShell({ children, firm }: TenantShellProps) {
   const [location] = useLocation();
+  const isRaviga = firm.slug === "raviga";
+  const nav = isRaviga ? [...BASE_NAV, ...RAVIGA_ONLY_NAV] : BASE_NAV;
 
   useEffect(() => {
     window.scrollTo(0, 0);
@@ -100,14 +117,21 @@ export function RavigaShell({ children, firm }: RavigaShellProps) {
           >
             {firm.displayName}
           </div>
-          <div className="mt-0.5 text-xs font-medium" style={{ color: "#8ba4c0" }}>
-            Fund III
-          </div>
+          {isRaviga && (
+            <div className="mt-0.5 text-xs font-medium" style={{ color: "#8ba4c0" }}>
+              Fund III
+            </div>
+          )}
+          {firm.internalOnly && (
+            <span className="mt-1.5 inline-flex w-fit items-center gap-1 rounded-full border border-rose-500/30 bg-rose-500/10 px-2 py-0.5 text-[10px] text-rose-300">
+              <ShieldAlert className="h-2.5 w-2.5" /> {firm.statusLabel}
+            </span>
+          )}
         </div>
 
         {/* Nav items */}
         <nav className="flex-1 overflow-y-auto space-y-0.5 px-3 py-4">
-          {NAV.map((item) => (
+          {nav.map((item) => (
             <NavItem
               key={item.href}
               href={`/${firm.slug}/${item.href}`}

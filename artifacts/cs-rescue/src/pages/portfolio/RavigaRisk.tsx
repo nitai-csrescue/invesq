@@ -1,5 +1,5 @@
 import { useState, useMemo } from "react";
-import { useRoute } from "wouter";
+import { useRoute, Redirect } from "wouter";
 import {
   getFirm,
   getFirmCompanies,
@@ -9,7 +9,7 @@ import {
   type Company,
 } from "@/data/portfolio";
 import { Info } from "lucide-react";
-import { RavigaShell } from "@/components/portfolio/RavigaShell";
+import { TenantShell } from "@/components/portfolio/TenantShell";
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -548,8 +548,14 @@ export default function RavigaRisk() {
     );
   }
 
+  // Risk & ROI is a Raviga-only sandbox surface (live-data demo feature); every
+  // other tenant is redirected back to its portfolio overview.
+  if (firmSlug !== "raviga") {
+    return <Redirect to={`/${firmSlug}/portfolio`} />;
+  }
+
   return (
-    <RavigaShell firm={firm}>
+    <TenantShell firm={firm}>
       <div className="mb-6">
         <h1 className="text-2xl font-bold text-foreground">Risk &amp; ROI</h1>
         <p className="mt-1 text-sm text-muted-foreground">
@@ -586,6 +592,6 @@ export default function RavigaRisk() {
           onSelect={setSelectedCompanyId}
         />
       )}
-    </RavigaShell>
+    </TenantShell>
   );
 }
