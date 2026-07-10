@@ -114,6 +114,39 @@ const NAME_BIGRAM_RE = new RegExp(`\\b(${TITLE_CASE_WORD})\\s+(${TITLE_CASE_WORD
 
 const DEFAULT_REPLACEMENT = "the current CS leader";
 
+// A blind "replace the name with a fixed string" pass produces ungrammatical
+// output when the name is immediately preceded by a leading role/title
+// phrase describing a DIFFERENT person than "the current CS leader" — e.g.
+// evidence like "New CEO Jane Doe brings Zelis and Cotiviti experience..."
+// (a new CEO mentioned in passing within CS-Leadership evidence) became
+// "New CEO the current CS leader brings..." once the name was swapped in
+// place. This pass runs FIRST and consumes the whole "[modifier] RoleTitle
+// Name Name" span, collapsing it into a natural "The [modifier] RoleTitle"
+// (e.g. "The new CEO") instead of leaving the role phrase dangling next to
+// the generic replacement string. It intentionally does NOT touch bare
+// "CS Leader"/"CS leadership" phrasing — those already read correctly once
+// the name alone is swapped by the generic pass below.
+const LEADING_ROLE_MODIFIERS = ["New", "Incoming", "Former", "Outgoing", "Current", "Interim", "Newly-appointed"];
+const LEADING_ROLE_TITLES = [
+  "CEO",
+  "CFO",
+  "CTO",
+  "COO",
+  "CMO",
+  "CRO",
+  "President",
+  "Founder",
+  "Co-Founder",
+  "Chairman",
+  "Chair",
+  "VP",
+  "Vice President",
+];
+const LEADING_ROLE_NAME_RE = new RegExp(
+  `\\b(?:(${LEADING_ROLE_MODIFIERS.join("|")})\\s+)?(${LEADING_ROLE_TITLES.join("|")})\\s+${TITLE_CASE_WORD}\\s+${TITLE_CASE_WORD}\\b`,
+  "g",
+);
+
 function isRoleWord(word: string): boolean {
   return ROLE_STOPWORDS.has(word.toLowerCase());
 }
@@ -137,7 +170,13 @@ export function redactNamedIndividuals(text: string, replacement: string = DEFAU
 
   let redacted = text;
 
-  // Full "First Last" occurrences first, so we don't leave a dangling
+  // "[modifier] RoleTitle Name Name" spans first, restructured into "The
+  // [modifier] RoleTitle" rather than a blind name swap (see comment above).
+  redacted = redacted.replace(LEADING_ROLE_NAME_RE, (_fullMatch, modifier: string | undefined, roleTitle: string) => {
+    return modifier ? `The ${modifier.toLowerCase()} ${roleTitle}` : `The ${roleTitle}`;
+  });
+
+  // Full "First Last" occurrences next, so we don't leave a dangling
   // first/last-name-only replacement immediately followed by another one.
   redacted = redacted.replace(NAME_BIGRAM_RE, (fullMatch, first: string, last: string) => {
     if (isRoleWord(first) || isRoleWord(last)) return fullMatch;

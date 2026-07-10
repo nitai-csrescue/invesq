@@ -20,7 +20,7 @@ function scoreRow(index: number, reportData: DiagnosticReportData): string {
       <td style="padding:10px 14px; border-bottom:1px solid ${COLORS.slate200}; font-weight:600; vertical-align:top; width:22%;">
         ${esc(pillar.name)}
       </td>
-      <td style="padding:10px 14px; border-bottom:1px solid ${COLORS.slate200}; vertical-align:top; width:20%;">
+      <td style="padding:10px 14px; border-bottom:1px solid ${COLORS.slate200}; vertical-align:top; width:1%; white-space:nowrap;">
         ${scoreBadge(rawScore, { compact: true })}
       </td>
       <td style="padding:10px 14px; border-bottom:1px solid ${COLORS.slate200}; vertical-align:top; font-size:10px; line-height:1.5;">
@@ -71,7 +71,7 @@ export function renderPage3(ctx: ReportContext): string {
     </div>
 
     <p style="margin-top:14px; font-size:9px; font-style:italic; color:${COLORS.slate500};">
-      Pillars scored "Insufficient Data" are not treated as automatic failures — they are excluded from both the
+      Pillars scored "Insufficient Data" are not treated as automatic failures: they are excluded from both the
       score and the total above, reflecting genuine public-signal uncertainty rather than a confirmed gap.
     </p>
   `;

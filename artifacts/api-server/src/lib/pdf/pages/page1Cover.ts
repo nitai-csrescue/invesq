@@ -9,7 +9,7 @@ function preparedCard(title: string, lines: Array<{ label: string; value: string
       (l) => `
         <div style="margin-bottom:4px;">
           <div class="label" style="margin-bottom:1px;">${esc(l.label)}</div>
-          <div style="font-size:10.5px; font-weight:600; color:${COLORS.slate900};">${esc(l.value) || "&mdash;"}</div>
+          <div style="font-size:10.5px; font-weight:600; color:${COLORS.slate900};">${esc(l.value) || "&middot;"}</div>
         </div>
       `,
     )

@@ -111,6 +111,7 @@ export const BASE_STYLES = `
     font-weight: 600;
     text-transform: uppercase;
     letter-spacing: 0.08em;
+    white-space: nowrap;
   }
 
   .header-row {

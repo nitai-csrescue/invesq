@@ -524,7 +524,8 @@ router.get("/companies/:id/report-pdf", async (req, res) => {
     const html = buildReportPdfHtml(data, website);
     const pdf = await renderHtmlToPdf(html);
 
-    const filename = `${data.reportData.companyName.replace(/[^a-z0-9]+/gi, "-")}-diagnostic-report.pdf`;
+    const safeCompanyName = data.reportData.companyName.replace(/[\\/:*?"<>|]/g, "").trim();
+    const filename = `${safeCompanyName} - CSRescue Diagnostic Report.pdf`;
     res.setHeader("Content-Type", "application/pdf");
     res.setHeader("Content-Disposition", `attachment; filename="${filename}"`);
     res.send(pdf);

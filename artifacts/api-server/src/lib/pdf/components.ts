@@ -69,8 +69,12 @@ export function scoreBadge(score: number | "NA" | null, opts?: { compact?: boole
   const status = scoreStatusFor(score);
   const scoreLabel = score === "NA" || score === null ? "NA" : String(score);
   const pad = opts?.compact ? "3px 9px" : "4px 12px";
+  // Compact badges (page 3's scorecard table + page 5's pillar headings) get
+  // a 1px smaller font so the longest labels ("Infrastructure Gap",
+  // "Insufficient Data") reliably fit on one line at typical column widths.
+  const fontSize = opts?.compact ? "9.5px" : "10.5px";
   return `
-    <span class="pill" style="background:${status.bg}; color:${status.text}; padding:${pad};">
+    <span class="pill" style="background:${status.bg}; color:${status.text}; padding:${pad}; font-size:${fontSize};">
       ${esc(scoreLabel)} &middot; ${esc(status.label)}
     </span>
   `;

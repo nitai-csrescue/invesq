@@ -13,3 +13,4 @@
 - [PDF report composite score](pdf-report-composite-scores.md) — two different composite numbers exist (`tierComposite`/16 for tier banding vs `meta.composite`/`compositeMax` for display); using the wrong one mismatches the narrative on any NA-pillar company.
 - [Render-time redaction vs data migration](name-redaction-render-time-mitigation.md) — filter PII at the single shared response funnel (covers cache + future consumers) instead of backfilling stored rows.
 - [Auditing raw JSON dumps before removal](admin-json-dump-removal-parity.md) — diff the schema against the rendered view first; fields can exist only in the JSON block (e.g. per-pillar signals) and get silently lost.
+- [Generated-content cache invalidation](generated-content-cache-invalidation.md) — fixing fallback/template copy has no effect on already-cached generated rows; must bump the cache's version key or delete rows to verify.

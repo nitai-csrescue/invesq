@@ -20,7 +20,7 @@ export function renderPage2(ctx: ReportContext): string {
     <p>
       Beyond the diagnostic itself, the pattern of gaps identified here is a recurring source of preventable
       revenue leakage across PE- and VC-backed portfolio companies. Closing them is not just a remediation
-      exercise — it is a direct lever on net revenue retention and expansion, and a repeatable one across a fund's
+      exercise, it is a direct lever on net revenue retention and expansion, and a repeatable one across a fund's
       broader portfolio.
     </p>
 
@@ -29,7 +29,7 @@ export function renderPage2(ctx: ReportContext): string {
 
     <p style="margin-top:16px;">
       For <strong>${esc(reportData.parentFund)}</strong>, standardizing this diagnostic across the portfolio turns
-      customer success from a company-by-company unknown into a comparable, board-reportable operating metric —
+      customer success from a company-by-company unknown into a comparable, board-reportable operating metric,
       surfacing risk and expansion opportunity earlier, and with consistent rigor, at every portfolio company.
     </p>
   `;

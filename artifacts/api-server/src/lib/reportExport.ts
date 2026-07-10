@@ -11,7 +11,18 @@ import { logger } from "./logger.js";
 // produce changes meaningfully enough that previously-generated reports
 // should no longer be served as "current" — a bump naturally produces fresh
 // report_exports rows instead of mutating/invalidating old ones.
-const RUBRIC_VERSION = "v2";
+// v3 (2026-07-10): added the hard no-em-dash formatting rule to the tone
+// policy below, superseding v2 rows that may contain em-dashes.
+// v4 (2026-07-10): fixed a hardcoded em-dash separator in the p6Recommendation
+// template string (in both buildBaseReportData and mergeNarrative) that was
+// baked into the cached reportData JSON and untouched by the v3 prompt-only
+// fix, superseding v3 rows whose p6Recommendation still contains "Label — rationale".
+// v5 (2026-07-10): fixed em-dashes in @workspace/portfolio-engine's PILLARS
+// gapNote strings, which flow into gaps[].description (line ~138) whenever a
+// pillar has no Claude-written evidence narrative and get baked into the
+// cached reportData JSON at generation time, superseding v4 rows whose
+// fallback gap descriptions still contain the old em-dash gapNote text.
+const RUBRIC_VERSION = "v5";
 const NARRATIVE_MODEL = "claude-sonnet-4-6";
 
 type Company = typeof companiesTable.$inferSelect;
@@ -116,7 +127,7 @@ function buildBaseReportData(company: Company, firm: Firm, assessment: Assessmen
   const p6Score = leadershipIndex >= 0 ? pillarScores[PILLARS[leadershipIndex].id] : null;
   const p6Evidence = leadershipIndex >= 0 ? evidence[pillarKeys[leadershipIndex]] : null;
   const p6Label = p6Score === 2 ? "Retain and Develop" : p6Score === 1 ? "Augment" : p6Score === 0 ? "Replace" : "";
-  const p6Recommendation = p6Label ? (p6Evidence ? `${p6Label} — ${p6Evidence}` : p6Label) : "";
+  const p6Recommendation = p6Label ? (p6Evidence ? `${p6Label}: ${p6Evidence}` : p6Label) : "";
 
   const gaps = [...PILLARS]
     .map((pillar, index) => ({
@@ -199,6 +210,8 @@ function buildNarrativeSystemPrompt(rubricText: string): string {
     "- NEVER include a named individual's name anywhere in your output, even if a name appears in the evidence given to you. Refer to roles only (e.g. \"the CS leader\", \"the current Director-level CS role\"), never a person's name, prior employer, or personal career background.",
     "- Written for a PE/VC investment committee audience: precise, evidence-grounded, no hype, no filler adjectives.",
     "- Every claim must trace back to the provided scores/evidence — do not fabricate specifics (numbers, tools) that were not given to you, beyond stripping personal names as instructed above.",
+    "",
+    "FORMATTING RULE (strict, non-negotiable): NO EM-DASHES. Ever. Do not use the em-dash character (—) or the en-dash (–) as punctuation anywhere in any field, no matter how natural it feels. Use a period, a comma, or a middot (\u00b7) instead.",
     "",
     "Respond with ONLY a single fenced ```json code block (no prose before or after) containing one JSON object with exactly these keys:",
     '- "execSummary": array of 2-4 short paragraph strings (overall diagnostic summary and investment-relevant framing)',
@@ -304,7 +317,38 @@ async function generateNarrative(base: BaseReportData): Promise<NarrativeResult>
     throw new Error(`Claude narrative response was malformed. Raw text: ${text.slice(0, 800)}`);
   }
 
-  return parsed;
+  return sanitizeNarrativeEmDashes(parsed);
+}
+
+// The prompt's "NO EM-DASHES" formatting rule (see buildNarrativeSystemPrompt)
+// is not reliably followed by Claude across generations — verified by
+// observing em-dashes reappear in a subsequent generation for the same
+// company despite an unchanged, explicit ban. This is a deterministic
+// code-level backstop applied to every narrative field so the no-em-dash
+// guarantee never depends solely on model compliance. A spaced em/en-dash
+// (the common "clause — elaboration" pattern) becomes a comma; any other
+// stray occurrence (e.g. an unspaced range like "12–16") becomes a hyphen.
+function stripEmDashes(text: string): string {
+  return text.replace(/\s+[—–]\s+/g, ", ").replace(/[—–]/g, "-");
+}
+
+function sanitizeNarrativeEmDashes(narrative: NarrativeResult): NarrativeResult {
+  return {
+    execSummary: narrative.execSummary.map(stripEmDashes),
+    compositeContext: stripEmDashes(narrative.compositeContext),
+    existingSystems: stripEmDashes(narrative.existingSystems),
+    pathForward: stripEmDashes(narrative.pathForward),
+    pillarSignals: Object.fromEntries(
+      Object.entries(narrative.pillarSignals).map(([k, v]) => [k, stripEmDashes(v)]),
+    ),
+    gapDetails: narrative.gapDetails.map((g) => ({
+      title: g.title,
+      impact: stripEmDashes(g.impact),
+      recommendation: stripEmDashes(g.recommendation),
+    })),
+    nextSteps: narrative.nextSteps.map(stripEmDashes),
+    p6RecommendationRationale: stripEmDashes(narrative.p6RecommendationRationale),
+  };
 }
 
 function mergeNarrative(base: BaseReportData, narrative: NarrativeResult): DiagnosticReportData {
@@ -332,7 +376,7 @@ function mergeNarrative(base: BaseReportData, narrative: NarrativeResult): Diagn
     nextSteps: narrative.nextSteps,
     p6Recommendation: base.p6Label
       ? narrative.p6RecommendationRationale
-        ? `${base.p6Label} — ${narrative.p6RecommendationRationale}`
+        ? `${base.p6Label}: ${narrative.p6RecommendationRationale}`
         : base.p6Label
       : "",
   };

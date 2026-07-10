@@ -10,7 +10,10 @@ import { renderPage3 } from "./pages/page3Scorecard.js";
 import { renderPage4 } from "./pages/page4Gaps.js";
 import { renderPage5 } from "./pages/page5Pillars.js";
 import { renderPage6 } from "./pages/page6Roadmap.js";
-import { renderPage7 } from "./pages/page7Sources.js";
+// page7Sources.ts (Methodology & Sources) is intentionally NOT rendered
+// (2026-07-10): its source list was incomplete (only "Company Website" was a
+// real, verifiable source). Kept on disk, unused, to re-wire once a full
+// source list is available — see page7Sources.ts's header comment.
 
 function pillarKey(index: number): keyof AdminCompanyReportData["reportData"]["scores"] {
   return `p${index + 1}` as keyof AdminCompanyReportData["reportData"]["scores"];
@@ -23,7 +26,7 @@ function computeTierComposite(data: AdminCompanyReportData): number {
   }, 0);
 }
 
-// Builds the full 7-page branded "CS Rescue" Diagnostic Report HTML, fed
+// Builds the full 6-page branded "CS Rescue" Diagnostic Report HTML, fed
 // entirely by `report_exports` data (via AdminCompanyReportData) — this is a
 // dedicated print template, NOT a render of the app's own
 // /portfolio/[company]/report page or any other in-product UI.
@@ -46,14 +49,13 @@ export function buildReportPdfHtml(data: AdminCompanyReportData, companyWebsite:
     renderPage4(ctx),
     renderPage5(ctx),
     renderPage6(ctx),
-    renderPage7(ctx),
   ].join("\n");
 
   return `<!DOCTYPE html>
 <html lang="en">
 <head>
 <meta charset="utf-8" />
-<title>${esc(data.reportData.companyName)} — Customer Success Diagnostic</title>
+<title>${esc(data.reportData.companyName)}: Customer Success Diagnostic</title>
 ${GOOGLE_FONTS_LINK}
 <style>${BASE_STYLES}</style>
 </head>
