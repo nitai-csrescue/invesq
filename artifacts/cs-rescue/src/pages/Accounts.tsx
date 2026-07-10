@@ -24,6 +24,8 @@ import {
   getTeamMember,
   team,
 } from "@/data";
+import { getDemoDeploymentsForAccount } from "@/data/deployments";
+import type { DeploymentStage } from "@workspace/api-client-react";
 
 const STATUSES: { value: AccountStatus | "all"; label: string }[] = [
   { value: "all", label: "All statuses" },
@@ -34,6 +36,15 @@ const STATUSES: { value: AccountStatus | "all"; label: string }[] = [
 ];
 
 const SEGMENTS: (AccountSegment | "all")[] = ["all", "Enterprise", "Mid-Market", "SMB"];
+
+const STAGE_LABELS: Record<DeploymentStage, string> = {
+  pre_sales: "Pre-Sales",
+  contracting: "Contracting",
+  implementation: "Implementation",
+  csm: "CSM",
+  support: "Support",
+  completed: "Completed",
+};
 
 function personaDefaultOwner(persona: Persona): string {
   return PERSONA_CURRENT_USER[persona] ?? "all";
@@ -246,6 +257,7 @@ function AccountDrawer({ account, onClose, forceOpen = false }: { account: Accou
   const ownerMember = getTeamMember(account.ownerId);
   const accountSignals = signalEvents.filter((e) => e.accountId === account.id);
   const recommended = actions.filter((a) => account.recommendedActionIds.includes(a.id));
+  const rollouts = getDemoDeploymentsForAccount(account.id);
 
   return (
     <Sheet open={isOpen} onOpenChange={(v) => { if (!forceOpen && !v) onClose(); }}>
@@ -264,6 +276,7 @@ function AccountDrawer({ account, onClose, forceOpen = false }: { account: Accou
         <Tabs defaultValue="summary" className="mt-6">
           <TabsList className="bg-slate-900/60">
             <TabsTrigger value="summary">Summary</TabsTrigger>
+            <TabsTrigger value="rollouts">Rollouts</TabsTrigger>
             <TabsTrigger value="usage">Usage</TabsTrigger>
             <TabsTrigger value="risk">Risk</TabsTrigger>
             <TabsTrigger value="expansion">Expansion</TabsTrigger>
@@ -281,6 +294,37 @@ function AccountDrawer({ account, onClose, forceOpen = false }: { account: Accou
               <p className="text-xs uppercase tracking-wider text-slate-500 mb-2">Health trend (12 wk)</p>
               <div className={healthScoreColor(account.healthScore)}><Sparkline values={account.healthTrend} height={48} /></div>
             </div>
+          </TabsContent>
+
+          <TabsContent value="rollouts" className="space-y-2 mt-4">
+            {rollouts.length === 0 ? (
+              <p className="text-sm text-slate-500 italic">No active rollouts for this account.</p>
+            ) : (
+              <>
+                <p className="text-xs uppercase tracking-wider text-slate-500">
+                  {rollouts.length} active rollout{rollouts.length === 1 ? "" : "s"}
+                </p>
+                {rollouts.map((d) => (
+                  <Link
+                    key={d.id}
+                    href={`/platform/ai-copilot?accountId=${account.id}&deploymentId=${d.id}`}
+                    className="block rounded-lg border border-white/5 bg-white/[0.02] p-3 hover:border-cyan-400/30 hover:bg-cyan-500/5 transition-colors"
+                    data-testid={`drawer-rollout-${d.id}`}
+                  >
+                    <div className="flex items-center justify-between gap-3">
+                      <div className="min-w-0">
+                        <p className="text-sm text-white truncate">{d.name}</p>
+                        <Badge variant="outline" className="text-[10px] uppercase mt-1">{STAGE_LABELS[d.stage]}</Badge>
+                      </div>
+                      <div className="text-right shrink-0">
+                        <p className={`text-base font-bold ${healthScoreColor(d.healthScore)}`}>{d.healthScore}</p>
+                        <p className="text-[10px] uppercase tracking-wider text-slate-500">Health</p>
+                      </div>
+                    </div>
+                  </Link>
+                ))}
+              </>
+            )}
           </TabsContent>
 
           <TabsContent value="usage" className="mt-4">

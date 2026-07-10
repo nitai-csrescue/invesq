@@ -139,10 +139,11 @@ export default function AICopilot() {
     const params = new URLSearchParams(window.location.search);
     const p = params.get("prompt");
     const aId = params.get("accountId");
+    const dId = params.get("deploymentId");
     const personaParam = params.get("persona");
     const auto = params.get("autoRun") === "1";
-    if (!p && !aId && !auto && !personaParam) return null;
-    return { prompt: p ?? "", accountId: aId, persona: personaParam, autoRun: auto };
+    if (!p && !aId && !dId && !auto && !personaParam) return null;
+    return { prompt: p ?? "", accountId: aId, deploymentId: dId, persona: personaParam, autoRun: auto };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -154,6 +155,7 @@ export default function AICopilot() {
       setScope("customer");
       setAccountId(deepLink.accountId);
     }
+    if (deepLink.deploymentId) setDeploymentId(deepLink.deploymentId);
     if (deepLink.persona && PERSONAS.some((p) => p.id === deepLink.persona)) {
       setPersona(deepLink.persona as Persona);
     }

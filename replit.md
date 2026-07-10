@@ -53,7 +53,7 @@ The global persona switcher (`PersonaSwitcher`) reshapes several pages:
 
 Sidebar group `Product`
 - `/dashboard` — KPIs · at-risk + expansion tables · AI insight rail · recommended actions · active playbooks
-- `/accounts` — Filterable book of business with right-side Sheet drawer (Summary / Usage / Risk / Expansion / Activity / Actions)
+- `/accounts` — Filterable book of business with right-side Sheet drawer (Summary / Rollouts / Usage / Risk / Expansion / Activity / Actions). The Rollouts tab lists every Deployment for the account (`getDemoDeploymentsForAccount`) with name, stage, and health score; each row deep-links to `/platform/ai-copilot?accountId=&deploymentId=` for that specific rollout.
 - `/signals` — 5 category blocks (Churn, Expansion, Adoption, Renewal, Support) + live signal feed
 - `/playbooks` — Tabbed library + drawer with steps, outcomes, active accounts, Run CTA (toast on run)
 - `/actions` — Queued / In Progress / Completed tabs with status transitions (toasts)
@@ -65,7 +65,7 @@ Sidebar group `Configure`
 
 Sidebar group `Platform` (demoted, kept for technical buyers)
 - `/platform/architecture` — original React Flow graph
-- `/platform/ai-copilot` — supports `?prompt=&accountId=&autoRun=1` deep-link from the Dashboard insight rail
+- `/platform/ai-copilot` — supports `?prompt=&accountId=&deploymentId=&persona=&autoRun=1` deep-link (from the Dashboard insight rail and the Accounts drawer Rollouts tab); `deploymentId` pre-selects a specific rollout
 
 `/admin` (internal, unlinked from the sidebar) — gated by Replit Auth (Google OAuth via `@csrescue.com` allowlist), see "Admin auth" below. Includes a firm-onboarding flow: `/admin/firms` (list), `/admin/firms/:id` (`FirmReview.tsx` — add/select companies, confirm & queue a real build job, plus the Export panel described below). See "AI-powered firm onboarding" below for the discovery/build job pipeline behind this flow.
 
