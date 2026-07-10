@@ -20,9 +20,12 @@ import { requireAdminAuth } from "../middlewares/authMiddleware.js";
 import {
   getReportData,
   getOrGenerateReportExport,
+  getCompanyWebsite,
   CompanyNotFoundError,
   NoAssessmentError,
 } from "../lib/reportExport.js";
+import { buildReportPdfHtml } from "../lib/pdf/reportHtml.js";
+import { renderHtmlToPdf } from "../lib/pdf/renderPdf.js";
 
 const router: IRouter = Router();
 
@@ -493,6 +496,49 @@ router.post("/companies/:id/report-export", async (req, res) => {
     }
     req.log.error({ err, companyId: id }, "Failed to generate report export");
     res.status(502).json({ error: "Failed to generate report export" });
+  }
+});
+
+// Renders the branded "CS Rescue" Diagnostic Report PDF (7-page print
+// template, see lib/pdf/) for a company's latest assessment. Read-only —
+// reuses the same cache-only `getReportData` as the JSON export route, so it
+// never calls Claude and is safe to hit repeatedly. Requires a previously
+// generated narrative (meta.generatedAt) since the PDF's narrative sections
+// (exec summary, composite context, next steps, etc.) would otherwise render
+// as designed-blank placeholders — 409 tells the admin to generate first.
+router.get("/companies/:id/report-pdf", async (req, res) => {
+  const id = Number(req.params.id);
+  if (!Number.isInteger(id) || id <= 0) {
+    res.status(400).json({ error: "Invalid company id" });
+    return;
+  }
+
+  try {
+    const [data, website] = await Promise.all([getReportData(id), getCompanyWebsite(id)]);
+
+    if (!data.meta.generatedAt) {
+      res.status(409).json({ error: "Report narrative has not been generated yet for this assessment" });
+      return;
+    }
+
+    const html = buildReportPdfHtml(data, website);
+    const pdf = await renderHtmlToPdf(html);
+
+    const filename = `${data.reportData.companyName.replace(/[^a-z0-9]+/gi, "-")}-diagnostic-report.pdf`;
+    res.setHeader("Content-Type", "application/pdf");
+    res.setHeader("Content-Disposition", `attachment; filename="${filename}"`);
+    res.send(pdf);
+  } catch (err) {
+    if (err instanceof CompanyNotFoundError) {
+      res.status(404).json({ error: "Company not found" });
+      return;
+    }
+    if (err instanceof NoAssessmentError) {
+      res.status(404).json({ error: "Company has no assessments yet" });
+      return;
+    }
+    req.log.error({ err, companyId: id }, "Failed to render report PDF");
+    res.status(500).json({ error: "Failed to render report PDF" });
   }
 });
 

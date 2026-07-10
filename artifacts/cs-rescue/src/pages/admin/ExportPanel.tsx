@@ -1,6 +1,6 @@
 import { useMemo, useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
-import { Loader2, ClipboardCopy, Check, FileDown, Sparkles } from "lucide-react";
+import { Loader2, ClipboardCopy, Check, FileDown, Sparkles, Download } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
@@ -29,6 +29,7 @@ export default function ExportPanel({ companies }: ExportPanelProps) {
   const [companyId, setCompanyId] = useState<string>("");
   const [format, setFormat] = useState<ExportFormat>("client-pdf");
   const [copied, setCopied] = useState(false);
+  const [isDownloadingPdf, setIsDownloadingPdf] = useState(false);
 
   const selectedId = companyId ? Number(companyId) : NaN;
   const hasSelectedId = Number.isInteger(selectedId) && selectedId > 0;
@@ -78,6 +79,55 @@ export default function ExportPanel({ companies }: ExportPanelProps) {
       toast({ title: "Copied", description: "Prompt copied to clipboard." });
       setTimeout(() => setCopied(false), 2000);
     });
+  };
+
+  const handleDownloadPdf = async () => {
+    if (!hasSelectedId) return;
+    setIsDownloadingPdf(true);
+    try {
+      const response = await fetch(`/api/admin/companies/${selectedId}/report-pdf`, {
+        credentials: "include",
+      });
+
+      if (!response.ok) {
+        if (response.status === 409) {
+          toast({
+            title: "Narrative not generated yet",
+            description: "Generate the AI narrative before downloading the branded PDF.",
+            variant: "destructive",
+          });
+        } else {
+          toast({
+            title: "Download failed",
+            description: "Could not render the Diagnostic Report PDF for this company.",
+            variant: "destructive",
+          });
+        }
+        return;
+      }
+
+      const blob = await response.blob();
+      const disposition = response.headers.get("content-disposition") ?? "";
+      const filenameMatch = /filename="([^"]+)"/.exec(disposition);
+      const filename = filenameMatch?.[1] ?? "diagnostic-report.pdf";
+
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = filename;
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      URL.revokeObjectURL(url);
+    } catch {
+      toast({
+        title: "Download failed",
+        description: "Could not render the Diagnostic Report PDF for this company.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsDownloadingPdf(false);
+    }
   };
 
   return (
@@ -196,15 +246,31 @@ export default function ExportPanel({ companies }: ExportPanelProps) {
                     Copies a ready-to-paste Claude prompt (the full report-data.json payload, not shown here) for
                     producing a {format === "client-pdf" ? "PDF" : "PPTX (editable)"} version of this report.
                   </p>
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    onClick={handleCopy}
-                    data-testid="button-copy-export-prompt"
-                  >
-                    {copied ? <Check className="h-3.5 w-3.5" /> : <ClipboardCopy className="h-3.5 w-3.5" />}
-                    Copy prompt
-                  </Button>
+                  <div className="flex items-center gap-2">
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={handleDownloadPdf}
+                      disabled={isDownloadingPdf}
+                      data-testid="button-download-pdf"
+                    >
+                      {isDownloadingPdf ? (
+                        <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                      ) : (
+                        <Download className="h-3.5 w-3.5" />
+                      )}
+                      Download PDF
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={handleCopy}
+                      data-testid="button-copy-export-prompt"
+                    >
+                      {copied ? <Check className="h-3.5 w-3.5" /> : <ClipboardCopy className="h-3.5 w-3.5" />}
+                      Copy prompt
+                    </Button>
+                  </div>
                 </div>
               </div>
             )}

@@ -393,6 +393,20 @@ function toResponse(
   };
 }
 
+// `companies.website` is not part of the DiagnosticReportData/
+// AdminCompanyReportData schema (that schema is the exact report-data.json
+// contract), but the branded PDF's Page 7 Sources list needs it. Kept as a
+// separate lightweight lookup rather than widening the JSON export contract.
+export async function getCompanyWebsite(companyId: number): Promise<string | null> {
+  const [company] = await db
+    .select({ website: companiesTable.website })
+    .from(companiesTable)
+    .where(eq(companiesTable.id, companyId))
+    .limit(1);
+  if (!company) throw new CompanyNotFoundError(`Company ${companyId} not found`);
+  return company.website;
+}
+
 // Read-only: serves a previously-generated report_exports row for the
 // company's current (latest assessment, current RUBRIC_VERSION) if one
 // exists, or the fully-derivable-with-no-AI base assembly otherwise. Never
