@@ -87,8 +87,8 @@ export default function ExportPanel({ companies }: ExportPanelProps) {
           <FileDown className="h-4 w-4 text-primary" /> Export
         </CardTitle>
         <CardDescription>
-          Assemble a report-data.json payload from a company's latest assessment, then hand it to Claude to
-          produce the Diagnostic Report. Only companies with at least one assessment are eligible.
+          Preview the Diagnostic Report for a company's latest assessment. Only companies with at least one
+          assessment are eligible.
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">
@@ -155,7 +155,7 @@ export default function ExportPanel({ companies }: ExportPanelProps) {
                 <div className="flex items-center justify-between gap-3 rounded-lg border border-dashed border-border bg-background/40 p-3">
                   <p className="text-xs text-muted-foreground">
                     {data.meta.generatedAt
-                      ? "AI narrative sections are generated and included below and in the JSON."
+                      ? "AI narrative sections are generated and included in the report below."
                       : "Executive summary, gaps, and next steps are still blank — generate the AI narrative to fill them in before exporting."}
                   </p>
                   <Button
@@ -191,27 +191,20 @@ export default function ExportPanel({ companies }: ExportPanelProps) {
 
                 <AdminReportPreview data={data} />
 
-                <div className="space-y-3">
-                  <div className="flex items-center justify-between">
-                    <p className="text-xs text-muted-foreground">
-                      report-data.json · {data.meta.assessmentDate} assessment · {data.meta.tier}
-                    </p>
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      onClick={handleCopy}
-                      data-testid="button-copy-export-prompt"
-                    >
-                      {copied ? <Check className="h-3.5 w-3.5" /> : <ClipboardCopy className="h-3.5 w-3.5" />}
-                      Copy prompt
-                    </Button>
-                  </div>
-                  <pre
-                    className="max-h-96 overflow-auto rounded-md border border-border bg-background/60 p-4 text-xs text-foreground"
-                    data-testid="text-export-json"
+                <div className="flex items-center justify-between gap-3 rounded-lg border border-dashed border-border bg-background/40 p-3">
+                  <p className="text-xs text-muted-foreground">
+                    Copies a ready-to-paste Claude prompt (the full report-data.json payload, not shown here) for
+                    producing a {format === "client-pdf" ? "PDF" : "PPTX (editable)"} version of this report.
+                  </p>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={handleCopy}
+                    data-testid="button-copy-export-prompt"
                   >
-                    {json}
-                  </pre>
+                    {copied ? <Check className="h-3.5 w-3.5" /> : <ClipboardCopy className="h-3.5 w-3.5" />}
+                    Copy prompt
+                  </Button>
                 </div>
               </div>
             )}

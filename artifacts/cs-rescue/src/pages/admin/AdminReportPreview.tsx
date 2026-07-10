@@ -28,6 +28,7 @@ export function AdminReportPreview({ data }: AdminReportPreviewProps) {
     Object.entries(toRecord(reportData.scores)).map(([id, value]) => [id, toPillarScore(value)])
   );
   const evidence = toRecord(reportData.pillarEvidence);
+  const signals = toRecord(reportData.pillarSignals);
   const compositeDisplay = meta.compositeMax > 0 ? String(meta.composite) : "—";
 
   return (
@@ -92,6 +93,7 @@ export function AdminReportPreview({ data }: AdminReportPreviewProps) {
         compositeDisplay={compositeDisplay}
         displayMax={meta.compositeMax}
         evidence={evidence}
+        signals={signals}
         className="rounded-xl border border-border bg-card p-6"
       />
 

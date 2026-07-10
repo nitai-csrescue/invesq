@@ -6,6 +6,7 @@ interface PillarScorecardProps {
   compositeDisplay: string;
   displayMax: number;
   evidence?: Partial<Record<string, string | null>>;
+  signals?: Partial<Record<string, string | null>>;
   className?: string;
 }
 
@@ -14,6 +15,7 @@ export function PillarScorecard({
   compositeDisplay,
   displayMax,
   evidence,
+  signals,
   className = "mt-4 rounded-xl border border-border bg-card p-6",
 }: PillarScorecardProps) {
   return (
@@ -30,6 +32,7 @@ export function PillarScorecard({
           const lvl = scoreLevel(score);
           const fill = score === null ? 0 : (score / 2) * 100;
           const note = evidence?.[p.id];
+          const signal = signals?.[p.id];
           return (
             <div
               key={p.id}
@@ -44,6 +47,12 @@ export function PillarScorecard({
                 </div>
                 <p className="mt-1 text-xs text-muted-foreground">{p.measures}</p>
                 {note && <p className="mt-1.5 text-xs italic text-muted-foreground/80">{note}</p>}
+                {signal && (
+                  <p className="mt-1 text-xs text-foreground">
+                    <span className="font-medium">Signal: </span>
+                    {signal}
+                  </p>
+                )}
               </div>
               <div className="flex items-center gap-3 sm:w-56 sm:justify-end">
                 <div className="h-1.5 w-24 overflow-hidden rounded-full bg-background">
