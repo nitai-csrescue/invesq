@@ -32,7 +32,14 @@ export {
 } from "./pillars";
 
 // Firms registry
-export { FIRMS, FIRMS_BY_SLUG, getFirm, AS_OF_DATE } from "./firms";
+export {
+  FIRMS,
+  FIRMS_BY_SLUG,
+  getFirm,
+  getAllFirms,
+  registerDynamicFirms,
+  AS_OF_DATE,
+} from "./firms";
 
 // Engine — query API (pre-computed, validated at startup)
 export {

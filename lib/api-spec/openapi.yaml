@@ -567,6 +567,51 @@ paths:
               schema:
                 $ref: "#/components/schemas/ActiveJobConflict"
 
+  /admin/firms/{id}/refresh:
+    post:
+      operationId: refreshAdminFirm
+      tags: [admin]
+      summary: Re-run the diagnostic build for an already-onboarded firm
+      description: >
+        Queues a fresh "build" job for a firm that has already been confirmed
+        and built, re-scoring every currently-active company. Each re-run
+        APPENDS a new assessment per company (the assessment history is never
+        overwritten) and refreshes the company/firm portal metadata. Rejected
+        (400) for the 5 hand-authored legacy tenants, which are not
+        pipeline-managed. Like confirm, this returns immediately and runs the
+        build in the background.
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Refresh build job queued
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AdminFirmConfirmResult"
+        "400":
+          description: Invalid firm id, or firm is a hand-authored legacy tenant
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+        "404":
+          description: Firm not found, or has no active companies to re-score
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+        "409":
+          description: A build job for this firm is already queued or running
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ActiveJobConflict"
+
   /admin/companies/{id}/report-data:
     get:
       operationId: getAdminCompanyReportData
@@ -674,6 +719,42 @@ paths:
                 $ref: "#/components/schemas/ErrorEnvelope"
         "500":
           description: Seeding failed
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+
+  /admin/backfill-pipeline-meta:
+    post:
+      operationId: backfillPipelineMeta
+      tags: [admin]
+      summary: Idempotent data-repair for pipeline-onboarded firms
+      description: >
+        Repairs the firm-level and company-status data on pipeline-onboarded
+        (non-legacy) firms: (1) stamps the default "internal preview" firms.meta
+        on any firm that is already "ready" but has no meta, and (2) resolves
+        duplicate companies within a firm (same normalized name) by keeping the
+        lowest-id active row and marking the rest "excluded" — a unification,
+        never a delete. Leaves the 5 hand-authored legacy tenants completely
+        untouched. Safe to call repeatedly. Note: this does NOT fabricate
+        company CompanyMeta, so a firm built before the pipeline started writing
+        full CompanyMeta still needs a re-run (POST /admin/firms/{id}/refresh)
+        to render — backfill alone only fixes firm meta and duplicate rows.
+      responses:
+        "200":
+          description: Per-firm repair result
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/BackfillPipelineMetaResult"
+        "401":
+          description: Not authenticated as an allowed admin
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+        "500":
+          description: Repair failed
           content:
             application/json:
               schema:
@@ -1282,6 +1363,34 @@ components:
           type: array
           items:
             $ref: "#/components/schemas/LegacyTenantSeedItem"
+
+    BackfillPipelineMetaFirm:
+      type: object
+      required: [id, slug, metaStamped, duplicatesExcluded]
+      properties:
+        id:
+          type: integer
+        slug:
+          type: string
+        metaStamped:
+          type: boolean
+          description: True if this firm was missing meta and had the default stamped this run.
+        duplicatesExcluded:
+          type: integer
+          description: Number of duplicate-named active companies marked "excluded" in this firm.
+
+    BackfillPipelineMetaResult:
+      type: object
+      required: [firmsMetaStamped, duplicatesExcluded, firms]
+      properties:
+        firmsMetaStamped:
+          type: integer
+        duplicatesExcluded:
+          type: integer
+        firms:
+          type: array
+          items:
+            $ref: "#/components/schemas/BackfillPipelineMetaFirm"
 
     HealthStatus:
       type: object

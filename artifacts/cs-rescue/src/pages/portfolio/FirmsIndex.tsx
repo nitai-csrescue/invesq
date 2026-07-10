@@ -1,8 +1,9 @@
 import { Link } from "wouter";
 import { ShieldCheck, Building2, Lock } from "lucide-react";
-import { FIRMS, getFirmCompanies, AS_OF_DATE, formatDate } from "@/data/portfolio";
+import { getAllFirms, getFirmCompanies, AS_OF_DATE, formatDate } from "@/data/portfolio";
 
 export default function FirmsIndex() {
+  const firms = getAllFirms();
   return (
     <div className="min-h-screen bg-background text-foreground font-sans">
       <header className="sticky top-0 z-30 bg-background/85 backdrop-blur-md border-b border-border">
@@ -54,7 +55,7 @@ export default function FirmsIndex() {
               </tr>
             </thead>
             <tbody className="divide-y divide-border">
-              {FIRMS.map((firm) => {
+              {firms.map((firm) => {
                 const companies = getFirmCompanies(firm.slug);
                 return (
                   <tr key={firm.slug} className="bg-card/40 hover:bg-card transition-colors">

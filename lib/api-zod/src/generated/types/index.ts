@@ -33,6 +33,8 @@ export * from "./architectureSummary";
 export * from "./authorizationSessionHeaderParameter";
 export * from "./authUser";
 export * from "./authUserEnvelope";
+export * from "./backfillPipelineMetaFirm";
+export * from "./backfillPipelineMetaResult";
 export * from "./beginBrowserLoginParams";
 export * from "./blocker";
 export * from "./blockerSeverity";

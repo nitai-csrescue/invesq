@@ -284,6 +284,21 @@ export interface SeedLegacyTenantsResult {
   results: LegacyTenantSeedItem[];
 }
 
+export interface BackfillPipelineMetaFirm {
+  id: number;
+  slug: string;
+  /** True if this firm was missing meta and had the default stamped this run. */
+  metaStamped: boolean;
+  /** Number of duplicate-named active companies marked "excluded" in this firm. */
+  duplicatesExcluded: number;
+}
+
+export interface BackfillPipelineMetaResult {
+  firmsMetaStamped: number;
+  duplicatesExcluded: number;
+  firms: BackfillPipelineMetaFirm[];
+}
+
 export interface HealthStatus {
   status: string;
 }

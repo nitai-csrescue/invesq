@@ -294,3 +294,45 @@ assessments: [
 
 Legacy `/portfolio/*` routes redirect to `/stg/portfolio/*` automatically.
 Unknown `firmSlug` values render a clean 404.
+
+---
+
+## Pipeline-onboarded firms (DB-backed) — re-runs and production repair
+
+The five tenants above (`stg`, `pamlico`, `raviga`, `longarc`, `solen`) are **hand-authored** in TS files. Firms created through the AI onboarding pipeline (`/admin/firms`) are **DB-backed** instead: they live in the `firms`/`companies`/`assessments` tables and render through the exact same portal components/routes — no TS files, no code changes. The tenant index (`/firms`) and every `/<firmSlug>/portfolio*` route merge both sources automatically.
+
+### Re-running a diagnostic on a pipeline firm
+
+On a pipeline firm's admin review page (`/admin/firms/:id`), once its build is complete a **"Re-run diagnostic"** button appears in the green "ready" banner. It calls `POST /api/admin/firms/:id/refresh`, which queues a fresh build job that re-scores every currently-active company.
+
+- **Append-only**: each re-run **INSERTS a new `assessments` row per company** — it never overwrites history. The portal's trend chart and "latest assessment drives current composite/tier/gaps" behaviour work identically to the file-based re-run flow above.
+- **Concurrency-safe**: one build in flight per firm. A re-click (or a concurrent caller) gets a clean `409` and the existing job's status, never a stacked build.
+- **Hand-authored tenants are refused**: the endpoint returns `400` for the 5 legacy slugs — a pipeline rebuild must never append Claude-scored data onto curated demo tenants.
+
+### One-time production data-repair — `POST /api/admin/backfill-pipeline-meta`
+
+Idempotent. Repairs the firm-level and company-status data on pipeline firms that predate the current build job's portal-meta / de-dup behaviour. Safe to call repeatedly. It:
+
+1. **Stamps default portal meta** (`statusLabel: "Internal preview — not cleared for external distribution"`, `internalOnly: true`) on any **non-legacy** firm that is already `ready` but has no `meta` yet. Firms that already have meta are left untouched.
+2. **Unifies duplicate companies** within a firm — active companies sharing a normalized name are collapsed to the lowest-id row; the rest are marked `excluded` (a unification, **never a delete**). Nothing is removed from the DB.
+3. **Skips the 5 hand-authored legacy tenants entirely** and invalidates the bootstrap cache only if something actually changed.
+
+> **Important — backfill alone is not enough for firms built before the full-CompanyMeta pipeline.** The backfill deliberately does **not** fabricate company data. A firm whose companies were scored before the build job started writing full `CompanyMeta` (sector, ARR, summary, engagement, etc.) carries only a thin `{discoveryRationale}` on each company, so even after its firm meta is stamped it is still filtered out of the bootstrap (fail-soft) until a real re-run regenerates that company data. **To fully bring such a pre-existing firm online: run the backfill, then hit "Re-run diagnostic" (or `POST /admin/firms/:id/refresh`) so a fresh Claude build writes full `CompanyMeta` for every company.** Firms built after the full-CompanyMeta change need only the backfill (for firm meta / de-dup); new firms need nothing — they render on first build.
+
+Both endpoints require an authenticated `@csrescue.com` admin session (router-level `requireAdminAuth`); an unauthenticated call returns `401`.
+
+**Running it in production** (from a shell with an admin session cookie, or via the browser devtools console while logged into `/admin`):
+
+```bash
+# 1) Repair firm meta + de-dup companies across all pipeline firms:
+curl -X POST "$REPLIT_DOMAINS/api/admin/backfill-pipeline-meta" \
+  -H "Cookie: <your admin session cookie>"
+# → { "firmsMetaStamped": N, "duplicatesExcluded": M, "firms": [ { id, slug, metaStamped, duplicatesExcluded }, ... ] }
+
+# 2) For each pre-existing firm that still doesn't render, re-run its diagnostic
+#    (regenerates full CompanyMeta via Claude; appends a new assessment):
+curl -X POST "$REPLIT_DOMAINS/api/admin/firms/<firmId>/refresh" \
+  -H "Cookie: <your admin session cookie>"
+```
+
+The backfill response lists exactly which firms were changed, so a second backfill call returning all-zeros confirms the firm-meta / de-dup repair is complete and idempotent. After a firm's re-run job reaches `ready`, confirm its portal renders at `/<firmSlug>/portfolio`.

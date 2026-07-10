@@ -29,6 +29,7 @@ import type {
   ArchitectureNode,
   ArchitectureSummary,
   AuthUserEnvelope,
+  BackfillPipelineMetaResult,
   BeginBrowserLoginParams,
   Company,
   ConfirmAdminFirmInput,
@@ -2214,6 +2215,94 @@ export const useConfirmAdminFirm = <
 };
 
 /**
+ * Queues a fresh "build" job for a firm that has already been confirmed and built, re-scoring every currently-active company. Each re-run APPENDS a new assessment per company (the assessment history is never overwritten) and refreshes the company/firm portal metadata. Rejected (400) for the 5 hand-authored legacy tenants, which are not pipeline-managed. Like confirm, this returns immediately and runs the build in the background.
+
+ * @summary Re-run the diagnostic build for an already-onboarded firm
+ */
+export const getRefreshAdminFirmUrl = (id: number) => {
+  return `/api/admin/firms/${id}/refresh`;
+};
+
+export const refreshAdminFirm = async (
+  id: number,
+  options?: RequestInit,
+): Promise<AdminFirmConfirmResult> => {
+  return customFetch<AdminFirmConfirmResult>(getRefreshAdminFirmUrl(id), {
+    ...options,
+    method: "POST",
+  });
+};
+
+export const getRefreshAdminFirmMutationOptions = <
+  TError = ErrorType<ErrorEnvelope | ActiveJobConflict>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof refreshAdminFirm>>,
+    TError,
+    { id: number },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof refreshAdminFirm>>,
+  TError,
+  { id: number },
+  TContext
+> => {
+  const mutationKey = ["refreshAdminFirm"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof refreshAdminFirm>>,
+    { id: number }
+  > = (props) => {
+    const { id } = props ?? {};
+
+    return refreshAdminFirm(id, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type RefreshAdminFirmMutationResult = NonNullable<
+  Awaited<ReturnType<typeof refreshAdminFirm>>
+>;
+
+export type RefreshAdminFirmMutationError = ErrorType<
+  ErrorEnvelope | ActiveJobConflict
+>;
+
+/**
+ * @summary Re-run the diagnostic build for an already-onboarded firm
+ */
+export const useRefreshAdminFirm = <
+  TError = ErrorType<ErrorEnvelope | ActiveJobConflict>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof refreshAdminFirm>>,
+    TError,
+    { id: number },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof refreshAdminFirm>>,
+  TError,
+  { id: number },
+  TContext
+> => {
+  return useMutation(getRefreshAdminFirmMutationOptions(options));
+};
+
+/**
  * Builds the report-data.json object for the Diagnostic Report export runbook from the company's most recent assessment: raw p1-p8 scores, derived composite/tier, and firm name as parentFund. Fields that require dedicated research not yet captured anywhere in this app's data (execSummary, compositeContext, existingSystems, pathForward, pillarSignals, csHeadcount, gap impact/recommendation) are left as their neutral placeholder ("" or []) for Claude's research to fill in later — this is the schema's own designed fallback, not missing data.
 
  * @summary Assemble the report-data.json export payload from a company's latest assessment
@@ -2480,6 +2569,89 @@ export const useSeedLegacyTenants = <
   TContext
 > => {
   return useMutation(getSeedLegacyTenantsMutationOptions(options));
+};
+
+/**
+ * Repairs the firm-level and company-status data on pipeline-onboarded (non-legacy) firms: (1) stamps the default "internal preview" firms.meta on any firm that is already "ready" but has no meta, and (2) resolves duplicate companies within a firm (same normalized name) by keeping the lowest-id active row and marking the rest "excluded" — a unification, never a delete. Leaves the 5 hand-authored legacy tenants completely untouched. Safe to call repeatedly. Note: this does NOT fabricate company CompanyMeta, so a firm built before the pipeline started writing full CompanyMeta still needs a re-run (POST /admin/firms/{id}/refresh) to render — backfill alone only fixes firm meta and duplicate rows.
+
+ * @summary Idempotent data-repair for pipeline-onboarded firms
+ */
+export const getBackfillPipelineMetaUrl = () => {
+  return `/api/admin/backfill-pipeline-meta`;
+};
+
+export const backfillPipelineMeta = async (
+  options?: RequestInit,
+): Promise<BackfillPipelineMetaResult> => {
+  return customFetch<BackfillPipelineMetaResult>(getBackfillPipelineMetaUrl(), {
+    ...options,
+    method: "POST",
+  });
+};
+
+export const getBackfillPipelineMetaMutationOptions = <
+  TError = ErrorType<ErrorEnvelope>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof backfillPipelineMeta>>,
+    TError,
+    void,
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof backfillPipelineMeta>>,
+  TError,
+  void,
+  TContext
+> => {
+  const mutationKey = ["backfillPipelineMeta"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof backfillPipelineMeta>>,
+    void
+  > = () => {
+    return backfillPipelineMeta(requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type BackfillPipelineMetaMutationResult = NonNullable<
+  Awaited<ReturnType<typeof backfillPipelineMeta>>
+>;
+
+export type BackfillPipelineMetaMutationError = ErrorType<ErrorEnvelope>;
+
+/**
+ * @summary Idempotent data-repair for pipeline-onboarded firms
+ */
+export const useBackfillPipelineMeta = <
+  TError = ErrorType<ErrorEnvelope>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof backfillPipelineMeta>>,
+    TError,
+    void,
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof backfillPipelineMeta>>,
+  TError,
+  void,
+  TContext
+> => {
+  return useMutation(getBackfillPipelineMetaMutationOptions(options));
 };
 
 /**

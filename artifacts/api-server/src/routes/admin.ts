@@ -6,16 +6,21 @@ import type {
   AdminFirmConfirmResult,
   AdminFirmDetail,
   AdminFirmSummary,
+  BackfillPipelineMetaFirm,
+  BackfillPipelineMetaResult,
   Company,
   CreateAdminFirmResponse,
   Firm,
   Job,
   SeedLegacyTenantsResult,
 } from "@workspace/api-zod";
+import { LEGACY_FIRMS_META } from "@workspace/portfolio-engine/data";
+import type { FirmMeta } from "@workspace/portfolio-engine";
 import { runDiscoveryJob } from "../lib/jobs/discovery.js";
 import { runBuildJob } from "../lib/jobs/build.js";
 import { getOrigin } from "../lib/http.js";
 import { seedLegacyTenants } from "../lib/seedLegacyTenants.js";
+import { invalidatePortfolioCache } from "../lib/portfolioData.js";
 import { requireAdminAuth } from "../middlewares/authMiddleware.js";
 import {
   getReportData,
@@ -34,6 +39,19 @@ const router: IRouter = Router();
 // gated client-side, but that alone does not protect these API routes from
 // being called directly.
 router.use(requireAdminAuth);
+
+// The 5 hand-authored tenant slugs. They are not pipeline-managed, so the
+// on-demand re-run endpoint refuses to touch them (a rebuild would append a
+// Claude-scored assessment onto curated demo data).
+const LEGACY_SLUGS = new Set<string>(LEGACY_FIRMS_META.map((f) => f.slug));
+
+// Default portal metadata for a pipeline-built firm — kept in sync with the
+// identical constant in lib/jobs/build.ts so the repair endpoint stamps the
+// same "internal preview" default the build job would have.
+const DEFAULT_PIPELINE_FIRM_META: FirmMeta = {
+  statusLabel: "Internal preview — not cleared for external distribution",
+  internalOnly: true,
+};
 
 function slugify(name: string): string {
   const base = name
@@ -435,6 +453,110 @@ router.post("/firms/:id/confirm", async (req, res) => {
   }
 });
 
+// On-demand re-run for an already-onboarded firm. Queues a fresh build job
+// that re-scores every currently-active company; because scoreAndPersistCompany
+// INSERTS a new assessment row (never updates), each re-run APPENDS to the
+// assessment history rather than overwriting it. Refuses the 5 hand-authored
+// legacy tenants (they aren't pipeline-managed). Shares the confirm route's
+// duplicate-job guard so concurrent/re-clicked runs return a clean 409 rather
+// than stacking builds. Fire-and-forget, exactly like confirm.
+router.post("/firms/:id/refresh", async (req, res) => {
+  const id = Number(req.params.id);
+  if (!Number.isInteger(id) || id <= 0) {
+    res.status(400).json({ error: "Invalid firm id" });
+    return;
+  }
+
+  try {
+    const [firm] = await db.select().from(firmsTable).where(eq(firmsTable.id, id)).limit(1);
+    if (!firm) {
+      res.status(404).json({ error: "Firm not found" });
+      return;
+    }
+
+    if (LEGACY_SLUGS.has(firm.slug)) {
+      res.status(400).json({
+        error: "This is a hand-authored tenant and cannot be re-run by the onboarding pipeline.",
+      });
+      return;
+    }
+
+    const activeCount = await db
+      .select({ value: count() })
+      .from(companiesTable)
+      .where(and(eq(companiesTable.firmId, id), eq(companiesTable.status, "active")));
+    if ((activeCount[0]?.value ?? 0) === 0) {
+      res.status(404).json({ error: "Firm has no active companies to re-score" });
+      return;
+    }
+
+    // Same duplicate-job guard as confirm: one build in flight per firm.
+    const [activeBuildJob] = await db
+      .select()
+      .from(jobsTable)
+      .where(
+        and(eq(jobsTable.type, "build"), eq(jobsTable.targetId, String(id)), inArray(jobsTable.status, ["queued", "running"]))
+      )
+      .orderBy(desc(jobsTable.createdAt))
+      .limit(1);
+
+    if (activeBuildJob) {
+      res.status(409).json({
+        error: "A build job for this firm is already in progress.",
+        job: toJobResponse(activeBuildJob),
+      });
+      return;
+    }
+
+    let job: typeof jobsTable.$inferSelect;
+    try {
+      const [inserted] = await db
+        .insert(jobsTable)
+        .values({ type: "build", targetId: String(id), status: "queued" })
+        .returning();
+      if (!inserted) {
+        throw new Error("Job insert returned no row");
+      }
+      job = inserted;
+    } catch (err) {
+      // Partial unique index on jobs(type, target_id) for queued/running rows
+      // turns a genuine concurrent-insert race into the same clean 409.
+      if ((err as { code?: string }).code === "23505") {
+        const [active] = await db
+          .select()
+          .from(jobsTable)
+          .where(
+            and(eq(jobsTable.type, "build"), eq(jobsTable.targetId, String(id)), inArray(jobsTable.status, ["queued", "running"]))
+          )
+          .orderBy(desc(jobsTable.createdAt))
+          .limit(1);
+        res.status(409).json({
+          error: "A build job for this firm is already in progress.",
+          job: active ? toJobResponse(active) : null,
+        });
+        return;
+      }
+      throw err;
+    }
+
+    const response: AdminFirmConfirmResult = {
+      firm: toFirmResponse(firm),
+      job: toJobResponse(job),
+    };
+
+    res.json(response);
+
+    // Fire-and-forget, same as confirm — the build runs in the background and
+    // persists its own status/progress/error onto the job row.
+    void runBuildJob(job.id, getOrigin(req)).catch((err) => {
+      req.log.error({ err, jobId: job.id }, "Refresh build job crashed outside its own error handling");
+    });
+  } catch (err) {
+    req.log.error({ err, firmId: id }, "Failed to refresh admin firm");
+    res.status(500).json({ error: "Failed to refresh firm" });
+  }
+});
+
 // Serves the report-data.json export payload (Diagnostic Report runbook)
 // for a company's latest assessment. `reportData` matches the Notion Step-7
 // schema field-for-field. If a report_exports row already exists for this
@@ -554,6 +676,79 @@ router.post("/seed-legacy-tenants", async (req, res) => {
   } catch (err) {
     req.log.error({ err }, "Failed to seed legacy tenants");
     res.status(500).json({ error: "Failed to seed legacy tenants" });
+  }
+});
+
+// Idempotent production data-repair for pipeline-onboarded (non-legacy) firms
+// that predate the build job's portal-meta / de-dup behaviour. It (1) stamps
+// the default "internal preview" firms.meta on any non-legacy firm that is
+// already "ready" but has no meta yet, and (2) unifies duplicate companies
+// within a firm (same normalized name) by keeping the lowest-id active row and
+// marking the others "excluded" — never a delete. The 5 hand-authored legacy
+// tenants are skipped entirely. Auth is enforced by router-level requireAdminAuth.
+router.post("/backfill-pipeline-meta", async (req, res) => {
+  try {
+    const allFirms = await db.select().from(firmsTable);
+    const perFirm: BackfillPipelineMetaFirm[] = [];
+    let firmsMetaStamped = 0;
+    let duplicatesExcluded = 0;
+
+    for (const firm of allFirms) {
+      if (LEGACY_SLUGS.has(firm.slug)) continue;
+
+      let metaStamped = false;
+      if (firm.status === "ready" && firm.meta == null) {
+        await db.update(firmsTable).set({ meta: DEFAULT_PIPELINE_FIRM_META }).where(eq(firmsTable.id, firm.id));
+        metaStamped = true;
+        firmsMetaStamped++;
+      }
+
+      // Unify duplicate active companies by normalized name, keeping lowest id.
+      const activeCompanies = await db
+        .select()
+        .from(companiesTable)
+        .where(and(eq(companiesTable.firmId, firm.id), eq(companiesTable.status, "active")))
+        .orderBy(companiesTable.id);
+
+      const seen = new Set<string>();
+      const dupeIds: number[] = [];
+      for (const c of activeCompanies) {
+        const key = slugify(c.name);
+        if (seen.has(key)) {
+          dupeIds.push(c.id);
+        } else {
+          seen.add(key);
+        }
+      }
+
+      if (dupeIds.length > 0) {
+        await db
+          .update(companiesTable)
+          .set({ status: "excluded" })
+          .where(and(eq(companiesTable.firmId, firm.id), inArray(companiesTable.id, dupeIds)));
+        duplicatesExcluded += dupeIds.length;
+      }
+
+      if (metaStamped || dupeIds.length > 0) {
+        perFirm.push({
+          id: firm.id,
+          slug: firm.slug,
+          metaStamped,
+          duplicatesExcluded: dupeIds.length,
+        });
+      }
+    }
+
+    // Only bother invalidating the bootstrap cache if anything actually changed.
+    if (firmsMetaStamped > 0 || duplicatesExcluded > 0) {
+      invalidatePortfolioCache();
+    }
+
+    const response: BackfillPipelineMetaResult = { firmsMetaStamped, duplicatesExcluded, firms: perFirm };
+    res.json(response);
+  } catch (err) {
+    req.log.error({ err }, "Failed to backfill pipeline meta");
+    res.status(500).json({ error: "Failed to backfill pipeline meta" });
   }
 });
 

@@ -10,6 +10,7 @@ import { createContext, useContext, useEffect, useState, type ReactNode } from "
 import { useLocation } from "wouter";
 import { useGetPortfolioBootstrap } from "@workspace/api-client-react";
 import { hydratePortfolioData } from "./engine";
+import { registerDynamicFirms } from "./firms";
 import type { RawCompany } from "./types";
 
 interface PortfolioDataContextValue {
@@ -30,6 +31,10 @@ export function PortfolioDataProvider({ children }: { children: ReactNode }) {
       // validates + writes this as a [number, number] pair (see
       // portfolioData.ts / buildFirmPortfolio), so this cast is safe.
       hydratePortfolioData(data.firms as unknown as { slug: string; companies: RawCompany[] }[]);
+      // Register any pipeline-onboarded firms carried on the same payload so
+      // getFirm()/getAllFirms() surface them alongside the static tenants
+      // (legacy slugs are ignored inside registerDynamicFirms).
+      registerDynamicFirms(data.firms);
       setHydratedOnce(true);
     }
   }, [data, hydratedOnce]);

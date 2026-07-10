@@ -1031,6 +1031,41 @@ export const ConfirmAdminFirmResponse = zod.object({
 });
 
 /**
+ * Queues a fresh "build" job for a firm that has already been confirmed and built, re-scoring every currently-active company. Each re-run APPENDS a new assessment per company (the assessment history is never overwritten) and refreshes the company/firm portal metadata. Rejected (400) for the 5 hand-authored legacy tenants, which are not pipeline-managed. Like confirm, this returns immediately and runs the build in the background.
+
+ * @summary Re-run the diagnostic build for an already-onboarded firm
+ */
+export const RefreshAdminFirmParams = zod.object({
+  id: zod.coerce.number(),
+});
+
+export const RefreshAdminFirmResponse = zod.object({
+  firm: zod.object({
+    id: zod.number(),
+    name: zod.string(),
+    website: zod.string().nullable(),
+    slug: zod.string(),
+    status: zod.string(),
+    createdByEmail: zod
+      .string()
+      .nullish()
+      .describe(
+        "Email of the admin who created this firm, captured from their session at creation time. Used to notify them when the build job finishes. Null for firms created before this field existed or outside an authenticated session.\n",
+      ),
+    createdAt: zod.coerce.date(),
+  }),
+  job: zod.object({
+    id: zod.number(),
+    type: zod.string(),
+    targetId: zod.string(),
+    status: zod.string(),
+    progressPct: zod.number(),
+    etaSeconds: zod.number().nullable(),
+    error: zod.string().nullable(),
+  }),
+});
+
+/**
  * Builds the report-data.json object for the Diagnostic Report export runbook from the company's most recent assessment: raw p1-p8 scores, derived composite/tier, and firm name as parentFund. Fields that require dedicated research not yet captured anywhere in this app's data (execSummary, compositeContext, existingSystems, pathForward, pillarSignals, csHeadcount, gap impact/recommendation) are left as their neutral placeholder ("" or []) for Claude's research to fill in later — this is the schema's own designed fallback, not missing data.
 
  * @summary Assemble the report-data.json export payload from a company's latest assessment
@@ -1282,6 +1317,32 @@ export const SeedLegacyTenantsResponse = zod.object({
         .nullable()
         .describe(
           'Set when status is \"skipped\" — e.g. \"firm slug already exists\".',
+        ),
+    }),
+  ),
+});
+
+/**
+ * Repairs the firm-level and company-status data on pipeline-onboarded (non-legacy) firms: (1) stamps the default "internal preview" firms.meta on any firm that is already "ready" but has no meta, and (2) resolves duplicate companies within a firm (same normalized name) by keeping the lowest-id active row and marking the rest "excluded" — a unification, never a delete. Leaves the 5 hand-authored legacy tenants completely untouched. Safe to call repeatedly. Note: this does NOT fabricate company CompanyMeta, so a firm built before the pipeline started writing full CompanyMeta still needs a re-run (POST /admin/firms/{id}/refresh) to render — backfill alone only fixes firm meta and duplicate rows.
+
+ * @summary Idempotent data-repair for pipeline-onboarded firms
+ */
+export const BackfillPipelineMetaResponse = zod.object({
+  firmsMetaStamped: zod.number(),
+  duplicatesExcluded: zod.number(),
+  firms: zod.array(
+    zod.object({
+      id: zod.number(),
+      slug: zod.string(),
+      metaStamped: zod
+        .boolean()
+        .describe(
+          "True if this firm was missing meta and had the default stamped this run.",
+        ),
+      duplicatesExcluded: zod
+        .number()
+        .describe(
+          'Number of duplicate-named active companies marked \"excluded\" in this firm.',
         ),
     }),
   ),

@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { useRoute, useLocation, Link } from "wouter";
-import { Loader2, PlusCircle, CheckCircle2, XCircle, Mail, Search, Lightbulb, ArrowRight } from "lucide-react";
+import { Loader2, PlusCircle, CheckCircle2, XCircle, Mail, Search, Lightbulb, ArrowRight, RefreshCw } from "lucide-react";
 import { PageHeader } from "@/components/cs/PageHeader";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -13,6 +13,7 @@ import {
   useGetAdminFirm,
   useAddAdminFirmCompany,
   useConfirmAdminFirm,
+  useRefreshAdminFirm,
   getGetAdminFirmQueryKey,
   ApiError,
   type ActiveJobConflict,
@@ -100,6 +101,35 @@ export default function FirmReview() {
     },
   });
 
+  const refreshFirm = useRefreshAdminFirm({
+    mutation: {
+      onSuccess: (result) => {
+        toast({
+          title: "Re-run queued",
+          description: `Fresh diagnostic for "${result.firm.name}" queued as build job #${result.job.id}. A new assessment will be appended.`,
+        });
+        navigate(`/admin/jobs/${result.job.id}`);
+      },
+      onError: (err) => {
+        if (err instanceof ApiError && err.status === 409 && err.data) {
+          const conflict = err.data as ActiveJobConflict;
+          setDuplicateJobNotice(conflict);
+          toast({
+            title: "Build already in progress",
+            description: "This firm already has a build job running — showing its status below instead.",
+            variant: "destructive",
+          });
+          return;
+        }
+        toast({
+          title: "Failed to re-run diagnostic",
+          description: err instanceof Error ? err.message : "Unexpected error",
+          variant: "destructive",
+        });
+      },
+    },
+  });
+
   const toggleCompany = (companyId: number) => {
     setSelected((prev) => {
       const next = new Set(prev);
@@ -120,6 +150,11 @@ export default function FirmReview() {
   const handleConfirm = () => {
     setDuplicateJobNotice(null);
     confirmFirm.mutate({ id, data: { companyIds: Array.from(selected) } });
+  };
+
+  const handleRefresh = () => {
+    setDuplicateJobNotice(null);
+    refreshFirm.mutate({ id });
   };
 
   if (isLoading) {
@@ -255,12 +290,24 @@ export default function FirmReview() {
             <CheckCircle2 className="h-4 w-4 shrink-0" />
             Diagnostic build complete — every active company has been scored across all 8 pillars.
           </p>
-          {firm.createdByEmail && (
-            <span className="flex items-center gap-1.5 whitespace-nowrap text-xs text-emerald-300/80" data-testid="text-notified-email">
-              <Mail className="h-3.5 w-3.5" />
-              Notified {firm.createdByEmail}
-            </span>
-          )}
+          <div className="flex items-center gap-3">
+            {firm.createdByEmail && (
+              <span className="flex items-center gap-1.5 whitespace-nowrap text-xs text-emerald-300/80" data-testid="text-notified-email">
+                <Mail className="h-3.5 w-3.5" />
+                Notified {firm.createdByEmail}
+              </span>
+            )}
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={handleRefresh}
+              disabled={refreshFirm.isPending || buildRunning || !!conflictJob}
+              data-testid="button-refresh-firm"
+            >
+              {refreshFirm.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <RefreshCw className="h-4 w-4" />}
+              Re-run diagnostic
+            </Button>
+          </div>
         </div>
       )}
 
