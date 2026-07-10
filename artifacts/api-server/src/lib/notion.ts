@@ -5,6 +5,25 @@ import type { PillarResult } from "./jobs/scoring.js";
 const NOTION_VERSION = "2022-06-28";
 const DIAGNOSTICS_DB_TITLE = "Portfolio Company Diagnostics";
 const FUND_PROFILES_DB_TITLE = "fund profiles";
+const SCORING_RUBRIC_PAGE_TITLE = "External CS Diagnostic";
+
+// Blocks whose plain text we care about for prompt context. Anything else
+// (images, dividers, embeds, ...) is skipped rather than guessed at.
+const TEXT_BLOCK_TYPES = new Set([
+  "paragraph",
+  "heading_1",
+  "heading_2",
+  "heading_3",
+  "bulleted_list_item",
+  "numbered_list_item",
+  "toggle",
+  "callout",
+  "quote",
+  "to_do",
+]);
+
+const RUBRIC_PAGE_CACHE_TTL_MS = 10 * 60 * 1000;
+let rubricPageCache: { text: string; fetchedAt: number } | null = null;
 
 export interface NotionWriteResult {
   attempted: boolean;
@@ -113,6 +132,103 @@ async function findFundProfilePageId(apiKey: string, firmName: string): Promise<
     return match?.id ?? null;
   } catch (err) {
     logger.warn({ err, firmName }, "Notion: could not resolve fund profile relation (non-fatal)");
+    return null;
+  }
+}
+
+async function findPageByTitle(apiKey: string, titleContains: string): Promise<string | null> {
+  const result = await notionFetch<{
+    results: Array<{ id: string; object: string; properties?: Record<string, NotionProperty>; url?: string }>;
+  }>(apiKey, "/search", {
+    method: "POST",
+    body: JSON.stringify({
+      query: titleContains,
+      filter: { property: "object", value: "page" },
+    }),
+  });
+
+  // Workspace-level pages don't expose a `title` search-result field the way
+  // databases do — the title lives in `properties.title` (or whichever
+  // property is typed `title`), so we resolve it the same way as elsewhere.
+  const match = result.results.find((page) => {
+    const titleProp = Object.values(page.properties ?? {}).find((p) => p.type === "title") as
+      | (NotionProperty & { title?: Array<{ plain_text: string }> })
+      | undefined;
+    const text = notionPlainText((titleProp as unknown as { title?: Array<{ plain_text: string }> })?.title);
+    return text.toLowerCase().includes(titleContains.toLowerCase());
+  });
+  return match?.id ?? null;
+}
+
+interface NotionBlock {
+  id: string;
+  type: string;
+  has_children: boolean;
+  [key: string]: unknown;
+}
+
+async function fetchBlockChildrenText(apiKey: string, blockId: string, depth: number): Promise<string[]> {
+  if (depth > 4) return []; // guard against pathological nesting
+
+  const lines: string[] = [];
+  let cursor: string | undefined;
+  do {
+    const query = cursor ? `?start_cursor=${cursor}&page_size=100` : "?page_size=100";
+    const page = await notionFetch<{ results: NotionBlock[]; has_more: boolean; next_cursor: string | null }>(
+      apiKey,
+      `/blocks/${blockId}/children${query}`,
+    );
+
+    for (const block of page.results) {
+      const body = block[block.type] as { rich_text?: Array<{ plain_text: string }> } | undefined;
+      if (TEXT_BLOCK_TYPES.has(block.type) && body?.rich_text) {
+        const text = notionPlainText(body.rich_text).trim();
+        if (text) lines.push(text);
+      }
+      if (block.has_children) {
+        lines.push(...(await fetchBlockChildrenText(apiKey, block.id, depth + 1)));
+      }
+    }
+
+    cursor = page.has_more ? (page.next_cursor ?? undefined) : undefined;
+  } while (cursor);
+
+  return lines;
+}
+
+// Fetches the plain-text body of the "External CS Diagnostic — Scoring
+// Rubric & Cowork Instructions" Notion page, for use as grounding context in
+// report-generation prompts. Fails soft (returns null) on any error —
+// callers must fall back to the embedded PILLARS rubric data. In-memory
+// cached for RUBRIC_PAGE_CACHE_TTL_MS since the page changes rarely and this
+// runs on every report generation.
+export async function fetchScoringRubricText(): Promise<string | null> {
+  if (rubricPageCache && Date.now() - rubricPageCache.fetchedAt < RUBRIC_PAGE_CACHE_TTL_MS) {
+    return rubricPageCache.text;
+  }
+
+  const apiKey = getApiKey();
+  if (!apiKey) return null;
+
+  try {
+    const pageId = await findPageByTitle(apiKey, SCORING_RUBRIC_PAGE_TITLE);
+    if (!pageId) {
+      logger.warn(`Notion page "${SCORING_RUBRIC_PAGE_TITLE}" not found or not shared with this integration`);
+      return null;
+    }
+
+    const lines = await fetchBlockChildrenText(apiKey, pageId, 0);
+    const text = lines.join("\n");
+    if (!text.trim()) {
+      logger.warn({ pageId }, "Notion scoring rubric page had no extractable text");
+      return null;
+    }
+
+    rubricPageCache = { text, fetchedAt: Date.now() };
+    logger.info({ pageId, chars: text.length }, "Fetched Notion scoring rubric page");
+    return text;
+  } catch (err) {
+    logger.warn({ err }, "Failed to fetch Notion scoring rubric page (falling back to embedded rubric)");
     return null;
   }
 }

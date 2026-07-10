@@ -8,3 +8,4 @@
 - [Testing OAuth-gated admin routes](testing-oauth-gated-admin-routes.md) — direct `sessions` row insert for curl-testing an API route, or a temporary NODE_ENV-gated login route for screenshotting UI, when no real IdP login is available.
 - [Client-side gating ≠ API protection](admin-api-auth-gap.md) — a ProtectedRoute redirect on a page gives zero server-side protection to that page's API routes; verify by grepping route handlers, not by trusting docs/shared middleware.
 - [Portfolio tenant portal URL ids](portfolio-tenant-url-ids.md) — `/:firmSlug/portfolio/:companyId` matches on `companies.slug`, not the numeric DB id; AI-onboarded firms 404 there until `firms.ts` is updated too.
+- [LLM tone-policy prompts must strip names from evidence](report-export-tone-policy.md) — "never judge individuals" isn't enough; must explicitly forbid echoing names found in upstream evidence text too.

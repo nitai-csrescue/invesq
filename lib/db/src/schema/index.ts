@@ -22,3 +22,4 @@ export * from "./firms";
 export * from "./companies";
 export * from "./assessments";
 export * from "./jobs";
+export * from "./reportExports";

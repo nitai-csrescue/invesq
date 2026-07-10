@@ -1129,6 +1129,135 @@ export const GetAdminCompanyReportDataResponse = zod
       composite: zod.number(),
       compositeMax: zod.number(),
       tier: zod.string(),
+      generatedAt: zod
+        .string()
+        .nullable()
+        .describe(
+          "When the AI-generated narrative sections (execSummary, compositeContext, existingSystems, pathForward, pillarSignals, gap impact\/recommendation, nextSteps) were produced, or null if this response still carries the blank-placeholder fallback (no report_exports row yet for this assessment).\n",
+        ),
+      model: zod
+        .string()
+        .nullable()
+        .describe(
+          "Claude model used to generate the narrative, or null if not yet generated.",
+        ),
+    }),
+  })
+  .describe(
+    'Assembled report-data.json export payload for the Diagnostic Report pattern. `reportData` matches the external report-data.json schema (Notion: \"External CS Diagnostic — Scoring Rubric & Cowork Instructions\", Step 7) field-for-field, so it is safe to copy verbatim into the Claude design-file prompt. `meta` carries admin-only context (assessment provenance, derived composite\/tier) that must NOT be included in the exported JSON.\n',
+  );
+
+/**
+ * Fills in the report-data.json fields that require synthesis rather than a straight DB read (execSummary, compositeContext, existingSystems, pathForward, pillarSignals, each gap's impact/recommendation, nextSteps) via Claude, grounded in the company's scored pillars/evidence and the Notion scoring rubric. Idempotent per (assessment, rubric version): if a report_exports row already exists for the company's current latest assessment, it is returned as-is with no new Claude call — calling this endpoint repeatedly (e.g. a user re-clicking Generate) never re-triggers paid generation unless a new assessment has landed or the rubric version changed. Synchronous — the response is not returned until generation (or the cache check) completes.
+
+ * @summary Generate (or return the already-cached) AI-written narrative sections of the report
+ */
+export const GenerateAdminCompanyReportExportParams = zod.object({
+  id: zod.coerce.number(),
+});
+
+export const GenerateAdminCompanyReportExportResponse = zod
+  .object({
+    reportData: zod
+      .object({
+        companyName: zod.string(),
+        parentFund: zod.string(),
+        preparedForName: zod.string(),
+        preparedForTitle: zod.string(),
+        reportDate: zod
+          .string()
+          .describe("Date this report-data.json was assembled (ISO date)."),
+        csHeadcount: zod.string(),
+        execSummary: zod
+          .array(zod.string())
+          .describe("One string per paragraph."),
+        compositeContext: zod.string(),
+        existingSystems: zod.string(),
+        pathForward: zod.string(),
+        scores: zod
+          .object({
+            p1: zod.union([zod.number(), zod.string()]),
+            p2: zod.union([zod.number(), zod.string()]),
+            p3: zod.union([zod.number(), zod.string()]),
+            p4: zod.union([zod.number(), zod.string()]),
+            p5: zod.union([zod.number(), zod.string()]),
+            p6: zod.union([zod.number(), zod.string()]),
+            p7: zod.union([zod.number(), zod.string()]),
+            p8: zod.union([zod.number(), zod.string()]),
+          })
+          .describe(
+            'Raw pillar scores 0\/1\/2, or \"NA\" for Insufficient Data.',
+          ),
+        pillarSignals: zod
+          .object({
+            p1: zod.string(),
+            p2: zod.string(),
+            p3: zod.string(),
+            p4: zod.string(),
+            p5: zod.string(),
+            p6: zod.string(),
+            p7: zod.string(),
+            p8: zod.string(),
+          })
+          .describe(
+            'One-line \"what the signals show\" per pillar (scorecard column). Left \"\" when no data beyond the raw score is on file.\n',
+          ),
+        pillarEvidence: zod
+          .object({
+            p1: zod.string(),
+            p2: zod.string(),
+            p3: zod.string(),
+            p4: zod.string(),
+            p5: zod.string(),
+            p6: zod.string(),
+            p7: zod.string(),
+            p8: zod.string(),
+          })
+          .describe(
+            'Longer pillar-by-pillar narrative Claude produced during scoring (assessments.p{n}Evidence). Left \"\" when no evidence is on file.\n',
+          ),
+        p6Recommendation: zod
+          .string()
+          .describe(
+            'Derived from the p6 (CS Leadership) score: 2 = \"Retain and Develop\", 1 = \"Augment\", 0 = \"Replace\". Empty if p6 is \"NA\".\n',
+          ),
+        gaps: zod
+          .array(
+            zod.object({
+              title: zod.string(),
+              description: zod.string(),
+              impact: zod.string(),
+              recommendation: zod.string(),
+            }),
+          )
+          .describe(
+            "Top 3 identified gaps (the three lowest-scoring pillars).",
+          ),
+        nextSteps: zod.array(zod.string()),
+      })
+      .describe(
+        'Exact shape of report-data.json per the Notion scoring rubric\'s Step 7 (\"Producing the Branded Client PDF\"). Fields with no real data yet are left as \"\" \/ [] — the branded report template treats a blank field as an accepted, designed fallback (a neutral placeholder), not an error.\n',
+      ),
+    meta: zod.object({
+      companyId: zod.number(),
+      assessmentDate: zod
+        .string()
+        .describe("Date of the source assessment used (ISO date)."),
+      composite: zod.number(),
+      compositeMax: zod.number(),
+      tier: zod.string(),
+      generatedAt: zod
+        .string()
+        .nullable()
+        .describe(
+          "When the AI-generated narrative sections (execSummary, compositeContext, existingSystems, pathForward, pillarSignals, gap impact\/recommendation, nextSteps) were produced, or null if this response still carries the blank-placeholder fallback (no report_exports row yet for this assessment).\n",
+        ),
+      model: zod
+        .string()
+        .nullable()
+        .describe(
+          "Claude model used to generate the narrative, or null if not yet generated.",
+        ),
     }),
   })
   .describe(

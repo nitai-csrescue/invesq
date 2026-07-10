@@ -130,6 +130,17 @@ export type AdminCompanyReportDataMeta = {
   composite: number;
   compositeMax: number;
   tier: string;
+  /**
+   * When the AI-generated narrative sections (execSummary, compositeContext, existingSystems, pathForward, pillarSignals, gap impact/recommendation, nextSteps) were produced, or null if this response still carries the blank-placeholder fallback (no report_exports row yet for this assessment).
+
+   * @nullable
+   */
+  generatedAt: string | null;
+  /**
+   * Claude model used to generate the narrative, or null if not yet generated.
+   * @nullable
+   */
+  model: string | null;
 };
 
 /**

@@ -2308,6 +2308,98 @@ export function useGetAdminCompanyReportData<
 }
 
 /**
+ * Fills in the report-data.json fields that require synthesis rather than a straight DB read (execSummary, compositeContext, existingSystems, pathForward, pillarSignals, each gap's impact/recommendation, nextSteps) via Claude, grounded in the company's scored pillars/evidence and the Notion scoring rubric. Idempotent per (assessment, rubric version): if a report_exports row already exists for the company's current latest assessment, it is returned as-is with no new Claude call — calling this endpoint repeatedly (e.g. a user re-clicking Generate) never re-triggers paid generation unless a new assessment has landed or the rubric version changed. Synchronous — the response is not returned until generation (or the cache check) completes.
+
+ * @summary Generate (or return the already-cached) AI-written narrative sections of the report
+ */
+export const getGenerateAdminCompanyReportExportUrl = (id: number) => {
+  return `/api/admin/companies/${id}/report-export`;
+};
+
+export const generateAdminCompanyReportExport = async (
+  id: number,
+  options?: RequestInit,
+): Promise<AdminCompanyReportData> => {
+  return customFetch<AdminCompanyReportData>(
+    getGenerateAdminCompanyReportExportUrl(id),
+    {
+      ...options,
+      method: "POST",
+    },
+  );
+};
+
+export const getGenerateAdminCompanyReportExportMutationOptions = <
+  TError = ErrorType<ErrorEnvelope>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof generateAdminCompanyReportExport>>,
+    TError,
+    { id: number },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof generateAdminCompanyReportExport>>,
+  TError,
+  { id: number },
+  TContext
+> => {
+  const mutationKey = ["generateAdminCompanyReportExport"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof generateAdminCompanyReportExport>>,
+    { id: number }
+  > = (props) => {
+    const { id } = props ?? {};
+
+    return generateAdminCompanyReportExport(id, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type GenerateAdminCompanyReportExportMutationResult = NonNullable<
+  Awaited<ReturnType<typeof generateAdminCompanyReportExport>>
+>;
+
+export type GenerateAdminCompanyReportExportMutationError =
+  ErrorType<ErrorEnvelope>;
+
+/**
+ * @summary Generate (or return the already-cached) AI-written narrative sections of the report
+ */
+export const useGenerateAdminCompanyReportExport = <
+  TError = ErrorType<ErrorEnvelope>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof generateAdminCompanyReportExport>>,
+    TError,
+    { id: number },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof generateAdminCompanyReportExport>>,
+  TError,
+  { id: number },
+  TContext
+> => {
+  return useMutation(
+    getGenerateAdminCompanyReportExportMutationOptions(options),
+  );
+};
+
+/**
  * Inserts firm/company/assessment rows for any of the 5 legacy demo tenant slugs (stg, pamlico, raviga, longarc, solen) not already present in the firms table. Any slug that already exists — including an unrelated real client firm — is left completely untouched and reported as "skipped". Safe to call repeatedly: a partial prior run (e.g. a crash mid-seed) only fills in whatever slugs are still missing on the next call.
 
  * @summary One-time idempotent seed of the 5 legacy demo tenants (stg/pamlico/raviga/longarc/solen)

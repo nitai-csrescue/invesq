@@ -602,6 +602,50 @@ paths:
               schema:
                 $ref: "#/components/schemas/ErrorEnvelope"
 
+  /admin/companies/{id}/report-export:
+    post:
+      operationId: generateAdminCompanyReportExport
+      tags: [admin]
+      summary: Generate (or return the already-cached) AI-written narrative sections of the report
+      description: >
+        Fills in the report-data.json fields that require synthesis rather
+        than a straight DB read (execSummary, compositeContext,
+        existingSystems, pathForward, pillarSignals, each gap's
+        impact/recommendation, nextSteps) via Claude, grounded in the
+        company's scored pillars/evidence and the Notion scoring rubric.
+        Idempotent per (assessment, rubric version): if a report_exports row
+        already exists for the company's current latest assessment, it is
+        returned as-is with no new Claude call — calling this endpoint
+        repeatedly (e.g. a user re-clicking Generate) never re-triggers paid
+        generation unless a new assessment has landed or the rubric version
+        changed. Synchronous — the response is not returned until generation
+        (or the cache check) completes.
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Report data with AI-generated narrative sections populated (meta.generatedAt is non-null)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AdminCompanyReportData"
+        "404":
+          description: Company not found, or has no assessments yet
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+        "502":
+          description: Claude generation failed (e.g. malformed response, API error)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+
   /admin/seed-legacy-tenants:
     post:
       operationId: seedLegacyTenants
@@ -997,7 +1041,7 @@ components:
           $ref: "#/components/schemas/DiagnosticReportData"
         meta:
           type: object
-          required: [companyId, assessmentDate, composite, compositeMax, tier]
+          required: [companyId, assessmentDate, composite, compositeMax, tier, generatedAt, model]
           properties:
             companyId:
               type: integer
@@ -1010,6 +1054,17 @@ components:
               type: number
             tier:
               type: string
+            generatedAt:
+              type: [string, "null"]
+              description: >
+                When the AI-generated narrative sections (execSummary,
+                compositeContext, existingSystems, pathForward, pillarSignals,
+                gap impact/recommendation, nextSteps) were produced, or null
+                if this response still carries the blank-placeholder fallback
+                (no report_exports row yet for this assessment).
+            model:
+              type: [string, "null"]
+              description: Claude model used to generate the narrative, or null if not yet generated.
 
     DiagnosticReportData:
       type: object

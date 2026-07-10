@@ -3,23 +3,26 @@ import { and, count, desc, eq, inArray, like, notInArray } from "drizzle-orm";
 import { db, assessmentsTable, companiesTable, firmsTable, jobsTable } from "@workspace/db";
 import { AddAdminFirmCompanyBody, ConfirmAdminFirmBody, CreateAdminFirmBody } from "@workspace/api-zod";
 import type {
-  AdminCompanyReportData,
   AdminFirmConfirmResult,
   AdminFirmDetail,
   AdminFirmSummary,
   Company,
   CreateAdminFirmResponse,
-  DiagnosticReportData,
   Firm,
   Job,
   SeedLegacyTenantsResult,
 } from "@workspace/api-zod";
-import { PILLARS, getTier, textToScore } from "@workspace/portfolio-engine";
 import { runDiscoveryJob } from "../lib/jobs/discovery.js";
 import { runBuildJob } from "../lib/jobs/build.js";
 import { getOrigin } from "../lib/http.js";
 import { seedLegacyTenants } from "../lib/seedLegacyTenants.js";
 import { requireAdminAuth } from "../middlewares/authMiddleware.js";
+import {
+  getReportData,
+  getOrGenerateReportExport,
+  CompanyNotFoundError,
+  NoAssessmentError,
+} from "../lib/reportExport.js";
 
 const router: IRouter = Router();
 
@@ -429,15 +432,17 @@ router.post("/firms/:id/confirm", async (req, res) => {
   }
 });
 
-// Assembles the report-data.json export payload (Diagnostic Report runbook)
-// from a company's latest assessment. `reportData` matches the Notion
-// Step-7 schema field-for-field; fields this app has no data source for yet
-// (execSummary, compositeContext, existingSystems, pathForward, csHeadcount,
-// pillarSignals, per-gap impact/recommendation) are left as their neutral
-// placeholder ("" / []) for Claude's research to fill in later — that's the
-// schema's own designed fallback, not missing data. `meta` carries
-// admin-only provenance/derived fields and must never be copied into the
-// exported JSON itself.
+// Serves the report-data.json export payload (Diagnostic Report runbook)
+// for a company's latest assessment. `reportData` matches the Notion Step-7
+// schema field-for-field. If a report_exports row already exists for this
+// assessment (see POST .../report-export), its AI-generated narrative
+// sections are served (`meta.generatedAt`/`model` non-null); otherwise the
+// narrative fields fall back to their neutral placeholder ("" / []) per the
+// schema's own designed fallback. This route NEVER calls Claude — it is
+// read-only so it's safe for React Query to refetch without risking
+// duplicate paid generation calls. `meta` carries admin-only
+// provenance/derived fields and must never be copied into the exported JSON
+// itself.
 router.get("/companies/:id/report-data", async (req, res) => {
   const id = Number(req.params.id);
   if (!Number.isInteger(id) || id <= 0) {
@@ -446,155 +451,48 @@ router.get("/companies/:id/report-data", async (req, res) => {
   }
 
   try {
-    const [company] = await db.select().from(companiesTable).where(eq(companiesTable.id, id)).limit(1);
-    if (!company) {
+    const response = await getReportData(id);
+    res.json(response);
+  } catch (err) {
+    if (err instanceof CompanyNotFoundError) {
       res.status(404).json({ error: "Company not found" });
       return;
     }
-
-    const [firm] = await db.select().from(firmsTable).where(eq(firmsTable.id, company.firmId)).limit(1);
-    if (!firm) {
-      throw new Error(`Company ${id} references missing firm ${company.firmId}`);
-    }
-
-    const [assessment] = await db
-      .select()
-      .from(assessmentsTable)
-      .where(eq(assessmentsTable.companyId, id))
-      .orderBy(desc(assessmentsTable.date))
-      .limit(1);
-
-    if (!assessment) {
+    if (err instanceof NoAssessmentError) {
       res.status(404).json({ error: "Company has no assessments yet" });
       return;
     }
-
-    const scores = {
-      p1: assessment.p1,
-      p2: assessment.p2,
-      p3: assessment.p3,
-      p4: assessment.p4,
-      p5: assessment.p5,
-      p6: assessment.p6,
-      p7: assessment.p7,
-      p8: assessment.p8,
-    };
-
-    const evidence = {
-      p1: assessment.p1Evidence,
-      p2: assessment.p2Evidence,
-      p3: assessment.p3Evidence,
-      p4: assessment.p4Evidence,
-      p5: assessment.p5Evidence,
-      p6: assessment.p6Evidence,
-      p7: assessment.p7Evidence,
-      p8: assessment.p8Evidence,
-    };
-
-    const pillarKeys = PILLARS.map((_, index) => `p${index + 1}` as keyof typeof scores);
-
-    const pillarScores = Object.fromEntries(
-      PILLARS.map((pillar, index) => [pillar.id, textToScore(scores[pillarKeys[index]])])
-    );
-
-    const scoredPillars = PILLARS.filter((p) => pillarScores[p.id] !== null);
-    const composite = scoredPillars.reduce((sum, p) => sum + (pillarScores[p.id] as number), 0);
-    const compositeMax = scoredPillars.length * 2;
-    const tierComposite = PILLARS.reduce((sum, p) => {
-      const s = pillarScores[p.id];
-      return sum + (s === null ? 1 : s);
-    }, 0);
-    const tier = getTier(tierComposite);
-
-    // report-data.json scores are raw numbers 0/1/2, or the literal "NA" for
-    // Insufficient Data — never the stringified "0"/"1"/"2" the DB stores.
-    const reportScores = Object.fromEntries(
-      PILLARS.map((pillar, index) => {
-        const score = pillarScores[pillar.id];
-        return [pillarKeys[index], score === null ? "NA" : score];
-      })
-    ) as DiagnosticReportData["scores"];
-
-    // Blank ("") is the schema's own designed fallback for a pillar with no
-    // narrative on file — never null, per the Notion Step-7 spec.
-    const reportEvidence = Object.fromEntries(
-      PILLARS.map((pillar, index) => [pillarKeys[index], evidence[pillarKeys[index]] ?? ""])
-    ) as DiagnosticReportData["pillarEvidence"];
-
-    // pillarSignals (the short one-line "what the signals show" per pillar)
-    // has no data source anywhere in this app yet — every build job only
-    // ever captured the longer evidence narrative. Left blank until
-    // scoring.ts is extended to also produce it.
-    const reportSignals = Object.fromEntries(
-      PILLARS.map((pillar, index) => [pillarKeys[index], ""])
-    ) as DiagnosticReportData["pillarSignals"];
-
-    // P6 (CS Leadership) recommendation is fully derivable from its score —
-    // no new research needed.
-    const leadershipIndex = PILLARS.findIndex((p) => p.id === "leadership");
-    const p6Score = leadershipIndex >= 0 ? pillarScores[PILLARS[leadershipIndex].id] : null;
-    const p6Evidence = leadershipIndex >= 0 ? evidence[pillarKeys[leadershipIndex]] : null;
-    const p6Label = p6Score === 2 ? "Retain and Develop" : p6Score === 1 ? "Augment" : p6Score === 0 ? "Replace" : "";
-    const p6Recommendation = p6Label
-      ? p6Evidence
-        ? `${p6Label} — ${p6Evidence}`
-        : p6Label
-      : "";
-
-    // Top 3 Identified Gaps = the three lowest-scoring pillars (NA treated
-    // as the tier-composite substitution value of 1, same rule used for the
-    // tier itself, so a pillar we simply don't know about isn't
-    // automatically flagged as the worst gap). Ties keep PILLARS order.
-    const gaps = [...PILLARS]
-      .map((pillar, index) => ({
-        pillar,
-        index,
-        effectiveScore: pillarScores[pillar.id] === null ? 1 : (pillarScores[pillar.id] as number),
-        evidenceText: evidence[pillarKeys[index]],
-      }))
-      .sort((a, b) => a.effectiveScore - b.effectiveScore || a.index - b.index)
-      .slice(0, 3)
-      .map(({ pillar, evidenceText }) => ({
-        title: pillar.name,
-        description: evidenceText ?? pillar.gapNote,
-        impact: "",
-        recommendation: "",
-      }));
-
-    const reportData: DiagnosticReportData = {
-      companyName: company.name,
-      parentFund: firm.name,
-      preparedForName: "",
-      preparedForTitle: "",
-      reportDate: new Date().toISOString().slice(0, 10),
-      csHeadcount: "",
-      execSummary: [],
-      compositeContext: "",
-      existingSystems: "",
-      pathForward: "",
-      scores: reportScores,
-      pillarSignals: reportSignals,
-      pillarEvidence: reportEvidence,
-      p6Recommendation,
-      gaps,
-      nextSteps: [],
-    };
-
-    const response: AdminCompanyReportData = {
-      reportData,
-      meta: {
-        companyId: company.id,
-        assessmentDate: assessment.date,
-        composite,
-        compositeMax,
-        tier: `Tier ${tier.id} · ${tier.label}`,
-      },
-    };
-
-    res.json(response);
-  } catch (err) {
     req.log.error({ err }, "Failed to assemble company report data");
     res.status(500).json({ error: "Failed to assemble report data" });
+  }
+});
+
+// Generates (via Claude, grounded in the Notion scoring rubric) or returns
+// the already-cached AI-written narrative sections of the report: execSummary,
+// compositeContext, existingSystems, pathForward, pillarSignals, each gap's
+// impact/recommendation, and nextSteps. Idempotent per (assessment, rubric
+// version) — see reportExport.ts.
+router.post("/companies/:id/report-export", async (req, res) => {
+  const id = Number(req.params.id);
+  if (!Number.isInteger(id) || id <= 0) {
+    res.status(400).json({ error: "Invalid company id" });
+    return;
+  }
+
+  try {
+    const response = await getOrGenerateReportExport(id);
+    res.json(response);
+  } catch (err) {
+    if (err instanceof CompanyNotFoundError) {
+      res.status(404).json({ error: "Company not found" });
+      return;
+    }
+    if (err instanceof NoAssessmentError) {
+      res.status(404).json({ error: "Company has no assessments yet" });
+      return;
+    }
+    req.log.error({ err, companyId: id }, "Failed to generate report export");
+    res.status(502).json({ error: "Failed to generate report export" });
   }
 });
 
