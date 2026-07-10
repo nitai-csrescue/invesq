@@ -4,6 +4,7 @@ import type { AdminCompanyReportData, DiagnosticReportData } from "@workspace/ap
 import { PILLARS, getTier, textToScore } from "@workspace/portfolio-engine";
 import { getAnthropicClient, extractText, extractJsonFence } from "./anthropic.js";
 import { fetchScoringRubricText } from "./notion.js";
+import { redactNamedIndividuals } from "./nameRedaction.js";
 import { logger } from "./logger.js";
 
 // Bump whenever the generation prompt or the shape of what it's asked to
@@ -337,6 +338,28 @@ function mergeNarrative(base: BaseReportData, narrative: NarrativeResult): Diagn
   };
 }
 
+const LEADERSHIP_PILLAR_NAME = PILLARS.find((p) => p.id === "leadership")?.name ?? "CS Leadership";
+
+// Targeted render-time mitigation (not a data migration): the CS-Leadership
+// gap's `description` is a verbatim passthrough of that pillar's raw
+// assessment evidence (see buildBaseReportData above), which can name a real
+// individual (e.g. "CS is led by Kendra Fromm..."). Every OTHER field —
+// including this same pillar's `pillarEvidence.p6` shown elsewhere in the
+// admin UI, and every other gap's description — is left completely
+// untouched; this only ever rewrites the one field it names. The underlying
+// `assessments` row is never modified. See replit.md "CS-Leadership gap
+// description redaction" for the full rationale.
+function sanitizeReportData(reportData: DiagnosticReportData): DiagnosticReportData {
+  return {
+    ...reportData,
+    gaps: reportData.gaps.map((gap) =>
+      gap.title === LEADERSHIP_PILLAR_NAME
+        ? { ...gap, description: redactNamedIndividuals(gap.description) }
+        : gap,
+    ),
+  };
+}
+
 function toResponse(
   companyId: number,
   assessmentDate: string,
@@ -346,7 +369,7 @@ function toResponse(
   model: string | null,
 ): AdminCompanyReportData {
   return {
-    reportData,
+    reportData: sanitizeReportData(reportData),
     meta: {
       companyId,
       assessmentDate,
