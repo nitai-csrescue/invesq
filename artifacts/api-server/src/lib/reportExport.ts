@@ -339,16 +339,23 @@ function mergeNarrative(base: BaseReportData, narrative: NarrativeResult): Diagn
 }
 
 const LEADERSHIP_PILLAR_NAME = PILLARS.find((p) => p.id === "leadership")?.name ?? "CS Leadership";
+const LEADERSHIP_PILLAR_KEY = ((): keyof DiagnosticReportData["pillarEvidence"] => {
+  const index = PILLARS.findIndex((p) => p.id === "leadership");
+  return `p${index + 1}` as keyof DiagnosticReportData["pillarEvidence"];
+})();
 
-// Targeted render-time mitigation (not a data migration): the CS-Leadership
-// gap's `description` is a verbatim passthrough of that pillar's raw
-// assessment evidence (see buildBaseReportData above), which can name a real
-// individual (e.g. "CS is led by Kendra Fromm..."). Every OTHER field —
-// including this same pillar's `pillarEvidence.p6` shown elsewhere in the
-// admin UI, and every other gap's description — is left completely
-// untouched; this only ever rewrites the one field it names. The underlying
-// `assessments` row is never modified. See replit.md "CS-Leadership gap
-// description redaction" for the full rationale.
+// Targeted render-time mitigation (not a data migration): both the
+// CS-Leadership gap's `description` AND `pillarEvidence.p6` are verbatim
+// passthroughs of that pillar's raw assessment evidence (see
+// buildBaseReportData above), which can name a real individual (e.g. "CS is
+// led by Kendra Fromm..."). `pillarEvidence.p6` is part of the client-facing
+// report schema (renders in the exported PDF's pillar-by-pillar narrative),
+// so it carries the same client-facing risk as the gap description. Every
+// OTHER field — every other pillar's `pillarEvidence` (p1-p5, p7, p8), every
+// other gap's description — is left completely untouched; this only ever
+// rewrites these two known fields. The underlying `assessments` row is never
+// modified. See replit.md "CS-Leadership gap description redaction" for the
+// full rationale.
 function sanitizeReportData(reportData: DiagnosticReportData): DiagnosticReportData {
   return {
     ...reportData,
@@ -357,6 +364,10 @@ function sanitizeReportData(reportData: DiagnosticReportData): DiagnosticReportD
         ? { ...gap, description: redactNamedIndividuals(gap.description) }
         : gap,
     ),
+    pillarEvidence: {
+      ...reportData.pillarEvidence,
+      [LEADERSHIP_PILLAR_KEY]: redactNamedIndividuals(reportData.pillarEvidence[LEADERSHIP_PILLAR_KEY]),
+    },
   };
 }
 
