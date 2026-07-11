@@ -32,8 +32,10 @@ import {
 import {
   getFirm,
   getFirmSummary,
+  getFirmCompanies,
   PILLAR_MAX,
   type PortfolioSummary,
+  type Company,
 } from "@/data/portfolio";
 
 // ---------------------------------------------------------------------------
@@ -99,9 +101,11 @@ function TierDistribution({ summary }: { summary: PortfolioSummary }) {
 function FirmCard({
   firm,
   summary,
+  companies,
 }: {
   firm: AdminFirmSummary;
   summary: PortfolioSummary | undefined;
+  companies: Company[] | undefined;
 }) {
   // Prefer DB meta; fall back to the static/dynamic identity registry (legacy
   // firms carry their statusLabel/internalOnly there, not in firms.meta).
@@ -218,6 +222,47 @@ function FirmCard({
         <p className="mt-3 text-[11px] italic text-muted-foreground">
           No diagnostic yet.
         </p>
+      )}
+
+      {/* Assessed companies — quick links straight into each portco's portal */}
+      {companies && companies.length > 0 && (
+        <div className="mt-4 border-t border-border pt-3">
+          <div className="mb-2 text-[11px] uppercase tracking-wider text-muted-foreground">
+            Companies
+          </div>
+          <ul className="space-y-0.5">
+            {companies.slice(0, 5).map((company) => (
+              <li key={company.id}>
+                <Link
+                  href={`/${firm.slug}/portfolio/${company.id}`}
+                  className="group flex items-center justify-between gap-2 rounded-md px-2 py-1 text-sm transition-colors hover:bg-muted/50"
+                  data-testid={`admin-firm-company-${company.id}`}
+                >
+                  <span className="truncate text-foreground group-hover:text-primary">
+                    {company.name}
+                  </span>
+                  <span
+                    className={`inline-flex shrink-0 items-center rounded px-1.5 py-0.5 text-[10px] font-medium ${
+                      TIER_CHIP[String(company.tier.id)] ?? "bg-slate-400/15 text-slate-500"
+                    }`}
+                    title={company.tier.label}
+                  >
+                    T{company.tier.id}
+                  </span>
+                </Link>
+              </li>
+            ))}
+          </ul>
+          {companies.length > 5 && (
+            <Link
+              href={`/${firm.slug}/portfolio`}
+              className="mt-1 inline-block px-2 text-xs text-primary hover:underline"
+              data-testid={`admin-firm-company-more-${firm.slug}`}
+            >
+              +{companies.length - 5} more
+            </Link>
+          )}
+        </div>
       )}
 
       {/* Spacer pushes the footer to the bottom so cards align across rows */}
@@ -402,6 +447,7 @@ export default function AdminFirmsIndex() {
                 key={firm.id}
                 firm={firm}
                 summary={ready ? getFirmSummary(firm.slug) : undefined}
+                companies={ready ? getFirmCompanies(firm.slug) : undefined}
               />
             ))}
           </div>

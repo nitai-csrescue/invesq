@@ -1,4 +1,4 @@
-import { type ReactNode, useEffect, useState } from "react";
+import { type ReactNode, useEffect } from "react";
 import { Link, useLocation } from "wouter";
 import {
   BarChart3,
@@ -14,7 +14,7 @@ import {
 import { useAuth } from "@workspace/replit-auth-web";
 import { Button } from "@/components/ui/button";
 import { AskInvesq } from "@/components/portfolio/AskInvesq";
-import { AdminLensMount } from "@/components/admin/AdminLensMount";
+import { AdminBarMount } from "@/components/admin/AdminBarMount";
 import { ADMIN_NAV } from "@/components/admin/adminNav";
 import { type Firm } from "@/data/portfolio";
 
@@ -296,57 +296,6 @@ function AdminUnifiedSidebar({
 }
 
 // ---------------------------------------------------------------------------
-// AdminPortalHeader
-// Admin-only top bar over the light canvas. Hosts the prominent "Admin lens"
-// button (replacing the old fixed bottom-left pill). The button reflects the
-// drawer's open state: filled amber when open, amber outline when closed.
-// ---------------------------------------------------------------------------
-function AdminPortalHeader({
-  firm,
-  lensOpen,
-  onToggleLens,
-}: {
-  firm: Firm;
-  lensOpen: boolean;
-  onToggleLens: () => void;
-}) {
-  return (
-    <header
-      className="flex h-[60px] shrink-0 items-center justify-between border-b border-border bg-card/60 px-8"
-      data-testid="admin-portal-header"
-    >
-      <div className="flex items-center gap-2 text-sm">
-        <span className="text-[11px] font-semibold uppercase tracking-widest text-primary/80">
-          Admin view
-        </span>
-        <span className="text-muted-foreground">·</span>
-        <span className="font-medium text-foreground">{firm.displayName}</span>
-      </div>
-      <Button
-        variant={lensOpen ? "default" : "outline"}
-        size="sm"
-        onClick={onToggleLens}
-        data-testid="button-admin-lens"
-        aria-pressed={lensOpen}
-        className={
-          lensOpen
-            ? "gap-2 bg-amber-500 text-white hover:bg-amber-500/90"
-            : "gap-2 border-amber-500/50 text-amber-600 hover:bg-amber-500/10 hover:text-amber-700"
-        }
-      >
-        <ShieldCheck className="h-4 w-4" />
-        Admin lens
-        <span
-          className={`ml-0.5 inline-flex h-1.5 w-1.5 rounded-full ${
-            lensOpen ? "bg-white" : "bg-amber-500/70"
-          }`}
-        />
-      </Button>
-    </header>
-  );
-}
-
-// ---------------------------------------------------------------------------
 // TenantShell
 // Dark navy sidebar (#1a2332) + light canvas (.raviga-canvas). Shared shell
 // for every tenant's portfolio surface — never a per-firm layout fork.
@@ -354,9 +303,8 @@ function AdminPortalHeader({
 // every other tenant sees the shared 3-item nav.
 //
 // Anonymous visitors get AnonSidebar (pixel-identical to the original layout,
-// no admin markup). Authenticated admins get the unified admin sidebar plus a
-// header hosting the Admin lens trigger; the lens drawer's open state is owned
-// here and threaded down to AdminLensMount.
+// no admin markup). Authenticated admins additionally get the slim admin bar
+// (AdminBarMount, lazy + auth-gated) rendered above the shell content.
 // ---------------------------------------------------------------------------
 interface TenantShellProps {
   children: ReactNode;
@@ -366,7 +314,6 @@ interface TenantShellProps {
 export function TenantShell({ children, firm }: TenantShellProps) {
   const [location] = useLocation();
   const { isAuthenticated, user, logout } = useAuth();
-  const [lensOpen, setLensOpen] = useState(false);
   const isRaviga = firm.slug === "raviga";
   const nav = isRaviga ? [...BASE_NAV, ...RAVIGA_ONLY_NAV] : BASE_NAV;
 
@@ -401,13 +348,7 @@ export function TenantShell({ children, firm }: TenantShellProps) {
 
       {/* ── Light canvas ───────────────────────────────────────── */}
       <div className="raviga-canvas flex flex-1 flex-col overflow-hidden bg-background">
-        {isAuthenticated && (
-          <AdminPortalHeader
-            firm={firm}
-            lensOpen={lensOpen}
-            onToggleLens={() => setLensOpen((v) => !v)}
-          />
-        )}
+        {isAuthenticated && <AdminBarMount firm={firm} />}
 
         {/* Scrollable main content */}
         <main className="flex-1 overflow-y-auto">
@@ -423,11 +364,6 @@ export function TenantShell({ children, firm }: TenantShellProps) {
 
       {/* AI assistant — floats above everything */}
       <AskInvesq firm={firm} />
-
-      {/* Admin lens — renders nothing (and loads no JS) for anonymous
-          visitors; only an authenticated admin sees the overlay. Open state is
-          driven by the header's Admin lens button. */}
-      <AdminLensMount firm={firm} open={lensOpen} onOpenChange={setLensOpen} />
     </div>
   );
 }

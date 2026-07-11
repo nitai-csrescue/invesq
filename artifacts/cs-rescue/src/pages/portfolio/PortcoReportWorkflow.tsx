@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import {
   Loader2,
@@ -330,6 +330,23 @@ export function PortcoReportWorkflow({
   const setWorkflow = (updated: AdminReportWorkflow) => {
     if (companyId != null) queryClient.setQueryData(queryKey, updated);
   };
+
+  // When deep-linked from /admin/reports (URL ends #diagnostic-report), scroll
+  // this section into view once its data has rendered. wouter ignores the hash,
+  // so we read it off window.location; the real scroll container is the shell's
+  // inner <main>, which scrollIntoView() walks up to on its own.
+  const didScrollToReport = useRef(false);
+  useEffect(() => {
+    if (didScrollToReport.current) return;
+    if (window.location.hash !== "#diagnostic-report") return;
+    if (!isAdminUser || companyId == null || isFetching || !data) return;
+    didScrollToReport.current = true;
+    requestAnimationFrame(() => {
+      document
+        .getElementById("diagnostic-report")
+        ?.scrollIntoView({ behavior: "smooth", block: "start" });
+    });
+  }, [isAdminUser, companyId, isFetching, data]);
 
   const generateMutation = useGenerateAdminCompanyReportExport({
     mutation: {

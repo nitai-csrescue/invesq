@@ -1296,7 +1296,9 @@ export default function PortfolioCompany() {
       <p className="mt-4 text-center text-[11px] text-muted-foreground">
         Prepared for {firm.displayName} · as of {formatDate(AS_OF_DATE)} · Design-partner preview
       </p>
-      <PortcoReportWorkflow firmSlug={firmSlug} companySlug={params?.companyId ?? ""} />
+      <section id="diagnostic-report" className="scroll-mt-4">
+        <PortcoReportWorkflow firmSlug={firmSlug} companySlug={params?.companyId ?? ""} />
+      </section>
     </TenantShell>
   );
 }

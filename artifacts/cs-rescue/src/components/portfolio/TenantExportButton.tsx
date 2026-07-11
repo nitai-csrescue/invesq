@@ -16,8 +16,8 @@ interface TenantExportButtonProps {
 
 // Client-facing "Download diagnostic PDF" button shown on tenant company-detail
 // and report pages. Fetches the branded INVESQ PDF from the public tenant route
-// and triggers a browser download (mirrors the admin ExportPanel flow). Only
-// sendable firms get this button; internal-only firms never surface it.
+// and triggers a browser download. Only sendable firms get this button;
+// internal-only firms never surface it.
 export function TenantExportButton({
   firmSlug,
   companySlug,

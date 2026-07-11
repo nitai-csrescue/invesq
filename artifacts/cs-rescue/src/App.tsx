@@ -158,13 +158,10 @@ function Router() {
               </ProtectedRoute>
             )}
           </Route>
-          <Route path="/admin/reports/:companyId">
-            {(params) => (
-              <ProtectedRoute>
-                <AdminReports companyId={Number(params?.companyId)} />
-              </ProtectedRoute>
-            )}
-          </Route>
+          {/* Legacy per-company report editor route — the editor now lives in
+              the tenant portal's Diagnostic Report section; collapse to the
+              read-only index. */}
+          <Route path="/admin/reports/:companyId">{() => <Redirect to="/admin/reports" />}</Route>
           <Route path="/admin/reports">
             {() => (
               <ProtectedRoute>
