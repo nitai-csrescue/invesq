@@ -1,6 +1,6 @@
 import { Router, type IRouter } from "express";
 import { and, count, desc, eq, inArray, like, notInArray } from "drizzle-orm";
-import { db, assessmentsTable, companiesTable, firmsTable, jobsTable, reportExportsTable } from "@workspace/db";
+import { db, assessmentsTable, companiesTable, findingsTable, firmsTable, jobsTable, notionSyncStateTable, reportExportsTable } from "@workspace/db";
 import { AddAdminFirmCompanyBody, ConfirmAdminFirmBody, CreateAdminFirmBody } from "@workspace/api-zod";
 import type {
   AdminFirmConfirmResult,
@@ -756,8 +756,22 @@ router.post("/backfill-pipeline-meta", async (req, res) => {
 // Owner-approved 2026-07-11. Deletes the 18 duplicate assessment rows created
 // by a build-job retry storm on 2026-07-10 (firm_id=1, pamlico-capital).
 // Canonical rows (ids 156-161, ~19:00 UTC) are KEPT; stale rows are deleted.
-// Also deletes 2 stale report_exports rows that reference deleted assessments,
-// and excludes the duplicate ClarisHealth company row (company_id=6).
+//
+// Child-row deletion order (FK dependency). Every table with an FK to
+// assessments.id is cleared for the 18 target assessments BY assessmentId
+// (not by hardcoded child ids — those go stale as narratives regenerate):
+//   findings (assessment_id FK) → notionSyncState (assessment_id FK)
+//   → reportExports (assessment_id FK)
+//   → assessments (ids 1-18)
+//   → companiesTable (company_id=6 set excluded, not deleted)
+//
+// Production truth 2026-07-11: findings + notionSyncState are empty; the actual
+// FK blocker is reportExports rows referencing assessments 5 and 11. Deleting
+// reportExports by assessmentId (was hardcoded ids 2+3, now nonexistent) is what
+// fixes the prior 500. reportExports referencing canonical 156-161 are untouched.
+//
+// All deletes run inside a single transaction. Full child-row contents are
+// logged to the server log before deletion (guardrailed destructive-ops pattern).
 //
 // After this endpoint is called in production:
 //   1. Re-add assessments_company_date_uq + companies_firm_normalized_name_active_uq
@@ -768,34 +782,74 @@ router.post("/backfill-pipeline-meta", async (req, res) => {
 // This endpoint MUST be removed in Publish 2. It is admin-gated and idempotent.
 router.post("/repair-assessments-dedup", async (req, res) => {
   const ASSESSMENT_IDS_TO_DELETE = [1, 2, 4, 3, 6, 7, 5, 9, 10, 8, 12, 13, 11, 15, 16, 14, 17, 18];
-  const REPORT_EXPORT_IDS_TO_DELETE = [2, 3];
   const COMPANY_ID_TO_EXCLUDE = 6;
 
+  let deletedFindings: { id: number }[] = [];
+  let deletedNotionSyncStates: { id: number }[] = [];
+  let deletedExports: { id: number }[] = [];
+  let deletedAssessments: { id: number }[] = [];
+  let updatedCompanies: { id: number; status: string }[] = [];
+
   try {
-    // Step 1: Delete stale report_exports first (FK references assessments).
-    const deletedExports = await db
-      .delete(reportExportsTable)
-      .where(inArray(reportExportsTable.id, REPORT_EXPORT_IDS_TO_DELETE))
-      .returning({ id: reportExportsTable.id });
+    await db.transaction(async (tx) => {
+      // ── Audit: fetch and log full child-row contents before any deletion ──
+      const childFindings = await tx
+        .select()
+        .from(findingsTable)
+        .where(inArray(findingsTable.assessmentId, ASSESSMENT_IDS_TO_DELETE));
 
-    // Step 2: Delete the 18 duplicate assessment rows.
-    const deletedAssessments = await db
-      .delete(assessmentsTable)
-      .where(inArray(assessmentsTable.id, ASSESSMENT_IDS_TO_DELETE))
-      .returning({ id: assessmentsTable.id });
+      const childNotionStates = await tx
+        .select()
+        .from(notionSyncStateTable)
+        .where(inArray(notionSyncStateTable.assessmentId, ASSESSMENT_IDS_TO_DELETE));
 
-    // Step 3: Exclude the duplicate ClarisHealth company row.
-    const updatedCompanies = await db
-      .update(companiesTable)
-      .set({ status: "excluded" })
-      .where(eq(companiesTable.id, COMPANY_ID_TO_EXCLUDE))
-      .returning({ id: companiesTable.id, status: companiesTable.status });
+      const childReportExports = await tx
+        .select()
+        .from(reportExportsTable)
+        .where(inArray(reportExportsTable.assessmentId, ASSESSMENT_IDS_TO_DELETE));
+
+      req.log.info(
+        { childFindings, childNotionStates, childReportExports },
+        "repair-assessments-dedup: child row audit log before deletion"
+      );
+
+      // ── Step 1: Delete child rows in FK dependency order ──────────────────
+      deletedFindings = await tx
+        .delete(findingsTable)
+        .where(inArray(findingsTable.assessmentId, ASSESSMENT_IDS_TO_DELETE))
+        .returning({ id: findingsTable.id });
+
+      deletedNotionSyncStates = await tx
+        .delete(notionSyncStateTable)
+        .where(inArray(notionSyncStateTable.assessmentId, ASSESSMENT_IDS_TO_DELETE))
+        .returning({ id: notionSyncStateTable.id });
+
+      deletedExports = await tx
+        .delete(reportExportsTable)
+        .where(inArray(reportExportsTable.assessmentId, ASSESSMENT_IDS_TO_DELETE))
+        .returning({ id: reportExportsTable.id });
+
+      // ── Step 2: Delete the 18 duplicate assessment rows ────────────────────
+      deletedAssessments = await tx
+        .delete(assessmentsTable)
+        .where(inArray(assessmentsTable.id, ASSESSMENT_IDS_TO_DELETE))
+        .returning({ id: assessmentsTable.id });
+
+      // ── Step 3: Exclude the duplicate ClarisHealth company row ─────────────
+      updatedCompanies = await tx
+        .update(companiesTable)
+        .set({ status: "excluded" })
+        .where(eq(companiesTable.id, COMPANY_ID_TO_EXCLUDE))
+        .returning({ id: companiesTable.id, status: companiesTable.status });
+    });
 
     // Invalidate bootstrap cache so the next portfolio page load reflects clean state.
     invalidatePortfolioCache();
 
     req.log.info(
       {
+        deletedFindings: deletedFindings.map((r) => r.id),
+        deletedNotionSyncStates: deletedNotionSyncStates.map((r) => r.id),
         deletedAssessments: deletedAssessments.map((r) => r.id),
         deletedReportExports: deletedExports.map((r) => r.id),
         excludedCompanies: updatedCompanies.map((r) => r.id),
@@ -805,6 +859,8 @@ router.post("/repair-assessments-dedup", async (req, res) => {
 
     res.json({
       ok: true,
+      deletedFindings: deletedFindings.map((r) => r.id),
+      deletedNotionSyncStates: deletedNotionSyncStates.map((r) => r.id),
       deletedAssessments: deletedAssessments.map((r) => r.id),
       deletedReportExports: deletedExports.map((r) => r.id),
       excludedCompanies: updatedCompanies.map((r) => r.id),

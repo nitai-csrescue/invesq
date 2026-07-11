@@ -533,3 +533,200 @@ curl -X POST https://<prod-domain>/api/admin/repair-assessments-dedup \
 2. Re-add `uniqueIndex("companies_firm_normalized_name_active_uq").on(table.firmId, table.normalizedName).where(sql\`${table.status} <> 'excluded'\`)` to `lib/db/src/schema/companies.ts`
 3. Remove `router.post("/repair-assessments-dedup", ...)` from `artifacts/api-server/src/routes/admin.ts` and remove `reportExportsTable` from its import
 4. Publish — both unique indexes apply cleanly, endpoint is gone
+
+  ---
+
+  ## 2026-07-11 — FK-fix for `repair-assessments-dedup` (bug fix, no schema change)
+
+  **Context.** The Publish-1 repair endpoint `POST /api/admin/repair-assessments-dedup` returned 500 in production: deleting assessments 1-18 was blocked by a foreign-key child row. The prior session assumed the blocker was the `findings` / `notion_sync_state` tables (added in Phase 1 after the endpoint was written). A read-only production audit (2026-07-11) shows the real cause is different.
+
+  **Production truth (read-only SELECT audit, before any fix):**
+  - `findings`: 0 rows total (table empty) — NOT a blocker.
+  - `notion_sync_state`: 0 rows total (table empty) — NOT a blocker.
+  - `report_exports`: 3 rows total — id=1 (assessment_id=151, unrelated → KEEP), id=4 (assessment_id=11), id=5 (assessment_id=5). **ids 4 and 5 reference assessments in the delete set → the actual FK blocker.**
+  - The endpoint's original hardcoded `REPORT_EXPORT_IDS_TO_DELETE = [2, 3]` is stale: report_exports ids 2 and 3 no longer exist. Deleting [2,3] was a no-op, leaving ids 4,5 to block the assessments DELETE → 500.
+  - All 18 target assessments (1-18) still present (prior failure rolled back cleanly inside its transaction). company_id=6 still `active`. Both conflicting unique indexes still absent (Publish-1 state intact).
+  - No `report_exports` row references canonical assessments 156-161, so deleting by assessmentId cannot touch canonical exports.
+
+  **Fix (endpoint code only — `artifacts/api-server/src/routes/admin.ts`):**
+  - Removed the stale `REPORT_EXPORT_IDS_TO_DELETE = [2, 3]` constant.
+  - `report_exports` is now deleted by `assessmentId IN (1-18)` — covers the real blockers (4, 5), is robust to future narrative regeneration, and leaves id=1 (assessment 151) plus canonical 156-161 untouched.
+  - `findings` and `notion_sync_state` deletes (by `assessmentId IN (1-18)`) retained — currently no-ops (0 rows) but future-proof and harmless; keeps the endpoint correct if those tables get populated before the human re-runs it.
+  - All deletes remain inside a single `db.transaction`; full child-row contents are logged via `req.log.info` before deletion (runtime guardrail).
+  - NO schema change. Unique indexes NOT re-added. Nothing else touched.
+  - `pnpm run typecheck:libs` + `@workspace/api-server` typecheck: **PASS**. (The `cs-rescue-video` typecheck failures are pre-existing and unrelated — that video scaffold omits the DOM lib by design.)
+
+  ### Full contents of affected child rows (guardrail — captured before deletion)
+
+  - `findings` referencing assessments 1-18: **none (table empty).**
+  - `notion_sync_state` referencing assessments 1-18: **none (table empty).**
+  - `report_exports` referencing assessments 1-18: **2 rows (ids 4, 5); full payloads below.**
+
+  Both report_exports rows are regenerable cache (schema keys one export per (assessment, rubricVersion), never mutated in place). They were generated against the DUPLICATE assessments (11, 5) being deleted; after repair, fresh exports can be regenerated on demand against the canonical assessments (EHS Insight co.5 → assessment 160; Key Data Dashboard co.3 → assessment 158) via the admin ExportPanel "Generate narrative" button.
+
+  #### report_exports id=4 — company_id=5 (EHS Insight), assessment_id=11, rubric v5, model claude-sonnet-4-6, created 2026-07-11 02:57:45 UTC
+
+  ```json
+  {
+  "gaps": [
+    {
+      "title": "Health Scoring",
+      "impact": "Without a systematic health-scoring infrastructure, the CS team has no early-warning signal to distinguish accounts that are silently at risk from those that are genuinely stable, leaving the reported 98% retention rate dependent on reactive support quality rather than proactive intervention. For a PE-backed asset, the absence of health visibility means churn events are discovered at or after renewal, compressing the window for intervention and making GRR difficult to defend as the portfolio scales.",
+      "description": "No mention of Gainsight, ChurnZero, Planhat, Vitally, or any dedicated customer health-scoring platform was found in any EHS Insight JD, tech-stack listing (LeadIQ shows HubSpot, Clicky, Amazon SES), blog, or press. The only ticketing tool referenced in a JD is FreshDesk. No public signal exists of systematic, data-driven customer health visibility infrastructure.",
+      "recommendation": "Prioritize the design and implementation of a baseline health model using data already available in HubSpot and FreshDesk, such as login frequency, support ticket volume, and onboarding completion milestones, before committing to a full CS platform procurement. Once a minimum viable health score is validated against actual churn outcomes, evaluate purpose-built CS platforms to operationalize alerting and proactive outreach workflows."
+    },
+    {
+      "title": "CS Leadership",
+      "impact": "The absence of a VP- or CCO-level CS executive means the function lacks a board-visible mandate for retention and expansion outcomes, cross-functional authority to align product, sales, and CS around customer health, and the strategic planning capacity to translate Pamlico's value-creation thesis into operational CS programs. This structural gap limits the ceiling of every other remediation effort, because infrastructure investments in tooling and process require executive ownership to achieve cross-functional adoption and accountability.",
+      "description": "The highest identified CS leader is Cesar Marroquin, listed as 'Manager, Customer Success' on Gregslist — a manager-level, not VP or C-suite, title. The most senior GTM leader is John Nichols (EVP of Sales). No post-Pamlico CS leadership hire (VP/CCO) was found in any press, LinkedIn, or job posting, indicating CS is not yet led by a value-creation-mandate executive.",
+      "recommendation": "Establish a VP of Customer Success or Chief Customer Officer role as the immediate priority, with an explicit charter covering NRR ownership, CS org design authority, and a direct reporting line to the CEO with board-level visibility into retention and expansion metrics. Define the mandate before recruiting so that the hire is evaluated against a clear value-creation scope rather than a generalist CS management profile."
+    },
+    {
+      "title": "Account Planning",
+      "impact": "Without structured account planning cadences, the highest-ARR accounts in EHS Insight's base receive no systematic executive engagement, no documented success plans, and no proactive identification of expansion opportunities within the 32-module à la carte catalog. This leaves material expansion revenue dependent on inbound customer initiative rather than CS-driven relationship development, and it weakens retention among the enterprise and mid-market accounts where switching costs are highest but relationships require active maintenance.",
+      "description": "No reference to QBRs, EBRs, success plans, account planning cadences, or executive business reviews was found in any EHS Insight JD, blog, case study, or press release. The CS Associate and Implementation Specialist JDs focus on onboarding and support ticket resolution, with no strategic account planning language present.",
+      "recommendation": "Introduce a tiered account planning framework beginning with the top decile of accounts by ARR, establishing a minimum cadence of structured business reviews and a documented mutual success plan for each. Use the AI and product differentiation already embedded in the platform as the value narrative for these conversations, and track expansion pipeline generated from planned account reviews as a leading indicator of CS-driven revenue motion maturity."
+    }
+  ],
+  "scores": {
+    "p1": 1,
+    "p2": 1,
+    "p3": 0,
+    "p4": 1,
+    "p5": 1,
+    "p6": 0,
+    "p7": 0,
+    "p8": 2
+  },
+  "nextSteps": [
+    "Define and open a VP of Customer Success or Chief Customer Officer role within 30 days, with an explicit charter covering NRR ownership, org design authority, and board-level retention reporting, treating this hire as the prerequisite for all downstream CS infrastructure investment.",
+    "Conduct an audit of data available in HubSpot and FreshDesk to design a minimum viable customer health model, identifying the three to five signals most predictive of churn risk so that a baseline health score can be operational before a full CS platform is procured.",
+    "Map the existing customer base by ARR and identify the top decile of accounts for immediate structured account planning, assigning a primary CS owner and initiating a first-round business review cadence within 60 days.",
+    "Formalize the boundary between CS and Account Management in the org design, separating onboarding and ongoing success management into distinct role charters and establishing a clear handoff protocol so that post-onboarding account ownership is unambiguous.",
+    "Define an NRR reporting structure and baseline the current metric against the existing 32-module pricing architecture so that expansion revenue attributable to the CS motion can be tracked separately from sales-led upsell, creating the measurement foundation for CS accountability in board reporting."
+  ],
+  "parentFund": "Pamlico Capital",
+  "reportDate": "2026-07-11",
+  "companyName": "EHS Insight",
+  "csHeadcount": "",
+  "execSummary": [
+    "EHS Insight, a Pamlico Capital portfolio company operating in the EHS SaaS vertical, scores 6 out of 16 on the INVESQ CS Diagnostic, placing it in Tier 2 (Targeted Opportunities). Three of eight pillars score zero, and no single pillar reaches the ceiling of best practice. The CS function is present in name but has not yet been built into a value-creation engine capable of protecting and compounding the retention economics that EHS Insight's 98% retention claim implies.",
+    "The most consequential structural gap is CS leadership. The function is currently managed at the manager level with no VP- or CCO-equivalent mandate, no board-visible retention metrics, and no public evidence of a post-acquisition leadership investment by Pamlico. Without an executive CS owner, the infrastructure gaps in health scoring, escalation, and account planning are unlikely to close through organic effort alone.",
+    "The single standout signal is P8 (AI Adoption Maturity, score 2). EHS Insight has built a production-grade, multi-layer AI architecture into the product, including an MCP connector enabling live EHS data queries inside Claude, ChatGPT, and Microsoft Copilot. This differentiated technical foundation is currently product-facing rather than CS-workflow-facing, but it represents a meaningful acceleration lever once the CS org design and tooling gaps are addressed.",
+    "The composite score suggests a company whose retention is likely defended by product stickiness and a capable support layer rather than by systematic customer success operations. Pamlico's value-creation window calls for deliberate, sequenced intervention: install CS leadership, instrument health visibility, and activate the expansion motion that the à la carte pricing model structurally enables but CS does not yet capture."
+  ],
+  "pathForward": "The remediation path for EHS Insight should be sequenced in three phases. First and most urgently, the CS leadership gap must be resolved by establishing a VP- or CCO-level CS role with an explicit mandate covering retention, expansion, and a board-level NRR reporting line. This hire or appointment is the precondition for every downstream investment, because without an executive owner, tooling and process changes will lack the cross-functional authority to stick. Second, once leadership is in place, the function should instrument a baseline health scoring capability, even a lightweight model built on HubSpot data, product usage signals, and support ticket frequency, before committing to a full CS platform procurement. Third, the revenue motion should be formalized by defining CS ownership of expansion within the existing à la carte, 32-module pricing architecture, separating onboarding from ongoing success management in the org structure, and introducing account planning cadences for the highest-ARR accounts. The AI differentiation already embedded in the product creates a credible narrative for customer value conversations once the account planning infrastructure exists to deliver them consistently.",
+  "pillarSignals": {
+    "p1": "CS roles exist across onboarding, implementation, and ongoing success, but a single associate role bundles all three functions, indicating role conflation rather than functional separation at the current org scale.",
+    "p2": "A dedicated implementation specialist role and explicit time-to-value language in job descriptions signal an onboarding process exists, but at least one review indicates onboarding quality is gated by support tier rather than delivered uniformly.",
+    "p3": "No dedicated health-scoring platform, health-score language, or customer visibility tooling was identified in any job description, tech-stack listing, or public content; the CS org is operating without systematic, data-driven account health infrastructure.",
+    "p4": "Strong customer retention figures and positive support responsiveness reviews suggest churn is currently low, but no proactive escalation framework, at-risk playbook, or early-warning tooling was found in any public signal.",
+    "p5": "An account manager function exists and the à la carte pricing model structurally enables expansion, but no CS job description references NRR ownership, expansion quotas, or CSQL language, indicating expansion accountability sits outside the CS motion.",
+    "p6": "The CS function is led at the manager level with no VP- or CCO-equivalent role identified in any public source, and no post-acquisition CS leadership hire was found in press, LinkedIn, or job postings.",
+    "p7": "No QBR, EBR, success plan, or account planning language appears in any job description, blog post, case study, or press release; CS roles are scoped to onboarding and ticket resolution rather than strategic account development.",
+    "p8": "EHS Insight has deployed a production-grade, multi-layer AI architecture including embedded Copilot features and an MCP connector enabling live EHS data queries inside third-party AI platforms, representing a differentiated and systematically evidenced AI investment at the product layer."
+  },
+  "pillarEvidence": {
+    "p1": "EHS Insight has identifiable CS roles including Customer Success Associate, Customer Success Manager (Ryan Binkley on LinkedIn), Customer Success Implementation Specialist, and a Manager of Customer Success (Cesar Marroquin per Gregslist). However, with ~68 total employees, the CS Associate JD bundles onboarding, support, and ongoing success into one role, indicating role conflation rather than clear functional separation across CSM, onboarding, support, and account management.",
+    "p2": "A dedicated 'Customer Success Implementation Specialist' role exists focused on configuring and implementing the platform for clients, and CS Associate JDs explicitly list 'minimize customers time to value' as a core duty. G2 and Capterra reviews consistently praise onboarding support. However, one Capterra reviewer noted struggling for 90 days before paying for a 'Premium level of support' to get adequate help, suggesting onboarding quality is tied to support tier rather than a uniformly structured, repeatable process.",
+    "p3": "No mention of Gainsight, ChurnZero, Planhat, Vitally, or any dedicated customer health-scoring platform was found in any EHS Insight JD, tech-stack listing (LeadIQ shows HubSpot, Clicky, Amazon SES), blog, or press. The only ticketing tool referenced in a JD is FreshDesk. No public signal exists of systematic, data-driven customer health visibility infrastructure.",
+    "p4": "G2 and Capterra reviews are consistently positive on support responsiveness, and Gary McDonald's LinkedIn cites a '98% customer retention rate,' suggesting churn is low. However, no proactive escalation framework, at-risk playbook, or early-warning tooling was found in any public JD or content. The strong retention signal may reflect product stickiness and support quality rather than a structured escalation motion.",
+    "p5": "LeadIQ identifies an Account Manager role (K.P.R.) and an EVP of Sales (John Nichols) at EHS Insight, and the company's 32-module à la carte pricing model structurally enables expansion revenue. However, no CS JD language referencing NRR ownership, expansion quotas, CSQL, or upsell accountability was found; expansion appears to sit with sales/AM rather than CS, and no NRR metric is publicly disclosed.",
+    "p6": "The highest identified CS leader is Cesar Marroquin, listed as 'Manager, Customer Success' on Gregslist — a manager-level, not VP or C-suite, title. The most senior GTM leader is John Nichols (EVP of Sales). No post-Pamlico CS leadership hire (VP/CCO) was found in any press, LinkedIn, or job posting, indicating CS is not yet led by a value-creation-mandate executive.",
+    "p7": "No reference to QBRs, EBRs, success plans, account planning cadences, or executive business reviews was found in any EHS Insight JD, blog, case study, or press release. The CS Associate and Implementation Specialist JDs focus on onboarding and support ticket resolution, with no strategic account planning language present.",
+    "p8": "EHS Insight has a deeply invested, multi-layer AI architecture: an embedded Copilot (incident review, CAPA suggestions, JSA drafting, SIF Precursor Detection, Vision AI for image analysis) launched progressively through 2024–2025, and on June 30, 2026, it became the first EHS platform to launch an MCP connector enabling live, permissioned EHS data queries directly inside Claude, ChatGPT, and Microsoft Copilot. While this AI investment is primarily product-facing rather than CS-workflow-specific (no Gainsight AI or CS-ops AI tooling found), the systematic, production-grade AI architecture is strongly evidenced and differentiated."
+  },
+  "existingSystems": "The evidenced CS tooling stack is thin relative to the maturity expected of a PE-backed SaaS asset. HubSpot is present in the tech stack per LeadIQ, serving as the likely CRM backbone, alongside Amazon SES for transactional email and Clicky for web analytics. FreshDesk appears in at least one CS job description as the support ticketing system. No dedicated customer success platform was identified in any job description, tech-stack listing, blog post, or press release; specifically, there is no evidence of Gainsight, ChurnZero, Planhat, Vitally, or Totango in use. On the product side, EHS Insight has invested heavily in an embedded AI architecture including Copilot features and an MCP connector, but no CS-operations AI tooling (such as Gainsight AI, Gong, or Chorus) was found. The current stack is adequate for reactive support management but does not provide the health visibility, proactive alerting, or account planning infrastructure required to operationalize a systematic CS motion.",
+  "preparedForName": "",
+  "compositeContext": "A composite score of 6/16 places EHS Insight in Tier 2, indicating a CS function that is partially constructed but not yet operating as a systematic retention and expansion engine. Three pillars score zero (Health Scoring, CS Leadership, Account Planning), two score one (CS Org Design, Onboarding, Revenue Motion, Escalation and Churn Management), and one scores two (AI Adoption Maturity). The effective score reflects a company where individual contributors are executing competent support and onboarding work, but where the organizational infrastructure, leadership mandate, and data visibility required to drive net revenue retention at scale are absent. For a PE-backed SaaS asset in an active value-creation window, this profile signals material upside that is currently unrealized and at risk of remaining so without deliberate operator intervention.",
+  "p6Recommendation": "Replace: The Replace recommendation reflects a structural gap at the organizational level: the CS function currently has no executive owner, with the most senior CS role identified as a manager-level position that carries neither the title, the reporting authority, nor the board mandate required to drive a value-creation-oriented CS motion in a PE-backed company. The gap is not one of incremental development but of organizational design, specifically the absence of a VP- or CCO-level seat with cross-functional authority over retention and expansion outcomes.",
+  "preparedForTitle": ""
+}
+  ```
+
+  #### report_exports id=5 — company_id=3 (Key Data Dashboard), assessment_id=5, rubric v5, model claude-sonnet-4-6, created 2026-07-11 02:59:14 UTC
+
+  ```json
+  {
+  "gaps": [
+    {
+      "title": "Escalation & Churn Management",
+      "impact": "A publicly documented absence of certified support processes is a direct signal to prospective and existing customers that at-risk account management is ad hoc rather than systematic. In a hospitality SaaS market where customers evaluate vendors on operational reliability, this gap creates measurable churn exposure at every renewal cycle and weakens the company's competitive positioning on third-party review platforms that buyers consult.",
+      "description": "Hotel Tech Report explicitly states Key Data 'has not yet had their customer support processes certified' and that 'this vendor does not appear to have basic support essentials,' noting that top-tier vendors maintain a knowledge base and changelog. No G2/Capterra reviews were found to assess support sentiment, and no public evidence of a proactive churn or escalation management process exists.",
+      "recommendation": "Establish a documented escalation framework with defined triggers, ownership, and response SLAs as the first operational priority. Pursue Hotel Tech Report support certification as a near-term milestone, which provides both a process forcing function and a visible credibility signal to the market."
+    },
+    {
+      "title": "CS Org Design",
+      "impact": "With only a single PSM role type visible and no structural separation between support, onboarding, and account management functions, the CS organization lacks the role clarity needed to scale coverage or specialize workflows as the customer base grows. This design gap also limits the fund's ability to instrument the post-sales motion, benchmark performance, or build toward NRR accountability.",
+      "description": "Key Data's support knowledge base references a 'Partner Success Manager (PSM)' role as the primary customer-facing function, indicating some CS structure exists. However, the company's careers page lists no open positions, Hotel Tech Report reports only ~47 employees, and The Org identifies only CEO/CTO/COO at the leadership level — with no distinct CSM, onboarding, or support role separation publicly visible.",
+      "recommendation": "Define a tiered CS org structure that separates reactive support from proactive account management, establish a dedicated CS leadership role with an explicit mandate and reporting line to the incoming CEO, and document coverage ratios and role boundaries before headcount decisions are made."
+    },
+    {
+      "title": "Onboarding",
+      "impact": "The absence of any structured onboarding infrastructure, including dedicated role titles, documented playbooks, or measurable activation milestones, means time-to-value for new customers is undefined and likely inconsistent. Inconsistent onboarding is a leading indicator of early churn and reduces the company's ability to generate the review volume and case study content needed to support sales in a competitive vertical.",
+      "description": "The only onboarding signal found is the support doc instruction to 'reach out to your PSM for personalized support' during a platform migration. No dedicated onboarding role titles, structured onboarding documentation, or customer review commentary about the onboarding experience (G2/Capterra/Hotel Tech Report) was found — Hotel Tech Report notes zero reviews on their profile from the US market.",
+      "recommendation": "Design and document a standardized onboarding playbook with defined milestones, owner accountability within the PSM or a dedicated onboarding role, and a mechanism to capture customer feedback at activation. This infrastructure should be scoped and sequenced immediately after the escalation framework is in place."
+    }
+  ],
+  "scores": {
+    "p1": 1,
+    "p2": "NA",
+    "p3": "NA",
+    "p4": 0,
+    "p5": "NA",
+    "p6": 1,
+    "p7": "NA",
+    "p8": 1
+  },
+  "nextSteps": [
+    "Commission a CS org design assessment within the first 30 days to map current PSM responsibilities, identify role overlap with support functions, and define the target-state structure including a CS leadership role with explicit mandate and CEO-level reporting.",
+    "Initiate Hotel Tech Report support certification as a structured process milestone, using the certification checklist to drive the build-out of a knowledge base, changelog, and escalation SLAs.",
+    "Document an at-risk account escalation framework with defined triggers, ownership, and response SLAs before the next renewal cohort reaches decision stage.",
+    "Audit current tooling to determine whether Salesforce, HubSpot, or any CS-specific platform is already in use, and produce a tooling roadmap that sequences health-scoring instrumentation alongside onboarding playbook development.",
+    "Coordinate with the incoming CEO on a CS mandate announcement to customers and internal teams within the first 60 days, establishing post-sales accountability as a visible leadership priority from the outset of the new executive tenure."
+  ],
+  "parentFund": "Pamlico Capital",
+  "reportDate": "2026-07-11",
+  "companyName": "Key Data Dashboard",
+  "csHeadcount": "",
+  "execSummary": [
+    "Key Data Dashboard, a hospitality analytics SaaS company backed by Pamlico Capital since July 2024, scores 3 out of a possible 8 on scored pillars in INVESQ's eight-pillar Customer Success diagnostic. Three pillars returned Insufficient Data due to an absence of verifiable public signals, which itself is a meaningful finding: at a company of roughly 47 employees operating in a competitive vertical, the near-total absence of externally visible CS infrastructure, tooling mentions, open roles, and customer review activity indicates a post-sales function that has not yet been systematically built.",
+    "The one hard-scored gap, Escalation and Churn Management at 0, is the most urgent risk to near-term retention. Hotel Tech Report explicitly flags the absence of certified support processes and basic support essentials for this vendor, a finding that maps directly to churn exposure in a market where property managers and revenue managers have well-established alternatives. Combined with three Insufficient Data pillars, the diagnostic picture is one of structural opacity rather than demonstrated capability.",
+    "The company is in an active leadership transition: the founding CEO is departing and an incoming CEO has been announced. No dedicated CS leader at the VP or Director level has been publicly identified. This transition window is both a risk, given the potential for customer-relationship disruption, and an opportunity to architect a post-sales function before legacy behaviors calcify under new ownership.",
+    "Pamlico Capital's value creation thesis has a narrow but clear opening: stand up foundational CS infrastructure in the next 90 days, close the escalation and support-process gap immediately, and use the leadership transition as a forcing function to install a CS mandate at the executive level before the next renewal cycle."
+  ],
+  "pathForward": "The remediation path for Key Data Dashboard should be sequenced around urgency and interdependency. The immediate priority is closing the escalation and support-process gap, specifically achieving Hotel Tech Report certification and establishing a documented, repeatable process for identifying and responding to at-risk accounts. Concurrently, the CS org design needs to be formalized: the PSM role requires a defined scope, coverage ratio, and separation from reactive support duties, and a CS leadership mandate must be established at the Director or VP level to provide the org with cross-functional authority. Onboarding infrastructure, health scoring instrumentation, and account planning cadences should follow in sequence, each building on the role clarity and tooling decisions made in the first phase. AI adoption within the CS function (distinct from the customer-facing product feature) should be scoped into the tooling buildout rather than treated as a separate initiative. Given the concurrent CEO transition, the fund should treat the first 90 days as a foundational window before new executive priorities and customer expectations are set.",
+  "pillarSignals": {
+    "p1": "A Partner Success Manager role is referenced in support documentation, but no role differentiation, CS headcount beyond that title, or leadership structure below the C-suite is publicly visible.",
+    "p2": "The only onboarding signal is a support doc directing customers to contact their PSM during a platform migration, with no dedicated onboarding roles, structured documentation, or customer review commentary available.",
+    "p3": "No health-scoring tooling or methodology is referenced in any public signal source, including job postings, product pages, blog content, or third-party reviews.",
+    "p4": "Hotel Tech Report explicitly flags the absence of certified support processes and basic support essentials, and no evidence of proactive churn detection or escalation management exists in any public source.",
+    "p5": "No public signals reference NRR ownership, expansion quotas, CSQL motions, or upsell language attributed to the CS function, and no job descriptions with revenue-expansion language are accessible.",
+    "p6": "No dedicated CS leader at the VP or Director level has been publicly identified, and the company is in an active CEO transition following Pamlico Capital's July 2024 investment.",
+    "p7": "No references to QBRs, EBRs, mutual success plans, or structured account planning cadences appear in any blog post, job description, case study, or support documentation.",
+    "p8": "A customer-facing AI Assistant feature is prominently marketed as part of the relaunched platform, but no evidence of AI applied to internal CS workflows, coverage scaling, or signal detection was found."
+  },
+  "pillarEvidence": {
+    "p1": "Key Data's support knowledge base references a 'Partner Success Manager (PSM)' role as the primary customer-facing function, indicating some CS structure exists. However, the company's careers page lists no open positions, Hotel Tech Report reports only ~47 employees, and The Org identifies only CEO/CTO/COO at the leadership level — with no distinct CSM, onboarding, or support role separation publicly visible.",
+    "p2": "The only onboarding signal found is the support doc instruction to 'reach out to your PSM for personalized support' during a platform migration. No dedicated onboarding role titles, structured onboarding documentation, or customer review commentary about the onboarding experience (G2/Capterra/Hotel Tech Report) was found — Hotel Tech Report notes zero reviews on their profile from the US market.",
+    "p3": "No public evidence of health-scoring tooling (Gainsight, ChurnZero, Planhat, or equivalents) was found in any job description, blog post, product page, or third-party review. With no open job postings and no tool-stack mentions anywhere in public signals, this pillar cannot be responsibly scored.",
+    "p4": "Hotel Tech Report explicitly states Key Data 'has not yet had their customer support processes certified' and that 'this vendor does not appear to have basic support essentials,' noting that top-tier vendors maintain a knowledge base and changelog. No G2/Capterra reviews were found to assess support sentiment, and no public evidence of a proactive churn or escalation management process exists.",
+    "p5": "No public signals referencing NRR ownership, expansion quotas, CSQL motions, or upsell/cross-sell language attributed to a CS function were found. The careers page has no open roles and no past JDs with revenue-expansion language were accessible, making it impossible to responsibly score this pillar.",
+    "p6": "Pamlico Capital invested in Key Data in July 2024. Co-founder and CEO Jason Sprenkle is retiring, with incoming CEO Dustin Downing announced as his replacement — a post-acquisition leadership transition signal. No dedicated VP or Director of Customer Success has been publicly identified, and the leadership structure per The Org is limited to CEO, CTO, and COO.",
+    "p7": "No public references to QBRs, EBRs, success plans, or structured account planning cadences were found in Key Data's blog, job postings, case studies, or support documentation. Without any verifiable signal, this pillar cannot be responsibly scored.",
+    "p8": "Key Data's homepage and product page prominently feature a built-in 'AI Assistant' as part of the 'All-New Key Data' platform, described as delivering 'unparalleled intelligence' with 'built-in AI.' This is a customer-facing product feature rather than evidence of AI systematically applied to internal CS workflows, coverage scaling, or signal quality — so the signal is present but limited to the product layer."
+  },
+  "existingSystems": "The only customer-facing CS structure evidenced in public signals is the Partner Success Manager role referenced in Key Data's support documentation. No CS-specific tooling (Gainsight, ChurnZero, Planhat, or equivalents) appears in any job description, product page, blog, or third-party source. The company's product layer does include a customer-facing AI Assistant feature promoted as part of the relaunched platform, but no evidence exists that AI is applied to internal CS workflows such as health monitoring, coverage scaling, or at-risk account detection. A support knowledge base exists in some form, but Hotel Tech Report flags it as insufficient relative to category benchmarks. Salesforce or HubSpot usage cannot be confirmed or ruled out from available signals. In aggregate, the evidenced systems stack is thin: one role type, one product-layer AI feature, and a knowledge base that has not passed third-party certification.",
+  "preparedForName": "",
+  "compositeContext": "A raw composite of 3 out of 8 scored pillars, with three pillars returning Insufficient Data (substituted as 1 each for tier calculation, yielding an effective score of 6 out of 16), places Key Data Dashboard in Tier 2: Targeted Opportunities. This tier designation reflects a company where CS infrastructure is nascent rather than absent across the board, but where critical gaps, particularly in escalation management and org design, represent direct downside risk to gross revenue retention. For an investment committee evaluating value creation potential, the more instructive signal is the pattern of Insufficient Data returns: in a company of this size, the absence of any publicly visible CS tooling, structured role differentiation, or customer review volume is not a data gap unique to this diagnostic. It likely reflects the same opacity that internal account teams and future acquirers would encounter.",
+  "p6Recommendation": "Augment: The Augment recommendation reflects a structural gap rather than a capability ceiling: no dedicated CS leadership role at the VP or Director level has been established, and the current leadership structure is limited to the C-suite level, with a CEO transition actively underway. An experienced CS operator working alongside the incoming executive team would provide the functional authority, playbook depth, and cross-functional mandate that the current org design does not support on its own.",
+  "preparedForTitle": ""
+}
+  ```
+
+  ### Next (human — after this commit):
+  1. **Republish** (redeploy api-server with this fix). No schema/index change ships in this step.
+  2. **Re-run** `POST /api/admin/repair-assessments-dedup` with an admin `@csrescue.com` cookie. Expected response: `deletedFindings: []`, `deletedNotionSyncStates: []`, `deletedReportExports: [4, 5]`, `deletedAssessments: [1..18]` (18 ids), `excludedCompanies: [6]`.
+  3. Run the Step-4 verification queries from the prior entry (zero dup pairs, pamlico active count = 5, company 6 excluded, no orphan FKs).
+  4. **Publish 2**: re-add `assessments_company_date_uq` + `companies_firm_normalized_name_active_uq` to the schema and remove this endpoint.
+  
