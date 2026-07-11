@@ -24,6 +24,7 @@ import type {
   AdminFirmConfirmResult,
   AdminFirmDetail,
   AdminFirmSummary,
+  AdminReportWorkflow,
   ArchitectureEdge,
   ArchitectureMap,
   ArchitectureNode,
@@ -57,6 +58,8 @@ import type {
   PatchConnectorInput,
   PatchResourceInput,
   PortfolioBootstrap,
+  ReportRevisionInput,
+  ReportValidateInput,
   Resource,
   UpdateAdminFirmInput,
 } from "./api.schemas";
@@ -2393,9 +2396,9 @@ export const useRefreshAdminFirm = <
 };
 
 /**
- * Builds the report-data.json object for the Diagnostic Report export runbook from the company's most recent assessment: raw p1-p8 scores, derived composite/tier, and firm name as parentFund. Fields that require dedicated research not yet captured anywhere in this app's data (execSummary, compositeContext, existingSystems, pathForward, pillarSignals, csHeadcount, gap impact/recommendation) are left as their neutral placeholder ("" or []) for Claude's research to fill in later — this is the schema's own designed fallback, not missing data.
+ * Returns the company's EFFECTIVE report (computed scores/tier/gap-titles overlaid with the current edited-or-generated narrative) plus the current revision, dual-validation, and Google Drive shipment state. Read-only — never calls Claude, so it is safe for React Query to refetch. `report.reportData` is safe to copy verbatim into the Claude prompt; `report.meta`, `revision`, `validation` and `shipment` are admin-only bookkeeping that must NOT be included in the exported JSON.
 
- * @summary Assemble the report-data.json export payload from a company's latest assessment
+ * @summary Get the full editor/validation/delivery workflow state for a company's report
  */
 export const getGetAdminCompanyReportDataUrl = (id: number) => {
   return `/api/admin/companies/${id}/report-data`;
@@ -2404,14 +2407,11 @@ export const getGetAdminCompanyReportDataUrl = (id: number) => {
 export const getAdminCompanyReportData = async (
   id: number,
   options?: RequestInit,
-): Promise<AdminCompanyReportData> => {
-  return customFetch<AdminCompanyReportData>(
-    getGetAdminCompanyReportDataUrl(id),
-    {
-      ...options,
-      method: "GET",
-    },
-  );
+): Promise<AdminReportWorkflow> => {
+  return customFetch<AdminReportWorkflow>(getGetAdminCompanyReportDataUrl(id), {
+    ...options,
+    method: "GET",
+  });
 };
 
 export const getGetAdminCompanyReportDataQueryKey = (id: number) => {
@@ -2460,7 +2460,7 @@ export type GetAdminCompanyReportDataQueryResult = NonNullable<
 export type GetAdminCompanyReportDataQueryError = ErrorType<ErrorEnvelope>;
 
 /**
- * @summary Assemble the report-data.json export payload from a company's latest assessment
+ * @summary Get the full editor/validation/delivery workflow state for a company's report
  */
 
 export function useGetAdminCompanyReportData<
@@ -2485,6 +2485,283 @@ export function useGetAdminCompanyReportData<
 
   return { ...query, queryKey: queryOptions.queryKey };
 }
+
+/**
+ * Persists a new report revision from the admin-edited NARRATIVE sections (execSummary, compositeContext, existingSystems, pathForward, gaps[].impact/recommendation, nextSteps). Scores, tier, gap titles/descriptions, pillar signals/evidence and the P6 recommendation stay server-computed and are re-derived, never taken from the body. The saved narrative is sanitized (em-dash stripping, name redaction) exactly like generated narrative. Saving a revision RESETS all prior validations (a new revision must be re-validated). Returns the fresh workflow state.
+
+ * @summary Save an admin edit of the report's narrative sections (creates a new revision)
+ */
+export const getSaveAdminCompanyReportRevisionUrl = (id: number) => {
+  return `/api/admin/companies/${id}/report-revision`;
+};
+
+export const saveAdminCompanyReportRevision = async (
+  id: number,
+  reportRevisionInput: ReportRevisionInput,
+  options?: RequestInit,
+): Promise<AdminReportWorkflow> => {
+  return customFetch<AdminReportWorkflow>(
+    getSaveAdminCompanyReportRevisionUrl(id),
+    {
+      ...options,
+      method: "POST",
+      headers: { "Content-Type": "application/json", ...options?.headers },
+      body: JSON.stringify(reportRevisionInput),
+    },
+  );
+};
+
+export const getSaveAdminCompanyReportRevisionMutationOptions = <
+  TError = ErrorType<ErrorEnvelope>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof saveAdminCompanyReportRevision>>,
+    TError,
+    { id: number; data: BodyType<ReportRevisionInput> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof saveAdminCompanyReportRevision>>,
+  TError,
+  { id: number; data: BodyType<ReportRevisionInput> },
+  TContext
+> => {
+  const mutationKey = ["saveAdminCompanyReportRevision"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof saveAdminCompanyReportRevision>>,
+    { id: number; data: BodyType<ReportRevisionInput> }
+  > = (props) => {
+    const { id, data } = props ?? {};
+
+    return saveAdminCompanyReportRevision(id, data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type SaveAdminCompanyReportRevisionMutationResult = NonNullable<
+  Awaited<ReturnType<typeof saveAdminCompanyReportRevision>>
+>;
+export type SaveAdminCompanyReportRevisionMutationBody =
+  BodyType<ReportRevisionInput>;
+export type SaveAdminCompanyReportRevisionMutationError =
+  ErrorType<ErrorEnvelope>;
+
+/**
+ * @summary Save an admin edit of the report's narrative sections (creates a new revision)
+ */
+export const useSaveAdminCompanyReportRevision = <
+  TError = ErrorType<ErrorEnvelope>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof saveAdminCompanyReportRevision>>,
+    TError,
+    { id: number; data: BodyType<ReportRevisionInput> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof saveAdminCompanyReportRevision>>,
+  TError,
+  { id: number; data: BodyType<ReportRevisionInput> },
+  TContext
+> => {
+  return useMutation(getSaveAdminCompanyReportRevisionMutationOptions(options));
+};
+
+/**
+ * Records the calling admin (who must be one of the configured VALIDATOR_EMAILS) as having validated the company's CURRENT revision. Idempotent per (revision, validator). The client PDF unlocks only once every configured validator has signed the same current revision.
+
+ * @summary Record a validator's sign-off on the current report revision
+ */
+export const getValidateAdminCompanyReportUrl = (id: number) => {
+  return `/api/admin/companies/${id}/validate`;
+};
+
+export const validateAdminCompanyReport = async (
+  id: number,
+  reportValidateInput: ReportValidateInput,
+  options?: RequestInit,
+): Promise<AdminReportWorkflow> => {
+  return customFetch<AdminReportWorkflow>(
+    getValidateAdminCompanyReportUrl(id),
+    {
+      ...options,
+      method: "POST",
+      headers: { "Content-Type": "application/json", ...options?.headers },
+      body: JSON.stringify(reportValidateInput),
+    },
+  );
+};
+
+export const getValidateAdminCompanyReportMutationOptions = <
+  TError = ErrorType<ErrorEnvelope>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof validateAdminCompanyReport>>,
+    TError,
+    { id: number; data: BodyType<ReportValidateInput> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof validateAdminCompanyReport>>,
+  TError,
+  { id: number; data: BodyType<ReportValidateInput> },
+  TContext
+> => {
+  const mutationKey = ["validateAdminCompanyReport"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof validateAdminCompanyReport>>,
+    { id: number; data: BodyType<ReportValidateInput> }
+  > = (props) => {
+    const { id, data } = props ?? {};
+
+    return validateAdminCompanyReport(id, data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type ValidateAdminCompanyReportMutationResult = NonNullable<
+  Awaited<ReturnType<typeof validateAdminCompanyReport>>
+>;
+export type ValidateAdminCompanyReportMutationBody =
+  BodyType<ReportValidateInput>;
+export type ValidateAdminCompanyReportMutationError = ErrorType<ErrorEnvelope>;
+
+/**
+ * @summary Record a validator's sign-off on the current report revision
+ */
+export const useValidateAdminCompanyReport = <
+  TError = ErrorType<ErrorEnvelope>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof validateAdminCompanyReport>>,
+    TError,
+    { id: number; data: BodyType<ReportValidateInput> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof validateAdminCompanyReport>>,
+  TError,
+  { id: number; data: BodyType<ReportValidateInput> },
+  TContext
+> => {
+  return useMutation(getValidateAdminCompanyReportMutationOptions(options));
+};
+
+/**
+ * Renders the validated (stamped) client PDF and uploads it to Google Drive under "INVESQ Customers/{Firm}/{Company}/", then records the shipment. Requires the current revision to be fully dual-validated; a non-validated report is rejected with 412.
+
+ * @summary Upload the validated report PDF to Google Drive and record the shipment
+ */
+export const getShipAdminCompanyReportToDriveUrl = (id: number) => {
+  return `/api/admin/companies/${id}/ship-to-drive`;
+};
+
+export const shipAdminCompanyReportToDrive = async (
+  id: number,
+  options?: RequestInit,
+): Promise<AdminReportWorkflow> => {
+  return customFetch<AdminReportWorkflow>(
+    getShipAdminCompanyReportToDriveUrl(id),
+    {
+      ...options,
+      method: "POST",
+    },
+  );
+};
+
+export const getShipAdminCompanyReportToDriveMutationOptions = <
+  TError = ErrorType<ErrorEnvelope>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof shipAdminCompanyReportToDrive>>,
+    TError,
+    { id: number },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof shipAdminCompanyReportToDrive>>,
+  TError,
+  { id: number },
+  TContext
+> => {
+  const mutationKey = ["shipAdminCompanyReportToDrive"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof shipAdminCompanyReportToDrive>>,
+    { id: number }
+  > = (props) => {
+    const { id } = props ?? {};
+
+    return shipAdminCompanyReportToDrive(id, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type ShipAdminCompanyReportToDriveMutationResult = NonNullable<
+  Awaited<ReturnType<typeof shipAdminCompanyReportToDrive>>
+>;
+
+export type ShipAdminCompanyReportToDriveMutationError =
+  ErrorType<ErrorEnvelope>;
+
+/**
+ * @summary Upload the validated report PDF to Google Drive and record the shipment
+ */
+export const useShipAdminCompanyReportToDrive = <
+  TError = ErrorType<ErrorEnvelope>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof shipAdminCompanyReportToDrive>>,
+    TError,
+    { id: number },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof shipAdminCompanyReportToDrive>>,
+  TError,
+  { id: number },
+  TContext
+> => {
+  return useMutation(getShipAdminCompanyReportToDriveMutationOptions(options));
+};
 
 /**
  * Fills in the report-data.json fields that require synthesis rather than a straight DB read (execSummary, compositeContext, existingSystems, pathForward, pillarSignals, each gap's impact/recommendation, nextSteps) via Claude, grounded in the company's scored pillars/evidence and the Notion scoring rubric. Idempotent per (assessment, rubric version): if a report_exports row already exists for the company's current latest assessment, it is returned as-is with no new Claude call — calling this endpoint repeatedly (e.g. a user re-clicking Generate) never re-triggers paid generation unless a new assessment has landed or the rubric version changed. Synchronous — the response is not returned until generation (or the cache check) completes.

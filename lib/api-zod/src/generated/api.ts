@@ -1222,9 +1222,9 @@ export const RefreshAdminFirmResponse = zod.object({
 });
 
 /**
- * Builds the report-data.json object for the Diagnostic Report export runbook from the company's most recent assessment: raw p1-p8 scores, derived composite/tier, and firm name as parentFund. Fields that require dedicated research not yet captured anywhere in this app's data (execSummary, compositeContext, existingSystems, pathForward, pillarSignals, csHeadcount, gap impact/recommendation) are left as their neutral placeholder ("" or []) for Claude's research to fill in later — this is the schema's own designed fallback, not missing data.
+ * Returns the company's EFFECTIVE report (computed scores/tier/gap-titles overlaid with the current edited-or-generated narrative) plus the current revision, dual-validation, and Google Drive shipment state. Read-only — never calls Claude, so it is safe for React Query to refetch. `report.reportData` is safe to copy verbatim into the Claude prompt; `report.meta`, `revision`, `validation` and `shipment` are admin-only bookkeeping that must NOT be included in the exported JSON.
 
- * @summary Assemble the report-data.json export payload from a company's latest assessment
+ * @summary Get the full editor/validation/delivery workflow state for a company's report
  */
 export const GetAdminCompanyReportDataParams = zod.object({
   id: zod.coerce.number(),
@@ -1232,110 +1232,836 @@ export const GetAdminCompanyReportDataParams = zod.object({
 
 export const GetAdminCompanyReportDataResponse = zod
   .object({
-    reportData: zod
+    report: zod
       .object({
-        companyName: zod.string(),
-        parentFund: zod.string(),
-        preparedForName: zod.string(),
-        preparedForTitle: zod.string(),
-        reportDate: zod
-          .string()
-          .describe("Date this report-data.json was assembled (ISO date)."),
-        csHeadcount: zod.string(),
-        execSummary: zod
-          .array(zod.string())
-          .describe("One string per paragraph."),
-        compositeContext: zod.string(),
-        existingSystems: zod.string(),
-        pathForward: zod.string(),
-        scores: zod
+        reportData: zod
           .object({
-            p1: zod.union([zod.number(), zod.string()]),
-            p2: zod.union([zod.number(), zod.string()]),
-            p3: zod.union([zod.number(), zod.string()]),
-            p4: zod.union([zod.number(), zod.string()]),
-            p5: zod.union([zod.number(), zod.string()]),
-            p6: zod.union([zod.number(), zod.string()]),
-            p7: zod.union([zod.number(), zod.string()]),
-            p8: zod.union([zod.number(), zod.string()]),
+            companyName: zod.string(),
+            parentFund: zod.string(),
+            preparedForName: zod.string(),
+            preparedForTitle: zod.string(),
+            reportDate: zod
+              .string()
+              .describe("Date this report-data.json was assembled (ISO date)."),
+            csHeadcount: zod.string(),
+            execSummary: zod
+              .array(zod.string())
+              .describe("One string per paragraph."),
+            compositeContext: zod.string(),
+            existingSystems: zod.string(),
+            pathForward: zod.string(),
+            scores: zod
+              .object({
+                p1: zod.union([zod.number(), zod.string()]),
+                p2: zod.union([zod.number(), zod.string()]),
+                p3: zod.union([zod.number(), zod.string()]),
+                p4: zod.union([zod.number(), zod.string()]),
+                p5: zod.union([zod.number(), zod.string()]),
+                p6: zod.union([zod.number(), zod.string()]),
+                p7: zod.union([zod.number(), zod.string()]),
+                p8: zod.union([zod.number(), zod.string()]),
+              })
+              .describe(
+                'Raw pillar scores 0\/1\/2, or \"NA\" for Insufficient Data.',
+              ),
+            pillarSignals: zod
+              .object({
+                p1: zod.string(),
+                p2: zod.string(),
+                p3: zod.string(),
+                p4: zod.string(),
+                p5: zod.string(),
+                p6: zod.string(),
+                p7: zod.string(),
+                p8: zod.string(),
+              })
+              .describe(
+                'One-line \"what the signals show\" per pillar (scorecard column). Left \"\" when no data beyond the raw score is on file.\n',
+              ),
+            pillarEvidence: zod
+              .object({
+                p1: zod.string(),
+                p2: zod.string(),
+                p3: zod.string(),
+                p4: zod.string(),
+                p5: zod.string(),
+                p6: zod.string(),
+                p7: zod.string(),
+                p8: zod.string(),
+              })
+              .describe(
+                'Longer pillar-by-pillar narrative Claude produced during scoring (assessments.p{n}Evidence). Left \"\" when no evidence is on file.\n',
+              ),
+            p6Recommendation: zod
+              .string()
+              .describe(
+                'Derived from the p6 (CS Leadership) score: 2 = \"Retain and Develop\", 1 = \"Augment\", 0 = \"Replace\". Empty if p6 is \"NA\".\n',
+              ),
+            gaps: zod
+              .array(
+                zod.object({
+                  title: zod.string(),
+                  description: zod.string(),
+                  impact: zod.string(),
+                  recommendation: zod.string(),
+                }),
+              )
+              .describe(
+                "Top 3 identified gaps (the three lowest-scoring pillars).",
+              ),
+            nextSteps: zod.array(zod.string()),
           })
           .describe(
-            'Raw pillar scores 0\/1\/2, or \"NA\" for Insufficient Data.',
+            'Exact shape of report-data.json per the Notion scoring rubric\'s Step 7 (\"Producing the Branded Client PDF\"). Fields with no real data yet are left as \"\" \/ [] — the branded report template treats a blank field as an accepted, designed fallback (a neutral placeholder), not an error.\n',
           ),
-        pillarSignals: zod
-          .object({
-            p1: zod.string(),
-            p2: zod.string(),
-            p3: zod.string(),
-            p4: zod.string(),
-            p5: zod.string(),
-            p6: zod.string(),
-            p7: zod.string(),
-            p8: zod.string(),
-          })
-          .describe(
-            'One-line \"what the signals show\" per pillar (scorecard column). Left \"\" when no data beyond the raw score is on file.\n',
-          ),
-        pillarEvidence: zod
-          .object({
-            p1: zod.string(),
-            p2: zod.string(),
-            p3: zod.string(),
-            p4: zod.string(),
-            p5: zod.string(),
-            p6: zod.string(),
-            p7: zod.string(),
-            p8: zod.string(),
-          })
-          .describe(
-            'Longer pillar-by-pillar narrative Claude produced during scoring (assessments.p{n}Evidence). Left \"\" when no evidence is on file.\n',
-          ),
-        p6Recommendation: zod
-          .string()
-          .describe(
-            'Derived from the p6 (CS Leadership) score: 2 = \"Retain and Develop\", 1 = \"Augment\", 0 = \"Replace\". Empty if p6 is \"NA\".\n',
-          ),
-        gaps: zod
-          .array(
-            zod.object({
-              title: zod.string(),
-              description: zod.string(),
-              impact: zod.string(),
-              recommendation: zod.string(),
-            }),
-          )
-          .describe(
-            "Top 3 identified gaps (the three lowest-scoring pillars).",
-          ),
-        nextSteps: zod.array(zod.string()),
+        meta: zod.object({
+          companyId: zod.number(),
+          assessmentDate: zod
+            .string()
+            .describe("Date of the source assessment used (ISO date)."),
+          composite: zod.number(),
+          compositeMax: zod.number(),
+          tier: zod.string(),
+          generatedAt: zod
+            .string()
+            .nullable()
+            .describe(
+              "When the AI-generated narrative sections (execSummary, compositeContext, existingSystems, pathForward, pillarSignals, gap impact\/recommendation, nextSteps) were produced, or null if this response still carries the blank-placeholder fallback (no report_exports row yet for this assessment).\n",
+            ),
+          model: zod
+            .string()
+            .nullable()
+            .describe(
+              "Claude model used to generate the narrative, or null if not yet generated.",
+            ),
+        }),
       })
       .describe(
-        'Exact shape of report-data.json per the Notion scoring rubric\'s Step 7 (\"Producing the Branded Client PDF\"). Fields with no real data yet are left as \"\" \/ [] — the branded report template treats a blank field as an accepted, designed fallback (a neutral placeholder), not an error.\n',
+        'Assembled report-data.json export payload for the Diagnostic Report pattern. `reportData` matches the external report-data.json schema (Notion: \"External CS Diagnostic — Scoring Rubric & Cowork Instructions\", Step 7) field-for-field, so it is safe to copy verbatim into the Claude design-file prompt. `meta` carries admin-only context (assessment provenance, derived composite\/tier) that must NOT be included in the exported JSON.\n',
       ),
-    meta: zod.object({
-      companyId: zod.number(),
-      assessmentDate: zod
-        .string()
-        .describe("Date of the source assessment used (ISO date)."),
-      composite: zod.number(),
-      compositeMax: zod.number(),
-      tier: zod.string(),
-      generatedAt: zod
-        .string()
-        .nullable()
-        .describe(
-          "When the AI-generated narrative sections (execSummary, compositeContext, existingSystems, pathForward, pillarSignals, gap impact\/recommendation, nextSteps) were produced, or null if this response still carries the blank-placeholder fallback (no report_exports row yet for this assessment).\n",
+    revision: zod
+      .object({
+        hasRevision: zod.boolean(),
+        revisionId: zod.number().nullable(),
+        rubricVersion: zod.string().nullable(),
+        isStale: zod
+          .boolean()
+          .describe(
+            "True when the revision's rubricVersion differs from the server's current RUBRIC_VERSION.",
+          ),
+        editedByEmail: zod.string().nullable(),
+        editedByName: zod.string().nullable(),
+        createdAt: zod.string().nullable(),
+      })
+      .describe(
+        "The company's current (latest, matching-rubric-version) saved narrative revision, or a hasRevision:false placeholder when none has been saved.\n",
+      ),
+    validation: zod
+      .object({
+        configured: zod.boolean(),
+        requiredCount: zod
+          .number()
+          .describe(
+            "Number of configured validators required to unlock the client PDF.",
+          ),
+        validatedCount: zod
+          .number()
+          .describe(
+            "How many required validators have signed the current revision.",
+          ),
+        isValidated: zod
+          .boolean()
+          .describe(
+            "True only when a current revision exists and every configured validator has signed it.",
+          ),
+        validators: zod.array(
+          zod.object({
+            email: zod.string(),
+            name: zod.string(),
+            hasValidated: zod
+              .boolean()
+              .describe(
+                "Whether this validator has signed off on the CURRENT revision.",
+              ),
+            validatedAt: zod.string().nullable(),
+          }),
         ),
-      model: zod
-        .string()
-        .nullable()
-        .describe(
-          "Claude model used to generate the narrative, or null if not yet generated.",
-        ),
-    }),
+        validatorNames: zod
+          .array(zod.string())
+          .describe(
+            "Display names of the validators who have signed the current revision (used for the PDF stamp).",
+          ),
+        validatedAt: zod
+          .string()
+          .nullable()
+          .describe(
+            "Timestamp of the most recent signature on the current revision, or null.",
+          ),
+      })
+      .describe(
+        "Dual-validation state for the company's current report revision. `configured` is false when VALIDATOR_EMAILS is unset (fail-closed: validation is impossible and the client PDF stays locked).\n",
+      ),
+    shipment: zod
+      .object({
+        shipped: zod.boolean(),
+        isCurrent: zod
+          .boolean()
+          .describe(
+            "True when the shipped revision is the company's current revision.",
+          ),
+        revisionId: zod.number().nullable(),
+        fileId: zod.string().nullable(),
+        webViewLink: zod.string().nullable(),
+        folderPath: zod.string().nullable(),
+        shippedByName: zod.string().nullable(),
+        shippedAt: zod.string().nullable(),
+      })
+      .describe(
+        "The latest Google Drive shipment recorded for this company, if any.",
+      ),
   })
   .describe(
-    'Assembled report-data.json export payload for the Diagnostic Report pattern. `reportData` matches the external report-data.json schema (Notion: \"External CS Diagnostic — Scoring Rubric & Cowork Instructions\", Step 7) field-for-field, so it is safe to copy verbatim into the Claude design-file prompt. `meta` carries admin-only context (assessment provenance, derived composite\/tier) that must NOT be included in the exported JSON.\n',
+    "Full editor\/validation\/delivery state for a company's current report: the effective report data (computed scores\/tier\/gap-titles + the current edited-or-generated narrative), plus revision, dual-validation, and Google Drive shipment state.\n",
+  );
+
+/**
+ * Persists a new report revision from the admin-edited NARRATIVE sections (execSummary, compositeContext, existingSystems, pathForward, gaps[].impact/recommendation, nextSteps). Scores, tier, gap titles/descriptions, pillar signals/evidence and the P6 recommendation stay server-computed and are re-derived, never taken from the body. The saved narrative is sanitized (em-dash stripping, name redaction) exactly like generated narrative. Saving a revision RESETS all prior validations (a new revision must be re-validated). Returns the fresh workflow state.
+
+ * @summary Save an admin edit of the report's narrative sections (creates a new revision)
+ */
+export const SaveAdminCompanyReportRevisionParams = zod.object({
+  id: zod.coerce.number(),
+});
+
+export const SaveAdminCompanyReportRevisionBody = zod
+  .object({
+    execSummary: zod.array(zod.string()),
+    compositeContext: zod.string(),
+    existingSystems: zod.string(),
+    pathForward: zod.string(),
+    nextSteps: zod.array(zod.string()),
+    gaps: zod.array(
+      zod.object({
+        title: zod
+          .string()
+          .describe(
+            "Used only to match the gap to its computed slot; the server keeps the computed title\/description.",
+          ),
+        impact: zod.string(),
+        recommendation: zod.string(),
+      }),
+    ),
+  })
+  .describe(
+    "Narrative-only edit payload. Only these fields are editable; scores, tier, gap titles\/descriptions, pillar signals\/evidence and the P6 recommendation stay server-computed and are ignored if sent.\n",
+  );
+
+export const SaveAdminCompanyReportRevisionResponse = zod
+  .object({
+    report: zod
+      .object({
+        reportData: zod
+          .object({
+            companyName: zod.string(),
+            parentFund: zod.string(),
+            preparedForName: zod.string(),
+            preparedForTitle: zod.string(),
+            reportDate: zod
+              .string()
+              .describe("Date this report-data.json was assembled (ISO date)."),
+            csHeadcount: zod.string(),
+            execSummary: zod
+              .array(zod.string())
+              .describe("One string per paragraph."),
+            compositeContext: zod.string(),
+            existingSystems: zod.string(),
+            pathForward: zod.string(),
+            scores: zod
+              .object({
+                p1: zod.union([zod.number(), zod.string()]),
+                p2: zod.union([zod.number(), zod.string()]),
+                p3: zod.union([zod.number(), zod.string()]),
+                p4: zod.union([zod.number(), zod.string()]),
+                p5: zod.union([zod.number(), zod.string()]),
+                p6: zod.union([zod.number(), zod.string()]),
+                p7: zod.union([zod.number(), zod.string()]),
+                p8: zod.union([zod.number(), zod.string()]),
+              })
+              .describe(
+                'Raw pillar scores 0\/1\/2, or \"NA\" for Insufficient Data.',
+              ),
+            pillarSignals: zod
+              .object({
+                p1: zod.string(),
+                p2: zod.string(),
+                p3: zod.string(),
+                p4: zod.string(),
+                p5: zod.string(),
+                p6: zod.string(),
+                p7: zod.string(),
+                p8: zod.string(),
+              })
+              .describe(
+                'One-line \"what the signals show\" per pillar (scorecard column). Left \"\" when no data beyond the raw score is on file.\n',
+              ),
+            pillarEvidence: zod
+              .object({
+                p1: zod.string(),
+                p2: zod.string(),
+                p3: zod.string(),
+                p4: zod.string(),
+                p5: zod.string(),
+                p6: zod.string(),
+                p7: zod.string(),
+                p8: zod.string(),
+              })
+              .describe(
+                'Longer pillar-by-pillar narrative Claude produced during scoring (assessments.p{n}Evidence). Left \"\" when no evidence is on file.\n',
+              ),
+            p6Recommendation: zod
+              .string()
+              .describe(
+                'Derived from the p6 (CS Leadership) score: 2 = \"Retain and Develop\", 1 = \"Augment\", 0 = \"Replace\". Empty if p6 is \"NA\".\n',
+              ),
+            gaps: zod
+              .array(
+                zod.object({
+                  title: zod.string(),
+                  description: zod.string(),
+                  impact: zod.string(),
+                  recommendation: zod.string(),
+                }),
+              )
+              .describe(
+                "Top 3 identified gaps (the three lowest-scoring pillars).",
+              ),
+            nextSteps: zod.array(zod.string()),
+          })
+          .describe(
+            'Exact shape of report-data.json per the Notion scoring rubric\'s Step 7 (\"Producing the Branded Client PDF\"). Fields with no real data yet are left as \"\" \/ [] — the branded report template treats a blank field as an accepted, designed fallback (a neutral placeholder), not an error.\n',
+          ),
+        meta: zod.object({
+          companyId: zod.number(),
+          assessmentDate: zod
+            .string()
+            .describe("Date of the source assessment used (ISO date)."),
+          composite: zod.number(),
+          compositeMax: zod.number(),
+          tier: zod.string(),
+          generatedAt: zod
+            .string()
+            .nullable()
+            .describe(
+              "When the AI-generated narrative sections (execSummary, compositeContext, existingSystems, pathForward, pillarSignals, gap impact\/recommendation, nextSteps) were produced, or null if this response still carries the blank-placeholder fallback (no report_exports row yet for this assessment).\n",
+            ),
+          model: zod
+            .string()
+            .nullable()
+            .describe(
+              "Claude model used to generate the narrative, or null if not yet generated.",
+            ),
+        }),
+      })
+      .describe(
+        'Assembled report-data.json export payload for the Diagnostic Report pattern. `reportData` matches the external report-data.json schema (Notion: \"External CS Diagnostic — Scoring Rubric & Cowork Instructions\", Step 7) field-for-field, so it is safe to copy verbatim into the Claude design-file prompt. `meta` carries admin-only context (assessment provenance, derived composite\/tier) that must NOT be included in the exported JSON.\n',
+      ),
+    revision: zod
+      .object({
+        hasRevision: zod.boolean(),
+        revisionId: zod.number().nullable(),
+        rubricVersion: zod.string().nullable(),
+        isStale: zod
+          .boolean()
+          .describe(
+            "True when the revision's rubricVersion differs from the server's current RUBRIC_VERSION.",
+          ),
+        editedByEmail: zod.string().nullable(),
+        editedByName: zod.string().nullable(),
+        createdAt: zod.string().nullable(),
+      })
+      .describe(
+        "The company's current (latest, matching-rubric-version) saved narrative revision, or a hasRevision:false placeholder when none has been saved.\n",
+      ),
+    validation: zod
+      .object({
+        configured: zod.boolean(),
+        requiredCount: zod
+          .number()
+          .describe(
+            "Number of configured validators required to unlock the client PDF.",
+          ),
+        validatedCount: zod
+          .number()
+          .describe(
+            "How many required validators have signed the current revision.",
+          ),
+        isValidated: zod
+          .boolean()
+          .describe(
+            "True only when a current revision exists and every configured validator has signed it.",
+          ),
+        validators: zod.array(
+          zod.object({
+            email: zod.string(),
+            name: zod.string(),
+            hasValidated: zod
+              .boolean()
+              .describe(
+                "Whether this validator has signed off on the CURRENT revision.",
+              ),
+            validatedAt: zod.string().nullable(),
+          }),
+        ),
+        validatorNames: zod
+          .array(zod.string())
+          .describe(
+            "Display names of the validators who have signed the current revision (used for the PDF stamp).",
+          ),
+        validatedAt: zod
+          .string()
+          .nullable()
+          .describe(
+            "Timestamp of the most recent signature on the current revision, or null.",
+          ),
+      })
+      .describe(
+        "Dual-validation state for the company's current report revision. `configured` is false when VALIDATOR_EMAILS is unset (fail-closed: validation is impossible and the client PDF stays locked).\n",
+      ),
+    shipment: zod
+      .object({
+        shipped: zod.boolean(),
+        isCurrent: zod
+          .boolean()
+          .describe(
+            "True when the shipped revision is the company's current revision.",
+          ),
+        revisionId: zod.number().nullable(),
+        fileId: zod.string().nullable(),
+        webViewLink: zod.string().nullable(),
+        folderPath: zod.string().nullable(),
+        shippedByName: zod.string().nullable(),
+        shippedAt: zod.string().nullable(),
+      })
+      .describe(
+        "The latest Google Drive shipment recorded for this company, if any.",
+      ),
+  })
+  .describe(
+    "Full editor\/validation\/delivery state for a company's current report: the effective report data (computed scores\/tier\/gap-titles + the current edited-or-generated narrative), plus revision, dual-validation, and Google Drive shipment state.\n",
+  );
+
+/**
+ * Records the calling admin (who must be one of the configured VALIDATOR_EMAILS) as having validated the company's CURRENT revision. Idempotent per (revision, validator). The client PDF unlocks only once every configured validator has signed the same current revision.
+
+ * @summary Record a validator's sign-off on the current report revision
+ */
+export const ValidateAdminCompanyReportParams = zod.object({
+  id: zod.coerce.number(),
+});
+
+export const ValidateAdminCompanyReportBody = zod.object({
+  revisionId: zod
+    .number()
+    .describe(
+      "The revision the caller intends to validate; must equal the current revision or the request 409s.",
+    ),
+});
+
+export const ValidateAdminCompanyReportResponse = zod
+  .object({
+    report: zod
+      .object({
+        reportData: zod
+          .object({
+            companyName: zod.string(),
+            parentFund: zod.string(),
+            preparedForName: zod.string(),
+            preparedForTitle: zod.string(),
+            reportDate: zod
+              .string()
+              .describe("Date this report-data.json was assembled (ISO date)."),
+            csHeadcount: zod.string(),
+            execSummary: zod
+              .array(zod.string())
+              .describe("One string per paragraph."),
+            compositeContext: zod.string(),
+            existingSystems: zod.string(),
+            pathForward: zod.string(),
+            scores: zod
+              .object({
+                p1: zod.union([zod.number(), zod.string()]),
+                p2: zod.union([zod.number(), zod.string()]),
+                p3: zod.union([zod.number(), zod.string()]),
+                p4: zod.union([zod.number(), zod.string()]),
+                p5: zod.union([zod.number(), zod.string()]),
+                p6: zod.union([zod.number(), zod.string()]),
+                p7: zod.union([zod.number(), zod.string()]),
+                p8: zod.union([zod.number(), zod.string()]),
+              })
+              .describe(
+                'Raw pillar scores 0\/1\/2, or \"NA\" for Insufficient Data.',
+              ),
+            pillarSignals: zod
+              .object({
+                p1: zod.string(),
+                p2: zod.string(),
+                p3: zod.string(),
+                p4: zod.string(),
+                p5: zod.string(),
+                p6: zod.string(),
+                p7: zod.string(),
+                p8: zod.string(),
+              })
+              .describe(
+                'One-line \"what the signals show\" per pillar (scorecard column). Left \"\" when no data beyond the raw score is on file.\n',
+              ),
+            pillarEvidence: zod
+              .object({
+                p1: zod.string(),
+                p2: zod.string(),
+                p3: zod.string(),
+                p4: zod.string(),
+                p5: zod.string(),
+                p6: zod.string(),
+                p7: zod.string(),
+                p8: zod.string(),
+              })
+              .describe(
+                'Longer pillar-by-pillar narrative Claude produced during scoring (assessments.p{n}Evidence). Left \"\" when no evidence is on file.\n',
+              ),
+            p6Recommendation: zod
+              .string()
+              .describe(
+                'Derived from the p6 (CS Leadership) score: 2 = \"Retain and Develop\", 1 = \"Augment\", 0 = \"Replace\". Empty if p6 is \"NA\".\n',
+              ),
+            gaps: zod
+              .array(
+                zod.object({
+                  title: zod.string(),
+                  description: zod.string(),
+                  impact: zod.string(),
+                  recommendation: zod.string(),
+                }),
+              )
+              .describe(
+                "Top 3 identified gaps (the three lowest-scoring pillars).",
+              ),
+            nextSteps: zod.array(zod.string()),
+          })
+          .describe(
+            'Exact shape of report-data.json per the Notion scoring rubric\'s Step 7 (\"Producing the Branded Client PDF\"). Fields with no real data yet are left as \"\" \/ [] — the branded report template treats a blank field as an accepted, designed fallback (a neutral placeholder), not an error.\n',
+          ),
+        meta: zod.object({
+          companyId: zod.number(),
+          assessmentDate: zod
+            .string()
+            .describe("Date of the source assessment used (ISO date)."),
+          composite: zod.number(),
+          compositeMax: zod.number(),
+          tier: zod.string(),
+          generatedAt: zod
+            .string()
+            .nullable()
+            .describe(
+              "When the AI-generated narrative sections (execSummary, compositeContext, existingSystems, pathForward, pillarSignals, gap impact\/recommendation, nextSteps) were produced, or null if this response still carries the blank-placeholder fallback (no report_exports row yet for this assessment).\n",
+            ),
+          model: zod
+            .string()
+            .nullable()
+            .describe(
+              "Claude model used to generate the narrative, or null if not yet generated.",
+            ),
+        }),
+      })
+      .describe(
+        'Assembled report-data.json export payload for the Diagnostic Report pattern. `reportData` matches the external report-data.json schema (Notion: \"External CS Diagnostic — Scoring Rubric & Cowork Instructions\", Step 7) field-for-field, so it is safe to copy verbatim into the Claude design-file prompt. `meta` carries admin-only context (assessment provenance, derived composite\/tier) that must NOT be included in the exported JSON.\n',
+      ),
+    revision: zod
+      .object({
+        hasRevision: zod.boolean(),
+        revisionId: zod.number().nullable(),
+        rubricVersion: zod.string().nullable(),
+        isStale: zod
+          .boolean()
+          .describe(
+            "True when the revision's rubricVersion differs from the server's current RUBRIC_VERSION.",
+          ),
+        editedByEmail: zod.string().nullable(),
+        editedByName: zod.string().nullable(),
+        createdAt: zod.string().nullable(),
+      })
+      .describe(
+        "The company's current (latest, matching-rubric-version) saved narrative revision, or a hasRevision:false placeholder when none has been saved.\n",
+      ),
+    validation: zod
+      .object({
+        configured: zod.boolean(),
+        requiredCount: zod
+          .number()
+          .describe(
+            "Number of configured validators required to unlock the client PDF.",
+          ),
+        validatedCount: zod
+          .number()
+          .describe(
+            "How many required validators have signed the current revision.",
+          ),
+        isValidated: zod
+          .boolean()
+          .describe(
+            "True only when a current revision exists and every configured validator has signed it.",
+          ),
+        validators: zod.array(
+          zod.object({
+            email: zod.string(),
+            name: zod.string(),
+            hasValidated: zod
+              .boolean()
+              .describe(
+                "Whether this validator has signed off on the CURRENT revision.",
+              ),
+            validatedAt: zod.string().nullable(),
+          }),
+        ),
+        validatorNames: zod
+          .array(zod.string())
+          .describe(
+            "Display names of the validators who have signed the current revision (used for the PDF stamp).",
+          ),
+        validatedAt: zod
+          .string()
+          .nullable()
+          .describe(
+            "Timestamp of the most recent signature on the current revision, or null.",
+          ),
+      })
+      .describe(
+        "Dual-validation state for the company's current report revision. `configured` is false when VALIDATOR_EMAILS is unset (fail-closed: validation is impossible and the client PDF stays locked).\n",
+      ),
+    shipment: zod
+      .object({
+        shipped: zod.boolean(),
+        isCurrent: zod
+          .boolean()
+          .describe(
+            "True when the shipped revision is the company's current revision.",
+          ),
+        revisionId: zod.number().nullable(),
+        fileId: zod.string().nullable(),
+        webViewLink: zod.string().nullable(),
+        folderPath: zod.string().nullable(),
+        shippedByName: zod.string().nullable(),
+        shippedAt: zod.string().nullable(),
+      })
+      .describe(
+        "The latest Google Drive shipment recorded for this company, if any.",
+      ),
+  })
+  .describe(
+    "Full editor\/validation\/delivery state for a company's current report: the effective report data (computed scores\/tier\/gap-titles + the current edited-or-generated narrative), plus revision, dual-validation, and Google Drive shipment state.\n",
+  );
+
+/**
+ * Renders the validated (stamped) client PDF and uploads it to Google Drive under "INVESQ Customers/{Firm}/{Company}/", then records the shipment. Requires the current revision to be fully dual-validated; a non-validated report is rejected with 412.
+
+ * @summary Upload the validated report PDF to Google Drive and record the shipment
+ */
+export const ShipAdminCompanyReportToDriveParams = zod.object({
+  id: zod.coerce.number(),
+});
+
+export const ShipAdminCompanyReportToDriveResponse = zod
+  .object({
+    report: zod
+      .object({
+        reportData: zod
+          .object({
+            companyName: zod.string(),
+            parentFund: zod.string(),
+            preparedForName: zod.string(),
+            preparedForTitle: zod.string(),
+            reportDate: zod
+              .string()
+              .describe("Date this report-data.json was assembled (ISO date)."),
+            csHeadcount: zod.string(),
+            execSummary: zod
+              .array(zod.string())
+              .describe("One string per paragraph."),
+            compositeContext: zod.string(),
+            existingSystems: zod.string(),
+            pathForward: zod.string(),
+            scores: zod
+              .object({
+                p1: zod.union([zod.number(), zod.string()]),
+                p2: zod.union([zod.number(), zod.string()]),
+                p3: zod.union([zod.number(), zod.string()]),
+                p4: zod.union([zod.number(), zod.string()]),
+                p5: zod.union([zod.number(), zod.string()]),
+                p6: zod.union([zod.number(), zod.string()]),
+                p7: zod.union([zod.number(), zod.string()]),
+                p8: zod.union([zod.number(), zod.string()]),
+              })
+              .describe(
+                'Raw pillar scores 0\/1\/2, or \"NA\" for Insufficient Data.',
+              ),
+            pillarSignals: zod
+              .object({
+                p1: zod.string(),
+                p2: zod.string(),
+                p3: zod.string(),
+                p4: zod.string(),
+                p5: zod.string(),
+                p6: zod.string(),
+                p7: zod.string(),
+                p8: zod.string(),
+              })
+              .describe(
+                'One-line \"what the signals show\" per pillar (scorecard column). Left \"\" when no data beyond the raw score is on file.\n',
+              ),
+            pillarEvidence: zod
+              .object({
+                p1: zod.string(),
+                p2: zod.string(),
+                p3: zod.string(),
+                p4: zod.string(),
+                p5: zod.string(),
+                p6: zod.string(),
+                p7: zod.string(),
+                p8: zod.string(),
+              })
+              .describe(
+                'Longer pillar-by-pillar narrative Claude produced during scoring (assessments.p{n}Evidence). Left \"\" when no evidence is on file.\n',
+              ),
+            p6Recommendation: zod
+              .string()
+              .describe(
+                'Derived from the p6 (CS Leadership) score: 2 = \"Retain and Develop\", 1 = \"Augment\", 0 = \"Replace\". Empty if p6 is \"NA\".\n',
+              ),
+            gaps: zod
+              .array(
+                zod.object({
+                  title: zod.string(),
+                  description: zod.string(),
+                  impact: zod.string(),
+                  recommendation: zod.string(),
+                }),
+              )
+              .describe(
+                "Top 3 identified gaps (the three lowest-scoring pillars).",
+              ),
+            nextSteps: zod.array(zod.string()),
+          })
+          .describe(
+            'Exact shape of report-data.json per the Notion scoring rubric\'s Step 7 (\"Producing the Branded Client PDF\"). Fields with no real data yet are left as \"\" \/ [] — the branded report template treats a blank field as an accepted, designed fallback (a neutral placeholder), not an error.\n',
+          ),
+        meta: zod.object({
+          companyId: zod.number(),
+          assessmentDate: zod
+            .string()
+            .describe("Date of the source assessment used (ISO date)."),
+          composite: zod.number(),
+          compositeMax: zod.number(),
+          tier: zod.string(),
+          generatedAt: zod
+            .string()
+            .nullable()
+            .describe(
+              "When the AI-generated narrative sections (execSummary, compositeContext, existingSystems, pathForward, pillarSignals, gap impact\/recommendation, nextSteps) were produced, or null if this response still carries the blank-placeholder fallback (no report_exports row yet for this assessment).\n",
+            ),
+          model: zod
+            .string()
+            .nullable()
+            .describe(
+              "Claude model used to generate the narrative, or null if not yet generated.",
+            ),
+        }),
+      })
+      .describe(
+        'Assembled report-data.json export payload for the Diagnostic Report pattern. `reportData` matches the external report-data.json schema (Notion: \"External CS Diagnostic — Scoring Rubric & Cowork Instructions\", Step 7) field-for-field, so it is safe to copy verbatim into the Claude design-file prompt. `meta` carries admin-only context (assessment provenance, derived composite\/tier) that must NOT be included in the exported JSON.\n',
+      ),
+    revision: zod
+      .object({
+        hasRevision: zod.boolean(),
+        revisionId: zod.number().nullable(),
+        rubricVersion: zod.string().nullable(),
+        isStale: zod
+          .boolean()
+          .describe(
+            "True when the revision's rubricVersion differs from the server's current RUBRIC_VERSION.",
+          ),
+        editedByEmail: zod.string().nullable(),
+        editedByName: zod.string().nullable(),
+        createdAt: zod.string().nullable(),
+      })
+      .describe(
+        "The company's current (latest, matching-rubric-version) saved narrative revision, or a hasRevision:false placeholder when none has been saved.\n",
+      ),
+    validation: zod
+      .object({
+        configured: zod.boolean(),
+        requiredCount: zod
+          .number()
+          .describe(
+            "Number of configured validators required to unlock the client PDF.",
+          ),
+        validatedCount: zod
+          .number()
+          .describe(
+            "How many required validators have signed the current revision.",
+          ),
+        isValidated: zod
+          .boolean()
+          .describe(
+            "True only when a current revision exists and every configured validator has signed it.",
+          ),
+        validators: zod.array(
+          zod.object({
+            email: zod.string(),
+            name: zod.string(),
+            hasValidated: zod
+              .boolean()
+              .describe(
+                "Whether this validator has signed off on the CURRENT revision.",
+              ),
+            validatedAt: zod.string().nullable(),
+          }),
+        ),
+        validatorNames: zod
+          .array(zod.string())
+          .describe(
+            "Display names of the validators who have signed the current revision (used for the PDF stamp).",
+          ),
+        validatedAt: zod
+          .string()
+          .nullable()
+          .describe(
+            "Timestamp of the most recent signature on the current revision, or null.",
+          ),
+      })
+      .describe(
+        "Dual-validation state for the company's current report revision. `configured` is false when VALIDATOR_EMAILS is unset (fail-closed: validation is impossible and the client PDF stays locked).\n",
+      ),
+    shipment: zod
+      .object({
+        shipped: zod.boolean(),
+        isCurrent: zod
+          .boolean()
+          .describe(
+            "True when the shipped revision is the company's current revision.",
+          ),
+        revisionId: zod.number().nullable(),
+        fileId: zod.string().nullable(),
+        webViewLink: zod.string().nullable(),
+        folderPath: zod.string().nullable(),
+        shippedByName: zod.string().nullable(),
+        shippedAt: zod.string().nullable(),
+      })
+      .describe(
+        "The latest Google Drive shipment recorded for this company, if any.",
+      ),
+  })
+  .describe(
+    "Full editor\/validation\/delivery state for a company's current report: the effective report data (computed scores\/tier\/gap-titles + the current edited-or-generated narrative), plus revision, dual-validation, and Google Drive shipment state.\n",
   );
 
 /**

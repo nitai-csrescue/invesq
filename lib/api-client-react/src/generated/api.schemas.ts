@@ -273,6 +273,114 @@ export interface AdminCompanyReportData {
   meta: AdminCompanyReportDataMeta;
 }
 
+export interface ReportValidator {
+  email: string;
+  name: string;
+  /** Whether this validator has signed off on the CURRENT revision. */
+  hasValidated: boolean;
+  /** @nullable */
+  validatedAt: string | null;
+}
+
+/**
+ * Dual-validation state for the company's current report revision. `configured` is false when VALIDATOR_EMAILS is unset (fail-closed: validation is impossible and the client PDF stays locked).
+
+ */
+export interface ReportValidationState {
+  configured: boolean;
+  /** Number of configured validators required to unlock the client PDF. */
+  requiredCount: number;
+  /** How many required validators have signed the current revision. */
+  validatedCount: number;
+  /** True only when a current revision exists and every configured validator has signed it. */
+  isValidated: boolean;
+  validators: ReportValidator[];
+  /** Display names of the validators who have signed the current revision (used for the PDF stamp). */
+  validatorNames: string[];
+  /**
+   * Timestamp of the most recent signature on the current revision, or null.
+   * @nullable
+   */
+  validatedAt: string | null;
+}
+
+/**
+ * The company's current (latest, matching-rubric-version) saved narrative revision, or a hasRevision:false placeholder when none has been saved.
+
+ */
+export interface ReportRevisionState {
+  hasRevision: boolean;
+  /** @nullable */
+  revisionId: number | null;
+  /** @nullable */
+  rubricVersion: string | null;
+  /** True when the revision's rubricVersion differs from the server's current RUBRIC_VERSION. */
+  isStale: boolean;
+  /** @nullable */
+  editedByEmail: string | null;
+  /** @nullable */
+  editedByName: string | null;
+  /** @nullable */
+  createdAt: string | null;
+}
+
+/**
+ * The latest Google Drive shipment recorded for this company, if any.
+ */
+export interface DriveShipmentState {
+  shipped: boolean;
+  /** True when the shipped revision is the company's current revision. */
+  isCurrent: boolean;
+  /** @nullable */
+  revisionId: number | null;
+  /** @nullable */
+  fileId: string | null;
+  /** @nullable */
+  webViewLink: string | null;
+  /** @nullable */
+  folderPath: string | null;
+  /** @nullable */
+  shippedByName: string | null;
+  /** @nullable */
+  shippedAt: string | null;
+}
+
+/**
+ * Full editor/validation/delivery state for a company's current report: the effective report data (computed scores/tier/gap-titles + the current edited-or-generated narrative), plus revision, dual-validation, and Google Drive shipment state.
+
+ */
+export interface AdminReportWorkflow {
+  report: AdminCompanyReportData;
+  revision: ReportRevisionState;
+  validation: ReportValidationState;
+  shipment: DriveShipmentState;
+}
+
+export interface ReportRevisionGapInput {
+  /** Used only to match the gap to its computed slot; the server keeps the computed title/description. */
+  title: string;
+  impact: string;
+  recommendation: string;
+}
+
+/**
+ * Narrative-only edit payload. Only these fields are editable; scores, tier, gap titles/descriptions, pillar signals/evidence and the P6 recommendation stay server-computed and are ignored if sent.
+
+ */
+export interface ReportRevisionInput {
+  execSummary: string[];
+  compositeContext: string;
+  existingSystems: string;
+  pathForward: string;
+  nextSteps: string[];
+  gaps: ReportRevisionGapInput[];
+}
+
+export interface ReportValidateInput {
+  /** The revision the caller intends to validate; must equal the current revision or the request 409s. */
+  revisionId: number;
+}
+
 export interface AdminFirmDetail {
   firm: Firm;
   companies: Company[];

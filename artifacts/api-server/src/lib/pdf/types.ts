@@ -1,6 +1,21 @@
 import type { AdminCompanyReportData } from "@workspace/api-zod";
 import type { Tier } from "@workspace/portfolio-engine";
 
+// Dual-validation stamp driving the PDF chrome. `validated` is true only when
+// the report's current revision has been signed off by every configured
+// validator (see reportExport.ts / validators.ts). A validated render is the
+// client-facing "Validated · {names} · {date}" deliverable; a non-validated
+// render is stamped "DRAFT · NOT VALIDATED" and is admin-only (the public
+// tenant route 409s before ever rendering an unvalidated report). This
+// REPLACES the former firm-internalOnly `sendable` flag as the client-export
+// control.
+export interface ReportValidationStamp {
+  validated: boolean;
+  validatorNames: string[];
+  // ISO timestamp of the completing signature, or null when not validated.
+  validatedAt: string | null;
+}
+
 export interface ReportContext {
   reportData: AdminCompanyReportData["reportData"];
   meta: AdminCompanyReportData["meta"];
@@ -19,10 +34,9 @@ export interface ReportContext {
   // Not part of DiagnosticReportData — fetched separately from the
   // `companies` row for the Page 7 Sources list.
   companyWebsite: string | null;
-  // Whether this render is cleared for external distribution (firm is NOT
-  // internal-only). Drives the chrome variant: sendable => "Prepared by
-  // INVESQ" / "Confidential"; not sendable => "INTERNAL — NOT FOR
-  // DISTRIBUTION". Public tenant exports are only ever produced with
-  // sendable=true; admin exports set it per the firm's posture.
-  sendable: boolean;
+  // Dual-validation state driving the chrome variant: validated => client
+  // "Validated · {names} · {date}" / "Confidential"; not validated => "DRAFT ·
+  // NOT VALIDATED". Public tenant exports are only ever produced validated (the
+  // route 409s otherwise); admin exports set it per the report's validation.
+  validation: ReportValidationStamp;
 }

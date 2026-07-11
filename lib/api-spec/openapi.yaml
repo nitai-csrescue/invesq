@@ -656,17 +656,15 @@ paths:
     get:
       operationId: getAdminCompanyReportData
       tags: [admin]
-      summary: Assemble the report-data.json export payload from a company's latest assessment
+      summary: Get the full editor/validation/delivery workflow state for a company's report
       description: >
-        Builds the report-data.json object for the Diagnostic Report export
-        runbook from the company's most recent assessment: raw p1-p8 scores,
-        derived composite/tier, and firm name as parentFund. Fields that
-        require dedicated research not yet captured anywhere in this app's
-        data (execSummary, compositeContext, existingSystems, pathForward,
-        pillarSignals, csHeadcount, gap impact/recommendation) are left as
-        their neutral placeholder ("" or []) for Claude's research to fill
-        in later — this is the schema's own designed fallback, not missing
-        data.
+        Returns the company's EFFECTIVE report (computed scores/tier/gap-titles
+        overlaid with the current edited-or-generated narrative) plus the
+        current revision, dual-validation, and Google Drive shipment state.
+        Read-only — never calls Claude, so it is safe for React Query to refetch.
+        `report.reportData` is safe to copy verbatim into the Claude prompt;
+        `report.meta`, `revision`, `validation` and `shipment` are admin-only
+        bookkeeping that must NOT be included in the exported JSON.
       parameters:
         - name: id
           in: path
@@ -675,13 +673,155 @@ paths:
             type: integer
       responses:
         "200":
-          description: Assembled report-data.json payload
+          description: Report workflow state
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/AdminCompanyReportData"
+                $ref: "#/components/schemas/AdminReportWorkflow"
         "404":
           description: Company not found, or has no assessments yet
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+
+  /admin/companies/{id}/report-revision:
+    post:
+      operationId: saveAdminCompanyReportRevision
+      tags: [admin]
+      summary: Save an admin edit of the report's narrative sections (creates a new revision)
+      description: >
+        Persists a new report revision from the admin-edited NARRATIVE sections
+        (execSummary, compositeContext, existingSystems, pathForward,
+        gaps[].impact/recommendation, nextSteps). Scores, tier, gap
+        titles/descriptions, pillar signals/evidence and the P6 recommendation
+        stay server-computed and are re-derived, never taken from the body. The
+        saved narrative is sanitized (em-dash stripping, name redaction) exactly
+        like generated narrative. Saving a revision RESETS all prior validations
+        (a new revision must be re-validated). Returns the fresh workflow state.
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ReportRevisionInput"
+      responses:
+        "200":
+          description: Revision saved; fresh workflow state (validation reset)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AdminReportWorkflow"
+        "400":
+          description: Invalid company id or malformed body
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+        "404":
+          description: Company not found, or has no assessments yet
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+
+  /admin/companies/{id}/validate:
+    post:
+      operationId: validateAdminCompanyReport
+      tags: [admin]
+      summary: Record a validator's sign-off on the current report revision
+      description: >
+        Records the calling admin (who must be one of the configured
+        VALIDATOR_EMAILS) as having validated the company's CURRENT revision.
+        Idempotent per (revision, validator). The client PDF unlocks only once
+        every configured validator has signed the same current revision.
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ReportValidateInput"
+      responses:
+        "200":
+          description: Validation recorded; fresh workflow state
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AdminReportWorkflow"
+        "403":
+          description: Caller is not a configured validator
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+        "404":
+          description: Company not found, has no assessments, or has no saved revision to validate
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+        "409":
+          description: The supplied revisionId is not the company's current revision
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+        "503":
+          description: Validation is not configured (VALIDATOR_EMAILS unset)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+
+  /admin/companies/{id}/ship-to-drive:
+    post:
+      operationId: shipAdminCompanyReportToDrive
+      tags: [admin]
+      summary: Upload the validated report PDF to Google Drive and record the shipment
+      description: >
+        Renders the validated (stamped) client PDF and uploads it to Google
+        Drive under "INVESQ Customers/{Firm}/{Company}/", then records the
+        shipment. Requires the current revision to be fully dual-validated; a
+        non-validated report is rejected with 412.
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Uploaded to Drive and shipment recorded; fresh workflow state
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AdminReportWorkflow"
+        "404":
+          description: Company not found, or has no assessments yet
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+        "412":
+          description: Report is not fully dual-validated, so it cannot be shipped
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+        "502":
+          description: Google Drive upload failed
           content:
             application/json:
               schema:
@@ -1333,6 +1473,174 @@ components:
           type: array
           items:
             type: string
+
+    ReportValidator:
+      type: object
+      required: [email, name, hasValidated, validatedAt]
+      properties:
+        email:
+          type: string
+        name:
+          type: string
+        hasValidated:
+          type: boolean
+          description: Whether this validator has signed off on the CURRENT revision.
+        validatedAt:
+          type: [string, "null"]
+
+    ReportValidationState:
+      type: object
+      description: >
+        Dual-validation state for the company's current report revision.
+        `configured` is false when VALIDATOR_EMAILS is unset (fail-closed:
+        validation is impossible and the client PDF stays locked).
+      required:
+        [
+          configured,
+          requiredCount,
+          validatedCount,
+          isValidated,
+          validators,
+          validatorNames,
+          validatedAt,
+        ]
+      properties:
+        configured:
+          type: boolean
+        requiredCount:
+          type: integer
+          description: Number of configured validators required to unlock the client PDF.
+        validatedCount:
+          type: integer
+          description: How many required validators have signed the current revision.
+        isValidated:
+          type: boolean
+          description: True only when a current revision exists and every configured validator has signed it.
+        validators:
+          type: array
+          items:
+            $ref: "#/components/schemas/ReportValidator"
+        validatorNames:
+          type: array
+          description: Display names of the validators who have signed the current revision (used for the PDF stamp).
+          items:
+            type: string
+        validatedAt:
+          type: [string, "null"]
+          description: Timestamp of the most recent signature on the current revision, or null.
+
+    ReportRevisionState:
+      type: object
+      description: >
+        The company's current (latest, matching-rubric-version) saved narrative
+        revision, or a hasRevision:false placeholder when none has been saved.
+      required:
+        [hasRevision, revisionId, rubricVersion, isStale, editedByEmail, editedByName, createdAt]
+      properties:
+        hasRevision:
+          type: boolean
+        revisionId:
+          type: [integer, "null"]
+        rubricVersion:
+          type: [string, "null"]
+        isStale:
+          type: boolean
+          description: True when the revision's rubricVersion differs from the server's current RUBRIC_VERSION.
+        editedByEmail:
+          type: [string, "null"]
+        editedByName:
+          type: [string, "null"]
+        createdAt:
+          type: [string, "null"]
+
+    DriveShipmentState:
+      type: object
+      description: The latest Google Drive shipment recorded for this company, if any.
+      required:
+        [shipped, isCurrent, revisionId, fileId, webViewLink, folderPath, shippedByName, shippedAt]
+      properties:
+        shipped:
+          type: boolean
+        isCurrent:
+          type: boolean
+          description: True when the shipped revision is the company's current revision.
+        revisionId:
+          type: [integer, "null"]
+        fileId:
+          type: [string, "null"]
+        webViewLink:
+          type: [string, "null"]
+        folderPath:
+          type: [string, "null"]
+        shippedByName:
+          type: [string, "null"]
+        shippedAt:
+          type: [string, "null"]
+
+    AdminReportWorkflow:
+      type: object
+      description: >
+        Full editor/validation/delivery state for a company's current report:
+        the effective report data (computed scores/tier/gap-titles + the current
+        edited-or-generated narrative), plus revision, dual-validation, and
+        Google Drive shipment state.
+      required: [report, revision, validation, shipment]
+      properties:
+        report:
+          $ref: "#/components/schemas/AdminCompanyReportData"
+        revision:
+          $ref: "#/components/schemas/ReportRevisionState"
+        validation:
+          $ref: "#/components/schemas/ReportValidationState"
+        shipment:
+          $ref: "#/components/schemas/DriveShipmentState"
+
+    ReportRevisionGapInput:
+      type: object
+      required: [title, impact, recommendation]
+      properties:
+        title:
+          type: string
+          description: Used only to match the gap to its computed slot; the server keeps the computed title/description.
+        impact:
+          type: string
+        recommendation:
+          type: string
+
+    ReportRevisionInput:
+      type: object
+      description: >
+        Narrative-only edit payload. Only these fields are editable; scores,
+        tier, gap titles/descriptions, pillar signals/evidence and the P6
+        recommendation stay server-computed and are ignored if sent.
+      required: [execSummary, compositeContext, existingSystems, pathForward, nextSteps, gaps]
+      properties:
+        execSummary:
+          type: array
+          items:
+            type: string
+        compositeContext:
+          type: string
+        existingSystems:
+          type: string
+        pathForward:
+          type: string
+        nextSteps:
+          type: array
+          items:
+            type: string
+        gaps:
+          type: array
+          items:
+            $ref: "#/components/schemas/ReportRevisionGapInput"
+
+    ReportValidateInput:
+      type: object
+      required: [revisionId]
+      properties:
+        revisionId:
+          type: integer
+          description: The revision the caller intends to validate; must equal the current revision or the request 409s.
 
     AdminFirmDetail:
       type: object

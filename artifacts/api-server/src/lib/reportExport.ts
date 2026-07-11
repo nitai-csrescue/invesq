@@ -1,10 +1,29 @@
 import { and, desc, eq } from "drizzle-orm";
-import { db, assessmentsTable, companiesTable, firmsTable, reportExportsTable } from "@workspace/db";
-import type { AdminCompanyReportData, DiagnosticReportData } from "@workspace/api-zod";
+import {
+  db,
+  assessmentsTable,
+  companiesTable,
+  firmsTable,
+  reportExportsTable,
+  reportRevisionsTable,
+  reportValidationsTable,
+  driveShipmentsTable,
+} from "@workspace/db";
+import type {
+  AdminCompanyReportData,
+  AdminReportWorkflow,
+  DiagnosticReportData,
+  DriveShipmentState,
+  ReportRevisionInput,
+  ReportRevisionState,
+  ReportValidationState,
+} from "@workspace/api-zod";
 import { PILLARS, getTier, textToScore, type FirmMeta } from "@workspace/portfolio-engine";
 import { getAnthropicClient, extractText, extractJsonFence } from "./anthropic.js";
 import { fetchScoringRubricText } from "./notion.js";
 import { redactNamedIndividuals } from "./nameRedaction.js";
+import { getConfiguredValidators } from "./validators.js";
+import type { ReportValidationStamp } from "./pdf/types.js";
 import { logger } from "./logger.js";
 
 // Bump whenever the generation prompt or the shape of what it's asked to
@@ -583,4 +602,304 @@ export async function getOrGenerateReportExport(companyId: number): Promise<Admi
     .returning();
 
   return toResponse(companyId, assessment.date, base, reportData, inserted.createdAt.toISOString(), inserted.model);
+}
+
+// ---------------------------------------------------------------------------
+// Report validation + Drive-delivery workflow
+// ---------------------------------------------------------------------------
+
+// Thrown by validateReport when the caller targets a revision that is no longer
+// current (a newer Save happened, or none exists). Routes map these to 409/404.
+export class NoCurrentRevisionError extends Error {}
+export class RevisionMismatchError extends Error {}
+// Thrown when a Drive ship is attempted on a report that isn't fully validated.
+export class NotValidatedError extends Error {}
+
+// Overlay ONLY the narrative fields from `source` onto `target`, preserving
+// every computed field (scores, tier, gap titles/descriptions, pillarEvidence,
+// preparedFor*, csHeadcount, companyName, parentFund, reportDate) from target.
+// Admin-editable narrative: execSummary, compositeContext, existingSystems,
+// pathForward, nextSteps, and per-gap impact/recommendation (matched by gap
+// title, since gap ordering is computed). `includeGenerated` additionally
+// carries the AI-generated-but-not-admin-editable fields (pillarSignals,
+// p6Recommendation) — true when overlaying a generated report_exports row,
+// false when overlaying an admin revision (which must never move those).
+// Empty overlays fall back to the target so a partial source can't blank a
+// section.
+function overlayNarrative(
+  target: DiagnosticReportData,
+  source: DiagnosticReportData,
+  opts: { includeGenerated: boolean },
+): DiagnosticReportData {
+  const merged: DiagnosticReportData = {
+    ...target,
+    execSummary: source.execSummary.length > 0 ? source.execSummary : target.execSummary,
+    compositeContext: source.compositeContext || target.compositeContext,
+    existingSystems: source.existingSystems || target.existingSystems,
+    pathForward: source.pathForward || target.pathForward,
+    nextSteps: source.nextSteps.length > 0 ? source.nextSteps : target.nextSteps,
+    gaps: target.gaps.map((gap) => {
+      const src = source.gaps.find((s) => s.title === gap.title);
+      return {
+        ...gap,
+        impact: src?.impact || gap.impact,
+        recommendation: src?.recommendation || gap.recommendation,
+      };
+    }),
+  };
+  if (opts.includeGenerated) {
+    merged.pillarSignals = { ...source.pillarSignals };
+    merged.p6Recommendation = source.p6Recommendation || target.p6Recommendation;
+  }
+  return merged;
+}
+
+// The fully-assembled state the admin Reports workflow needs for one company:
+// the effective (base + generated + current-revision) sanitized report data,
+// plus revision / validation / shipment state. This is the single read path
+// behind GET report-data, the admin+tenant PDFs, and every mutation's response.
+export interface EffectiveReport {
+  companyId: number;
+  assessmentId: number;
+  company: Company;
+  firm: Firm;
+  // Sanitized effective report (name-redacted); safe to render or return.
+  response: AdminCompanyReportData;
+  // The current (matching-version, usable) revision id, or null. This is the
+  // ONLY revision that can be validated or shipped.
+  currentRevisionId: number | null;
+  revision: ReportRevisionState;
+  validation: ReportValidationState;
+  shipment: DriveShipmentState;
+}
+
+export async function loadEffectiveReport(companyId: number): Promise<EffectiveReport> {
+  const { company, firm, assessment } = await loadCompanyContext(companyId);
+  const base = buildBaseReportData(company, firm, assessment);
+
+  const [cached] = await db
+    .select()
+    .from(reportExportsTable)
+    .where(and(eq(reportExportsTable.assessmentId, assessment.id), eq(reportExportsTable.rubricVersion, RUBRIC_VERSION)))
+    .orderBy(desc(reportExportsTable.createdAt))
+    .limit(1);
+
+  // Latest revision of ANY version; a version mismatch marks it stale (its
+  // narrative shape may no longer be valid) and it is NOT used or validatable
+  // until the admin re-saves under the current RUBRIC_VERSION.
+  const [latestRevision] = await db
+    .select()
+    .from(reportRevisionsTable)
+    .where(eq(reportRevisionsTable.assessmentId, assessment.id))
+    .orderBy(desc(reportRevisionsTable.createdAt), desc(reportRevisionsTable.id))
+    .limit(1);
+
+  const isStale = latestRevision ? latestRevision.rubricVersion !== RUBRIC_VERSION : false;
+  const currentRevision = latestRevision && !isStale ? latestRevision : null;
+
+  let effective = base.reportData;
+  let generatedAt: string | null = null;
+  let model: string | null = null;
+  if (cached) {
+    effective = overlayNarrative(effective, cached.reportData as DiagnosticReportData, { includeGenerated: true });
+    generatedAt = cached.createdAt.toISOString();
+    model = cached.model;
+  }
+  if (currentRevision) {
+    effective = overlayNarrative(effective, currentRevision.reportData as DiagnosticReportData, {
+      includeGenerated: false,
+    });
+  }
+
+  const response = toResponse(companyId, assessment.date, base, effective, generatedAt, model);
+
+  // Validation state, mapped onto the CONFIGURED validators (source of truth).
+  const validators = getConfiguredValidators();
+  const signatures = currentRevision
+    ? await db.select().from(reportValidationsTable).where(eq(reportValidationsTable.revisionId, currentRevision.id))
+    : [];
+  const validatorEntries = validators.map((v) => {
+    const sig = signatures.find((s) => s.validatorEmail.toLowerCase() === v.email);
+    return {
+      email: v.email,
+      name: v.name,
+      hasValidated: !!sig,
+      validatedAt: sig ? sig.createdAt.toISOString() : null,
+    };
+  });
+  const requiredCount = validators.length;
+  const validatedCount = validatorEntries.filter((e) => e.hasValidated).length;
+  const isValidated = requiredCount > 0 && currentRevision !== null && validatedCount === requiredCount;
+  const validatorNames = validatorEntries.filter((e) => e.hasValidated).map((e) => e.name);
+  const signedAts = validatorEntries
+    .map((e) => e.validatedAt)
+    .filter((x): x is string => x !== null)
+    .sort();
+  const validatedAt = isValidated && signedAts.length > 0 ? signedAts[signedAts.length - 1] : null;
+
+  const validation: ReportValidationState = {
+    configured: requiredCount > 0,
+    requiredCount,
+    validatedCount,
+    isValidated,
+    validators: validatorEntries,
+    validatorNames,
+    validatedAt,
+  };
+
+  // Revision meta: usable current revision when present, else the stale row's
+  // meta (so the UI can prompt a re-save). `hasRevision` = a usable revision
+  // exists; `revisionId` (the validate/ship target) is null unless usable.
+  const metaRevision = currentRevision ?? latestRevision ?? null;
+  const revision: ReportRevisionState = {
+    hasRevision: currentRevision !== null,
+    revisionId: currentRevision?.id ?? null,
+    rubricVersion: metaRevision?.rubricVersion ?? null,
+    isStale,
+    editedByEmail: metaRevision?.editedByEmail ?? null,
+    editedByName: metaRevision?.editedByName ?? null,
+    createdAt: metaRevision?.createdAt ? metaRevision.createdAt.toISOString() : null,
+  };
+
+  const [shipmentRow] = await db
+    .select()
+    .from(driveShipmentsTable)
+    .where(eq(driveShipmentsTable.companyId, companyId))
+    .orderBy(desc(driveShipmentsTable.createdAt), desc(driveShipmentsTable.id))
+    .limit(1);
+  const shipment: DriveShipmentState = {
+    shipped: !!shipmentRow,
+    isCurrent: !!shipmentRow && currentRevision !== null && shipmentRow.revisionId === currentRevision.id,
+    revisionId: shipmentRow?.revisionId ?? null,
+    fileId: shipmentRow?.fileId ?? null,
+    webViewLink: shipmentRow?.webViewLink ?? null,
+    folderPath: shipmentRow?.folderPath ?? null,
+    shippedByName: shipmentRow?.shippedByName ?? null,
+    shippedAt: shipmentRow?.createdAt ? shipmentRow.createdAt.toISOString() : null,
+  };
+
+  return {
+    companyId,
+    assessmentId: assessment.id,
+    company,
+    firm,
+    response,
+    currentRevisionId: currentRevision?.id ?? null,
+    revision,
+    validation,
+    shipment,
+  };
+}
+
+export function toWorkflow(eff: EffectiveReport): AdminReportWorkflow {
+  return {
+    report: eff.response,
+    revision: eff.revision,
+    validation: eff.validation,
+    shipment: eff.shipment,
+  };
+}
+
+// Convert the validation state into the PDF chrome stamp (see pdf/types.ts).
+export function toValidationStamp(validation: ReportValidationState): ReportValidationStamp {
+  return {
+    validated: validation.isValidated,
+    validatorNames: validation.validatorNames,
+    validatedAt: validation.validatedAt,
+  };
+}
+
+// Persist an admin's narrative edits as a new revision. Starts from the current
+// EFFECTIVE narrative (base + generated) so unedited generated fields survive,
+// overlays the admin's edits (em-dash stripped, exactly like generated copy),
+// then name-redacts before storing. Inserting a new row implicitly resets
+// validation to 0/N (validations key off revisionId). Returns the fresh
+// workflow.
+export async function saveReportRevision(
+  companyId: number,
+  input: ReportRevisionInput,
+  editedByEmail: string,
+  editedByName: string | null,
+): Promise<AdminReportWorkflow> {
+  const { company, firm, assessment } = await loadCompanyContext(companyId);
+  const base = buildBaseReportData(company, firm, assessment);
+
+  const [cached] = await db
+    .select()
+    .from(reportExportsTable)
+    .where(and(eq(reportExportsTable.assessmentId, assessment.id), eq(reportExportsTable.rubricVersion, RUBRIC_VERSION)))
+    .orderBy(desc(reportExportsTable.createdAt))
+    .limit(1);
+
+  let effective = base.reportData;
+  if (cached) {
+    effective = overlayNarrative(effective, cached.reportData as DiagnosticReportData, { includeGenerated: true });
+  }
+
+  const edited: DiagnosticReportData = {
+    ...effective,
+    execSummary: input.execSummary.map(stripEmDashes),
+    compositeContext: stripEmDashes(input.compositeContext),
+    existingSystems: stripEmDashes(input.existingSystems),
+    pathForward: stripEmDashes(input.pathForward),
+    nextSteps: input.nextSteps.map(stripEmDashes),
+    gaps: effective.gaps.map((gap) => {
+      const src = input.gaps.find((g) => g.title === gap.title);
+      return {
+        ...gap,
+        impact: src ? stripEmDashes(src.impact) : gap.impact,
+        recommendation: src ? stripEmDashes(src.recommendation) : gap.recommendation,
+      };
+    }),
+  };
+  const sanitized = sanitizeReportData(edited);
+
+  await db.insert(reportRevisionsTable).values({
+    companyId,
+    assessmentId: assessment.id,
+    rubricVersion: RUBRIC_VERSION,
+    reportData: sanitized,
+    editedByEmail,
+    editedByName,
+  });
+
+  return toWorkflow(await loadEffectiveReport(companyId));
+}
+
+// Record one validator's sign-off against the CURRENT revision. Idempotent per
+// (revision, validator) via the unique index. Rejects a stale/absent target
+// (NoCurrentRevisionError) or a mismatched revisionId (RevisionMismatchError)
+// so a client can't sign off a revision that a newer Save has superseded.
+export async function validateReport(
+  companyId: number,
+  revisionId: number,
+  validatorEmail: string,
+  validatorName: string,
+): Promise<AdminReportWorkflow> {
+  const eff = await loadEffectiveReport(companyId);
+  if (eff.currentRevisionId === null) throw new NoCurrentRevisionError();
+  if (eff.currentRevisionId !== revisionId) throw new RevisionMismatchError();
+
+  await db
+    .insert(reportValidationsTable)
+    .values({ revisionId, validatorEmail: validatorEmail.toLowerCase(), validatorName })
+    .onConflictDoNothing({
+      target: [reportValidationsTable.revisionId, reportValidationsTable.validatorEmail],
+    });
+
+  return toWorkflow(await loadEffectiveReport(companyId));
+}
+
+// Persist a Drive-shipment audit row (called by the ship-to-drive route after a
+// successful upload).
+export async function recordDriveShipment(row: {
+  companyId: number;
+  revisionId: number;
+  fileId: string;
+  webViewLink: string | null;
+  folderPath: string;
+  shippedByEmail: string;
+  shippedByName: string | null;
+}): Promise<void> {
+  await db.insert(driveShipmentsTable).values(row);
 }

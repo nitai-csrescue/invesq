@@ -3,7 +3,7 @@ import { PILLARS, getTier } from "@workspace/portfolio-engine";
 import { esc } from "./components.js";
 import { parseRawScore } from "./scoreParsing.js";
 import { GOOGLE_FONTS_LINK, BASE_STYLES } from "./baseStyles.js";
-import type { ReportContext } from "./types.js";
+import type { ReportContext, ReportValidationStamp } from "./types.js";
 import { renderPage1 } from "./pages/page1Cover.js";
 import { renderPage2 } from "./pages/page2ValueCreation.js";
 import { renderPage3 } from "./pages/page3Scorecard.js";
@@ -24,15 +24,15 @@ function computeTierComposite(data: AdminCompanyReportData): number {
 }
 
 // Builds the full 7-page branded INVESQ Diagnostic Report HTML, fed entirely
-// by `report_exports` data (via AdminCompanyReportData) — this is a dedicated
-// print template, NOT a render of the app's own /portfolio/[company]/report
-// page or any other in-product UI. `sendable` drives the chrome's distribution
-// posture (see ReportContext.sendable): true => client-facing "Prepared by
-// INVESQ" chrome, false => "INTERNAL — NOT FOR DISTRIBUTION".
+// by the effective report data (via AdminCompanyReportData) — this is a
+// dedicated print template, NOT a render of the app's own
+// /portfolio/[company]/report page or any other in-product UI. `validation`
+// drives the chrome (see ReportContext.validation): validated => client-facing
+// "Validated · {names} · {date}" chrome, otherwise "DRAFT · NOT VALIDATED".
 export function buildReportPdfHtml(
   data: AdminCompanyReportData,
   companyWebsite: string | null,
-  sendable: boolean,
+  validation: ReportValidationStamp,
 ): string {
   const tierComposite = computeTierComposite(data);
   const tier = getTier(tierComposite);
@@ -43,7 +43,7 @@ export function buildReportPdfHtml(
     tierComposite,
     tier,
     companyWebsite,
-    sendable,
+    validation,
   };
 
   const pages = [

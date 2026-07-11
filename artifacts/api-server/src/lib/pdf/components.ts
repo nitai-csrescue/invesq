@@ -19,10 +19,10 @@ export function wordmark(): string {
 }
 
 // Page 1 shows the tagline top-right; pages 2-7 show the confidentiality tag.
-// The tag reflects distribution posture: sendable => "Confidential",
-// otherwise "Internal Use Only".
+// The tag reflects validation state: validated => "Confidential", otherwise
+// "Draft · Not Validated".
 export function pageHeader(pageNumber: number, ctx: ReportContext): string {
-  const tag = ctx.sendable ? "Confidential" : "Internal Use Only";
+  const tag = ctx.validation.validated ? "Confidential" : "Draft \u00b7 Not Validated";
   const metaRight =
     pageNumber === 1
       ? `<div class="label">Operational Due Diligence</div>`
@@ -37,16 +37,15 @@ export function pageHeader(pageNumber: number, ctx: ReportContext): string {
 }
 
 // Footer: "PAGE N OF T" (rendered uppercase via .label). Left + right vary by
-// distribution posture — a not-sendable render is stamped
-// "INTERNAL — NOT FOR DISTRIBUTION" so an admin-only export can't be mistaken
-// for a client deliverable.
+// validation state — a non-validated render is stamped "DRAFT · NOT VALIDATED"
+// so an admin-only draft export can't be mistaken for a client deliverable.
 export function pageFooter(pageNumber: number, ctx: ReportContext): string {
-  const left = ctx.sendable
+  const left = ctx.validation.validated
     ? "INVESQ &middot; Customer Success Diagnostic"
-    : "INVESQ &middot; Internal Diagnostic";
-  const right = ctx.sendable
+    : "INVESQ &middot; Draft Diagnostic";
+  const right = ctx.validation.validated
     ? `${esc(ctx.reportData.companyName)} &middot; Confidential`
-    : `Internal &middot; Not for Distribution`;
+    : `Draft &middot; Not Validated`;
   return `
     <div class="footer">
       <div class="label">${left}</div>

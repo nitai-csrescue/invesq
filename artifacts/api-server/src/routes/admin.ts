@@ -5,7 +5,9 @@ import {
   AddAdminFirmCompanyBody,
   ConfirmAdminFirmBody,
   CreateAdminFirmBody,
+  SaveAdminCompanyReportRevisionBody,
   UpdateAdminFirmBody,
+  ValidateAdminCompanyReportBody,
 } from "@workspace/api-zod";
 import type {
   AdminFirmConfirmResult,
@@ -27,13 +29,21 @@ import { getOrigin } from "../lib/http.js";
 import { invalidatePortfolioCache } from "../lib/portfolioData.js";
 import { requireAdminAuth } from "../middlewares/authMiddleware.js";
 import {
-  getReportData,
   getOrGenerateReportExport,
   getCompanyWebsite,
-  getFirmDistribution,
+  loadEffectiveReport,
+  toWorkflow,
+  toValidationStamp,
+  saveReportRevision,
+  validateReport,
+  recordDriveShipment,
   CompanyNotFoundError,
   NoAssessmentError,
+  NoCurrentRevisionError,
+  RevisionMismatchError,
 } from "../lib/reportExport.js";
+import { findValidator, getConfiguredValidators } from "../lib/validators.js";
+import { uploadReportToDrive } from "../lib/googleDrive.js";
 import { buildReportPdfHtml } from "../lib/pdf/reportHtml.js";
 import { renderHtmlToPdf } from "../lib/pdf/renderPdf.js";
 
@@ -618,17 +628,15 @@ router.post("/firms/:id/refresh", async (req, res) => {
   }
 });
 
-// Serves the report-data.json export payload (Diagnostic Report runbook)
-// for a company's latest assessment. `reportData` matches the Notion Step-7
-// schema field-for-field. If a report_exports row already exists for this
-// assessment (see POST .../report-export), its AI-generated narrative
-// sections are served (`meta.generatedAt`/`model` non-null); otherwise the
-// narrative fields fall back to their neutral placeholder ("" / []) per the
-// schema's own designed fallback. This route NEVER calls Claude — it is
-// read-only so it's safe for React Query to refetch without risking
-// duplicate paid generation calls. `meta` carries admin-only
-// provenance/derived fields and must never be copied into the exported JSON
-// itself.
+// Serves the full report WORKFLOW for a company's latest assessment: the
+// effective report data (computed scores/tier/gap-titles + the current
+// edited-or-generated narrative) plus revision, dual-validation, and Drive
+// shipment state (AdminReportWorkflow). `report.reportData` matches the Notion
+// Step-7 schema field-for-field; `report.meta.generatedAt`/`model` are non-null
+// once a narrative has been generated, else the narrative falls back to its
+// neutral placeholder per the schema. NEVER calls Claude — read-only, so it's
+// safe for React Query to refetch. `meta` carries admin-only provenance and
+// must never be copied into the exported JSON itself.
 router.get("/companies/:id/report-data", async (req, res) => {
   const id = Number(req.params.id);
   if (!Number.isInteger(id) || id <= 0) {
@@ -637,8 +645,8 @@ router.get("/companies/:id/report-data", async (req, res) => {
   }
 
   try {
-    const response = await getReportData(id);
-    res.json(response);
+    const workflow = toWorkflow(await loadEffectiveReport(id));
+    res.json(workflow);
   } catch (err) {
     if (err instanceof CompanyNotFoundError) {
       res.status(404).json({ error: "Company not found" });
@@ -650,6 +658,167 @@ router.get("/companies/:id/report-data", async (req, res) => {
     }
     req.log.error({ err }, "Failed to assemble company report data");
     res.status(500).json({ error: "Failed to assemble report data" });
+  }
+});
+
+// Persist an admin's narrative edits as a new revision (execSummary,
+// compositeContext, existingSystems, pathForward, per-gap impact/recommendation,
+// nextSteps). Computed fields are ignored. Saving a revision resets validation
+// to 0/N. Returns the fresh AdminReportWorkflow.
+router.post("/companies/:id/report-revision", async (req, res) => {
+  const id = Number(req.params.id);
+  if (!Number.isInteger(id) || id <= 0) {
+    res.status(400).json({ error: "Invalid company id" });
+    return;
+  }
+
+  const parsed = SaveAdminCompanyReportRevisionBody.safeParse(req.body);
+  if (!parsed.success) {
+    res.status(400).json({ error: "Invalid revision payload", details: parsed.error.issues });
+    return;
+  }
+
+  const editedByEmail = req.user?.email;
+  if (!editedByEmail) {
+    res.status(401).json({ error: "Not authenticated" });
+    return;
+  }
+  const editedByName =
+    [req.user?.firstName, req.user?.lastName].filter(Boolean).join(" ").trim() || null;
+
+  try {
+    const workflow = await saveReportRevision(id, parsed.data, editedByEmail, editedByName);
+    res.json(workflow);
+  } catch (err) {
+    if (err instanceof CompanyNotFoundError) {
+      res.status(404).json({ error: "Company not found" });
+      return;
+    }
+    if (err instanceof NoAssessmentError) {
+      res.status(404).json({ error: "Company has no assessments yet" });
+      return;
+    }
+    req.log.error({ err, companyId: id }, "Failed to save report revision");
+    res.status(500).json({ error: "Failed to save report revision" });
+  }
+});
+
+// Record the current admin's dual-validation sign-off on the company's CURRENT
+// revision. 503 if no validators are configured (VALIDATOR_EMAILS unset); 403
+// if the caller is not a configured validator; 404 if there is no current
+// revision to validate; 409 if the targeted revisionId is stale (a newer Save
+// superseded it). Idempotent per validator. Returns the fresh workflow.
+router.post("/companies/:id/validate", async (req, res) => {
+  const id = Number(req.params.id);
+  if (!Number.isInteger(id) || id <= 0) {
+    res.status(400).json({ error: "Invalid company id" });
+    return;
+  }
+
+  const parsed = ValidateAdminCompanyReportBody.safeParse(req.body);
+  if (!parsed.success) {
+    res.status(400).json({ error: "Invalid validate payload", details: parsed.error.issues });
+    return;
+  }
+
+  if (getConfiguredValidators().length === 0) {
+    res.status(503).json({ error: "Report validation is not configured (VALIDATOR_EMAILS is unset)" });
+    return;
+  }
+
+  const validator = findValidator(req.user?.email);
+  if (!validator) {
+    res.status(403).json({ error: "You are not a configured report validator" });
+    return;
+  }
+
+  try {
+    const workflow = await validateReport(id, parsed.data.revisionId, validator.email, validator.name);
+    res.json(workflow);
+  } catch (err) {
+    if (err instanceof CompanyNotFoundError) {
+      res.status(404).json({ error: "Company not found" });
+      return;
+    }
+    if (err instanceof NoAssessmentError) {
+      res.status(404).json({ error: "Company has no assessments yet" });
+      return;
+    }
+    if (err instanceof NoCurrentRevisionError) {
+      res.status(404).json({ error: "No current revision to validate. Save the report first." });
+      return;
+    }
+    if (err instanceof RevisionMismatchError) {
+      res.status(409).json({ error: "This report changed since you loaded it. Reload and re-validate." });
+      return;
+    }
+    req.log.error({ err, companyId: id }, "Failed to validate report");
+    res.status(500).json({ error: "Failed to validate report" });
+  }
+});
+
+// Ship the VALIDATED client PDF to Google Drive
+// ("INVESQ Customers/{Firm}/{Company}/{Company} - CS Diagnostic - {date}.pdf")
+// and record the shipment. 412 unless the current revision is fully validated.
+// 502 on a Drive upload failure. Returns the fresh workflow (with shipment
+// state populated).
+router.post("/companies/:id/ship-to-drive", async (req, res) => {
+  const id = Number(req.params.id);
+  if (!Number.isInteger(id) || id <= 0) {
+    res.status(400).json({ error: "Invalid company id" });
+    return;
+  }
+
+  const shippedByEmail = req.user?.email;
+  if (!shippedByEmail) {
+    res.status(401).json({ error: "Not authenticated" });
+    return;
+  }
+  const shippedByName =
+    [req.user?.firstName, req.user?.lastName].filter(Boolean).join(" ").trim() || null;
+
+  try {
+    const eff = await loadEffectiveReport(id);
+    if (!eff.validation.isValidated || eff.currentRevisionId === null) {
+      res.status(412).json({ error: "Report must be fully validated before shipping to Drive" });
+      return;
+    }
+
+    const website = await getCompanyWebsite(id);
+    const html = buildReportPdfHtml(eff.response, website, toValidationStamp(eff.validation));
+    const pdf = await renderHtmlToPdf(html);
+
+    const dateIso = new Date().toISOString().slice(0, 10);
+    const upload = await uploadReportToDrive({
+      firmName: eff.firm.name,
+      companyName: eff.company.name,
+      dateIso,
+      pdf: Buffer.from(pdf),
+    });
+
+    await recordDriveShipment({
+      companyId: id,
+      revisionId: eff.currentRevisionId,
+      fileId: upload.fileId,
+      webViewLink: upload.webViewLink,
+      folderPath: upload.folderPath,
+      shippedByEmail,
+      shippedByName,
+    });
+
+    const workflow = toWorkflow(await loadEffectiveReport(id));
+    res.json(workflow);
+  } catch (err) {
+    if (err instanceof CompanyNotFoundError) {
+      res.status(404).json({ error: "Company not found" });
+      return;
+    }
+    if (err instanceof NoAssessmentError) {
+      res.status(404).json({ error: "Company has no assessments yet" });
+      return;
+    }
+    req.log.error({ err, companyId: id }, "Failed to ship report to Drive");
+    res.status(502).json({ error: "Failed to ship report to Google Drive" });
   }
 });
 
@@ -684,13 +853,13 @@ router.post("/companies/:id/report-export", async (req, res) => {
 
 // Renders the branded INVESQ Diagnostic Report PDF (7-page print template, see
 // lib/pdf/) for a company's latest assessment. Read-only — reuses the same
-// cache-only `getReportData` as the JSON export route, so it never calls Claude
-// and is safe to hit repeatedly. Requires a previously generated narrative
-// (meta.generatedAt) since the PDF's narrative sections (exec summary,
-// composite context, next steps, etc.) would otherwise render as designed-blank
-// placeholders — 409 tells the admin to generate first. Admins may export a
-// company at ANY time; the chrome is stamped "INTERNAL — NOT FOR DISTRIBUTION"
-// unless the firm is sendable (not internal-only).
+// cache-only effective report as the JSON route, so it never calls Claude and
+// is safe to hit repeatedly. Requires a previously generated narrative
+// (meta.generatedAt) since the PDF's narrative sections would otherwise render
+// as designed-blank placeholders — 409 tells the admin to generate first.
+// Admins may export at ANY time; a fully validated report is stamped
+// "Validated · {names} · {date}", otherwise "DRAFT · NOT VALIDATED". (The
+// public tenant route additionally 409s until validated — see portfolio.ts.)
 router.get("/companies/:id/report-pdf", async (req, res) => {
   const id = Number(req.params.id);
   if (!Number.isInteger(id) || id <= 0) {
@@ -699,24 +868,21 @@ router.get("/companies/:id/report-pdf", async (req, res) => {
   }
 
   try {
-    const [data, website, distribution] = await Promise.all([
-      getReportData(id),
-      getCompanyWebsite(id),
-      getFirmDistribution(id),
-    ]);
+    const [eff, website] = await Promise.all([loadEffectiveReport(id), getCompanyWebsite(id)]);
+    const data = eff.response;
 
     if (!data.meta.generatedAt) {
       res.status(409).json({ error: "Report narrative has not been generated yet for this assessment" });
       return;
     }
 
-    const html = buildReportPdfHtml(data, website, distribution.sendable);
+    const html = buildReportPdfHtml(data, website, toValidationStamp(eff.validation));
     const pdf = await renderHtmlToPdf(html);
 
     const safeCompanyName = data.reportData.companyName.replace(/[\\/:*?"<>|]/g, "").trim();
-    const filename = distribution.sendable
+    const filename = eff.validation.isValidated
       ? `${safeCompanyName} - INVESQ Diagnostic Report.pdf`
-      : `${safeCompanyName} - INVESQ Diagnostic (Internal).pdf`;
+      : `${safeCompanyName} - INVESQ Diagnostic (DRAFT).pdf`;
     res.setHeader("Content-Type", "application/pdf");
     res.setHeader("Content-Disposition", `attachment; filename="${filename}"`);
     res.send(pdf);

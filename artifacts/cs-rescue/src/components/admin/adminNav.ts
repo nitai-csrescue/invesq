@@ -1,4 +1,4 @@
-import { Building2, GitBranch, Sparkles, type LucideIcon } from "lucide-react";
+import { Building2, GitBranch, Sparkles, FileText, type LucideIcon } from "lucide-react";
 
 // ---------------------------------------------------------------------------
 // ADMIN_NAV — the single source of truth for the internal platform nav
@@ -26,6 +26,12 @@ export const ADMIN_NAV: AdminNavItem[] = [
     label: "Pipeline",
     icon: GitBranch,
     match: (loc) => loc === "/admin/pipeline" || loc.startsWith("/admin/jobs"),
+  },
+  {
+    href: "/admin/reports",
+    label: "Reports",
+    icon: FileText,
+    match: (loc) => loc === "/admin/reports" || loc.startsWith("/admin/reports/"),
   },
   {
     href: "/admin/insights",

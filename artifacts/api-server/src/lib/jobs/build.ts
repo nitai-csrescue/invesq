@@ -8,6 +8,9 @@ import {
   jobsTable,
   notionSyncStateTable,
   reportExportsTable,
+  reportRevisionsTable,
+  reportValidationsTable,
+  driveShipmentsTable,
   type Company,
   type Firm,
 } from "@workspace/db";
@@ -110,13 +113,21 @@ async function scoreAndPersistCompany(company: Company, firm: Firm): Promise<Com
   // is a deliberate re-score, so replace the existing same-day row instead of
   // hard-failing on the constraint. Wrapped in a transaction so the day never
   // has zero assessments mid-swap; the old row's FK children (report_exports,
-  // findings, notion_sync_state) are removed first so the delete can't violate
-  // FK integrity. notion_sync_state has zero writers today (Phase 5, out of
-  // scope) so this delete is a no-op now, but deleting it here keeps the
-  // transaction correct once that table is wired, instead of leaving a re-score
-  // FK landmine. This does not regenerate findings — they are re-fanned-out
-  // operationally by scripts/backfill-unified-db.ts exactly as after any fresh
-  // build, so the end-state matches today's blind-insert path.
+  // findings, notion_sync_state, and the report-validation chain) are removed
+  // first so the delete can't violate FK integrity. notion_sync_state has zero
+  // writers today (Phase 5, out of scope) so that delete is a no-op now, but
+  // deleting it here keeps the transaction correct once that table is wired,
+  // instead of leaving a re-score FK landmine. This does not regenerate
+  // findings — they are re-fanned-out operationally by
+  // scripts/backfill-unified-db.ts exactly as after any fresh build, so the
+  // end-state matches today's blind-insert path.
+  //
+  // Report-validation chain: report_revisions -> report_validations (FK
+  // revisionId) and drive_shipments (FK revisionId + companyId) hang off the
+  // assessment via report_revisions.assessmentId. A deliberate re-score
+  // supersedes the whole validated deliverable, so these are torn down deepest
+  // FK first (shipments + validations, both keyed by revision id) before the
+  // revisions themselves, then the rest of the cascade.
   await db.transaction(async (tx) => {
     const [existing] = await tx
       .select({ id: assessmentsTable.id })
@@ -125,6 +136,16 @@ async function scoreAndPersistCompany(company: Company, firm: Firm): Promise<Com
       .limit(1);
 
     if (existing) {
+      const revisions = await tx
+        .select({ id: reportRevisionsTable.id })
+        .from(reportRevisionsTable)
+        .where(eq(reportRevisionsTable.assessmentId, existing.id));
+      const revisionIds = revisions.map((r) => r.id);
+      if (revisionIds.length > 0) {
+        await tx.delete(driveShipmentsTable).where(inArray(driveShipmentsTable.revisionId, revisionIds));
+        await tx.delete(reportValidationsTable).where(inArray(reportValidationsTable.revisionId, revisionIds));
+        await tx.delete(reportRevisionsTable).where(eq(reportRevisionsTable.assessmentId, existing.id));
+      }
       await tx.delete(reportExportsTable).where(eq(reportExportsTable.assessmentId, existing.id));
       await tx.delete(findingsTable).where(eq(findingsTable.assessmentId, existing.id));
       await tx.delete(notionSyncStateTable).where(eq(notionSyncStateTable.assessmentId, existing.id));

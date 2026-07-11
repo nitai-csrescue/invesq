@@ -77,6 +77,20 @@ function compositePanel(ctx: ReportContext): string {
   `;
 }
 
+// Client-facing validation stamp shown next to the company name on page 1.
+// Validated => "Validated · {names} · {date}" (orange, client deliverable);
+// not validated => "DRAFT · NOT VALIDATED" (danger red, admin-only draft).
+function validationStamp(ctx: ReportContext): string {
+  const { validated, validatorNames, validatedAt } = ctx.validation;
+  if (!validated) {
+    return `<span class="pill" style="border:1.5px solid ${COLORS.danger500}; color:${COLORS.danger500}; padding:3px 10px; font-size:8.5px;">DRAFT &middot; NOT VALIDATED</span>`;
+  }
+  const names = validatorNames.length > 0 ? validatorNames.join(", ") : "INVESQ";
+  const date = validatedAt ? new Date(validatedAt).toISOString().slice(0, 10) : "";
+  const label = date ? `Validated &middot; ${esc(names)} &middot; ${esc(date)}` : `Validated &middot; ${esc(names)}`;
+  return `<span class="pill" style="border:1.5px solid ${COLORS.orange500}; color:${COLORS.orange500}; padding:3px 10px; font-size:8.5px;">${label}</span>`;
+}
+
 export function renderPage1(ctx: ReportContext): string {
   const { reportData } = ctx;
 
@@ -94,11 +108,7 @@ export function renderPage1(ctx: ReportContext): string {
         <h1 style="font-family:'Source Serif 4', Georgia, serif; font-weight:800; font-size:24px; color:${COLORS.slate900}; letter-spacing:-0.01em;">
           ${esc(reportData.companyName)}
         </h1>
-        ${
-          ctx.sendable
-            ? `<span class="pill" style="border:1.5px solid ${COLORS.orange500}; color:${COLORS.orange500}; padding:3px 10px; font-size:8.5px;">Cleared for Distribution</span>`
-            : `<span class="pill" style="border:1.5px solid ${COLORS.danger500}; color:${COLORS.danger500}; padding:3px 10px; font-size:8.5px;">Internal &middot; Not for Distribution</span>`
-        }
+        ${validationStamp(ctx)}
       </div>
     </div>
 

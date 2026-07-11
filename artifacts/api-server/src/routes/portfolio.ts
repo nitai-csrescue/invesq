@@ -2,8 +2,9 @@ import { Router, type IRouter } from "express";
 import { GetPortfolioBootstrapResponse } from "@workspace/api-zod";
 import { getPortfolioBootstrap } from "../lib/portfolioData.js";
 import {
-  getReportData,
   getCompanyWebsite,
+  loadEffectiveReport,
+  toValidationStamp,
   resolveCompanyBySlug,
   CompanyNotFoundError,
   NoAssessmentError,
@@ -29,13 +30,15 @@ router.get("/bootstrap", async (req, res) => {
 
 // Public, tenant-facing download of the branded INVESQ Diagnostic Report PDF,
 // keyed by the same firm/company slugs the portal URLs use. Read-only and
-// cache-only (reuses getReportData — never calls Claude), same as the admin
-// route. Only available when the firm is cleared for distribution:
+// cache-only (reuses loadEffectiveReport — never calls Claude), same as the
+// admin route, but returns the VALIDATED deliverable (edited narrative + a
+// "Validated · {names} · {date}" stamp). Gates:
 //   404 - firm/company slug pair does not resolve to a row
-//   403 - firm is internal-only, or login-gated (requireLogin)
-//   409 - narrative has not been generated yet (nothing to render)
-// The chrome is always rendered sendable=true here (we 403 otherwise), so a
-// tenant download is always a client-facing "Prepared by INVESQ" deliverable.
+//   403 - firm is internal-only (visibility), or login-gated (requireLogin)
+//   409 - narrative has not been generated yet, OR the report is not fully
+//         validated (dual sign-off is the client-export control; admins can
+//         still pull a DRAFT via the /admin route)
+// A tenant download is therefore always a validated, client-facing deliverable.
 router.get("/:firmSlug/companies/:companySlug/report-pdf", async (req, res) => {
   const { firmSlug, companySlug } = req.params;
 
@@ -46,22 +49,30 @@ router.get("/:firmSlug/companies/:companySlug/report-pdf", async (req, res) => {
       return;
     }
 
+    // internalOnly still gates tenant VISIBILITY (validation is the export
+    // control, but an internal-only firm's reports are never tenant-facing).
     if (!resolved.sendable || resolved.requireLogin) {
       res.status(403).json({ error: "This report is not available for download" });
       return;
     }
 
-    const [data, website] = await Promise.all([
-      getReportData(resolved.companyId),
+    const [eff, website] = await Promise.all([
+      loadEffectiveReport(resolved.companyId),
       getCompanyWebsite(resolved.companyId),
     ]);
+    const data = eff.response;
 
     if (!data.meta.generatedAt) {
       res.status(409).json({ error: "Report is not ready for download yet" });
       return;
     }
 
-    const html = buildReportPdfHtml(data, website, true);
+    if (!eff.validation.isValidated) {
+      res.status(409).json({ error: "Report is not ready for download yet" });
+      return;
+    }
+
+    const html = buildReportPdfHtml(data, website, toValidationStamp(eff.validation));
     const pdf = await renderHtmlToPdf(html);
 
     const safeCompanyName = data.reportData.companyName.replace(/[\\/:*?"<>|]/g, "").trim();

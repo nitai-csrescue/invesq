@@ -23,3 +23,4 @@
 - [Production data repair via two-Publish](prod-data-repair-two-publish.md) — agent can't write prod DB directly; only path is a temporary admin endpoint plus the two-Publish index dance.
 - [PDF fixed-height overflow tradeoff](pdf-fixed-height-overflow.md) — pinning .page to fixed letter height for flush footers trades auto-growth; long narratives clip silently, so guard scrollHeight vs clientHeight in the render path.
 - [pg Pool crash loop](pg-pool-crash-loop.md) — a pg Pool with no `pool.on("error")` crash-loops prod on idle-connection termination; a reported client CPU peg was actually this server crash loop.
+- [Connector sandbox vs runtime](connectors-sandbox-vs-runtime.md) — code_execution's listConnections()=0 does not mean a connector is unbound; the server resolves it at runtime, so verify via the server path.

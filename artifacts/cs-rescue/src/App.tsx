@@ -42,6 +42,7 @@ import AdminPipeline from "@/pages/admin/AdminPipeline";
 import AdminInsights from "@/pages/admin/AdminInsights";
 import AdminFirmReviewRedirect from "@/pages/admin/FirmReviewRedirect";
 import AdminJobStatus from "@/pages/admin/JobStatus";
+import AdminReports from "@/pages/admin/AdminReports";
 import { ProtectedRoute } from "@/lib/protected-route";
 import { PortfolioDataProvider, PortfolioGate } from "@/data/portfolio/PortfolioDataProvider";
 
@@ -154,6 +155,20 @@ function Router() {
             {() => (
               <ProtectedRoute>
                 <AdminJobStatus />
+              </ProtectedRoute>
+            )}
+          </Route>
+          <Route path="/admin/reports/:companyId">
+            {(params) => (
+              <ProtectedRoute>
+                <AdminReports companyId={Number(params?.companyId)} />
+              </ProtectedRoute>
+            )}
+          </Route>
+          <Route path="/admin/reports">
+            {() => (
+              <ProtectedRoute>
+                <AdminReports />
               </ProtectedRoute>
             )}
           </Route>
