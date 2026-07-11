@@ -125,6 +125,7 @@ Postgres (Replit built-in) via `@workspace/db` (Drizzle). Tables: `users`, `sess
 
 - **Invariants gate**: `scripts/verify-db-invariants.ts` (`verify-db-invariants`) is a permanent, file-independent gate — (a) exactly 8 findings/assessment, (b) no non-excluded company dedup violations, (c) `report_exports` composite recompute matches, (d) FK integrity + no duplicate `(companyId, date)`. Run it after any change touching the pipeline or schema; it must PASS.
 - **Prod DB writes**: the agent cannot write to prod directly. Additive/idempotent fixes ride a startup routine (like the normalizedName backfill). A destructive repair needs a temporary admin endpoint + the two-Publish index dance (see `.agents/memory/prod-data-repair-two-publish.md`).
+- **Connection resilience**: the pg `Pool` in `lib/db/src/index.ts` MUST keep its `pool.on("error", ...)` listener. Managed Postgres periodically terminates idle pooled connections ("terminating connection due to administrator command"); with no listener pg emits an unhandled `'error'` event that crashes the whole api-server process, producing a prod crash loop (repeated `healthcheck /api returned status 500`). Log-only — never `process.exit` in that handler. See `.agents/memory/pg-pool-crash-loop.md`.
 
 ### Tenant portal DB cutover
 

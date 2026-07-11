@@ -20,3 +20,4 @@
 - [Dual-source audits: check behavior, not just storage](dual-source-vs-behavioral-fork.md) — "two sources of truth" can mean one storage layer with a hardcoded-list behavioral fork; verify which before proposing a fix.
 - [Parity-gate migration pattern](parity-gate-migration-pattern.md) — recompute independently from the DB and diff against the source; exit nonzero on any mismatch, never silently reconcile.
 - [Production data repair via two-Publish](prod-data-repair-two-publish.md) — agent cannot write to prod DB directly; only path is a temporary admin endpoint: remove conflicting schema indexes (Publish 1), call endpoint, re-add indexes (Publish 2).
+- [pg Pool crash loop](pg-pool-crash-loop.md) — a pg Pool with no `pool.on("error")` crash-loops prod on idle-connection termination; a reported client CPU peg was actually this server crash loop.

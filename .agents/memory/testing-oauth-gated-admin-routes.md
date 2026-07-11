@@ -13,7 +13,9 @@ Insert a throwaway row directly into the `sessions` table with a `sess` JSON blo
 
 ## Technique B: dev-only login route + screenshot tool (for full-page screenshots)
 
-The screenshot tool has no way to inject cookies, so for verifying rendered UI (not just an API response), temporarily add a dev-only route (guarded by `process.env.NODE_ENV !== "production"`) that calls the app's own `createSession`/session-cookie helpers directly with a synthetic user, then redirects to the target page. Hit it once via the screenshot tool's `path` param (e.g. `/api/dev/test-login?email=...&returnTo=/admin/...`) — the browser follows the redirect within the same navigation and keeps the cookie, landing authenticated on the real page.
+The screenshot tool has no way to inject cookies, so for verifying rendered UI (not just an API response), temporarily add a dev-only route that calls the app's own `createSession`/session-cookie helpers directly with a synthetic user, then redirects to the target page. Hit it once via the screenshot tool's `path` param (e.g. `/api/dev/test-login?email=...&returnTo=/admin/...`) — the browser follows the redirect within the same navigation and keeps the cookie, landing authenticated on the real page.
+
+**DANGER — a `process.env.NODE_ENV !== "production"` gate is NOT a safe guard in this repo.** The api-server's prod `start` script (`node ./dist/index.mjs`) sets no NODE_ENV, so `NODE_ENV` is `undefined` in prod and the gate evaluates truthy — the route would mount in production, an auth bypass. Treat any such route as strictly temporary: DELETE it from source before committing; never rely on an env gate to keep it out of prod. Confirm removal with `rg "dev/test-login"` before finishing.
 
 **Why:** both exercise the exact same session/cookie mechanism the real login uses (not a mocked component), so results reflect genuine authenticated behavior, not a guess.
 

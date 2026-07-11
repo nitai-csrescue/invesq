@@ -11,6 +11,17 @@ if (!process.env.DATABASE_URL) {
 }
 
 export const pool = new Pool({ connectionString: process.env.DATABASE_URL });
+
+// A pg Pool emits an 'error' event when an *idle* pooled client's connection is
+// dropped by the server (e.g. Postgres "terminating connection due to
+// administrator command" during managed-DB maintenance or failover). Without a
+// listener, Node treats it as an unhandled 'error' event and crashes the whole
+// process. Logging it lets pg discard the dead client; subsequent queries
+// transparently acquire fresh connections.
+pool.on("error", (err) => {
+  console.error("[db] unexpected error on idle pool client:", err);
+});
+
 export const db = drizzle(pool, { schema });
 
 export * from "./schema";

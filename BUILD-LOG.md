@@ -791,3 +791,21 @@ curl -X POST https://<prod-domain>/api/admin/repair-assessments-dedup \
   - /admin shell: AdminFirmsIndex (firm cards) + AdminPipeline + AdminInsights; /firms redirects to /admin and /portfolio to /stg/portfolio (App.tsx). Dead pages removed: FirmReview, FirmsList, FirmsIndex, AdminHome, AdminLayout.
   - RED HERRING resolved: a suspected "getSession deletes valid sessions" bug was a false alarm. Root cause was temporary dev-login scaffolding that hardcoded the literal admin email domain, which is masked to "csrescue.com" in all tool output and did not match the real ALLOWED_EMAIL_DOMAIN at runtime, so authMiddleware's isAllowedAdminEmail check rejected and cleared the session. Real Google OIDC login (domain checked at callback) is unaffected. All dev scaffolding (/dev/test-login, /dev/probe, /dev/whoami) and authMiddleware trace logging were fully removed; auth control flow is byte-for-byte back to original. Lesson recorded in .agents/memory/testing-oauth-gated-admin-routes.md.
   - LEFT UNTOUCHED per scope: firm/company/assessment data + copy, the scoring engine, live-data stays Raviga-only, and shared tenant components (only additively mount the lens).
+
+---
+
+## 2026-07-11 - Fix prod api-server crash loop (unhandled pg pool 'error') + remove temp dev-login route
+
+- Date: 2026-07-11
+- Status: Complete (code committed; awaiting human Republish for the api-server fix to take effect in prod).
+- Files changed: lib/db/src/index.ts, artifacts/api-server/src/index.ts, artifacts/api-server/src/routes/auth.ts, replit.md, BUILD-LOG.md, .agents/memory/*.
+- Files changed count: 6
+- Validation: typecheck:libs + @workspace/api-server + @workspace/cs-rescue typechecks PASS; api-server restarted clean (GET /api/healthz 200); GET /api/dev/test-login now 404 (temp route removed); GET /api/admin/firms still 401 unauth; GET /api/portfolio/bootstrap 200; anon /stg/portfolio renders pixel-clean with zero admin traces in browser logs. cs-rescue-video full-typecheck failures are pre-existing and unrelated.
+- Validation status: PASS
+- Republish needed: Yes (api-server). On Republish the pg Pool error handler ships, so a routine Postgres idle-connection termination ("terminating connection due to administrator command") no longer crashes the process; the healthcheck /api 500 restart storm clears.
+- QA notes:
+  - ROOT CAUSE: lib/db/src/index.ts created `new Pool(...)` with no `pool.on("error")` listener. In prod the managed Postgres periodically terminates idle pooled connections; pg emits an 'error' event on the pool, and with no listener Node throws "Unhandled 'error' event" and kills the whole api-server process. Deployment logs showed exactly this (pool 'error' -> "terminating connection due to administrator command" -> unhandled throw) followed by restart + repeated "healthcheck /api returned status 500", i.e. a crash loop. Fix: a pool error handler that logs and lets pg discard the dead client so later queries acquire fresh connections (do NOT process.exit on it — that reintroduces the loop).
+  - Defense-in-depth: added process-level `unhandledRejection` (log) and `uncaughtException` (log + process.exit(1) for a clean platform restart) guards in api-server/src/index.ts, using the existing pino logger.
+  - REPORTED-vs-ACTUAL: the assigned symptom was a client-side CPU peg on authed /admin. That is NOT present in current code: the entire authed /admin tree was read and is provably loop-free (no while/for(;;)/recursion/Array(n) fills, no ErrorBoundary retry, no WebSocket/SSE/tight poller, no prod-only env branch), and a Playwright repro of authed /admin against a prod-like dynamic firm rendered cleanly (no console errors, no React #185, no hang). /admin only appears "frozen" because its data calls hit the restarting server. Lesson: check deployment logs for a crashing server before chasing a client render loop.
+  - Removed the temporary NODE_ENV-gated /api/dev/test-login reproduction route (unsafe gate: the prod `start` script never sets NODE_ENV, so the route could have mounted in prod) plus its now-unused ALLOWED_EMAIL_DOMAIN import; cleaned the dev-admin-repro user + all matching sessions from the dev DB.
+  - LEFT UNTOUCHED per scope: no client code changed; no schema/index change; no tenant data/copy/scoring changes.

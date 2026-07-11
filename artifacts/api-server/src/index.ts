@@ -4,6 +4,18 @@ import { resumeQueuedDiscoveryJobs } from "./lib/jobs/discovery";
 import { resumeQueuedBuildJobs } from "./lib/jobs/build";
 import { backfillCompanyNormalizedNames } from "./lib/backfillNormalizedNames";
 
+// Defense-in-depth: a stray rejected promise or thrown async error must never
+// silently kill the server. Log rejections; on a truly uncaught exception, log
+// and exit so the platform restarts us from a clean state instead of limping on
+// in an undefined one.
+process.on("unhandledRejection", (reason) => {
+  logger.error({ err: reason }, "Unhandled promise rejection");
+});
+process.on("uncaughtException", (err) => {
+  logger.error({ err }, "Uncaught exception; exiting for a clean restart");
+  process.exit(1);
+});
+
 const rawPort = process.env["PORT"];
 
 if (!rawPort) {
