@@ -118,6 +118,7 @@ async function load(): Promise<PortfolioLoadResult> {
           displayName: firm.name,
           statusLabel: firmMeta.statusLabel,
           internalOnly: firmMeta.internalOnly,
+          requireLogin: firmMeta.requireLogin ?? false,
           companies: rawCompanies,
         });
         continue;
@@ -161,6 +162,7 @@ async function load(): Promise<PortfolioLoadResult> {
           displayName: firm.name,
           statusLabel: firmMeta.statusLabel,
           internalOnly: firmMeta.internalOnly,
+          requireLogin: firmMeta.requireLogin ?? false,
           companies: rawCompanies,
         });
       } catch (firmErr) {

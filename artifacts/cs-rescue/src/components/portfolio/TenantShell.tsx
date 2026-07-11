@@ -10,6 +10,7 @@ import {
   ShieldAlert,
 } from "lucide-react";
 import { AskInvesq } from "@/components/portfolio/AskInvesq";
+import { AdminLensMount } from "@/components/admin/AdminLensMount";
 import { type Firm } from "@/data/portfolio";
 
 // ---------------------------------------------------------------------------
@@ -182,6 +183,10 @@ export function TenantShell({ children, firm }: TenantShellProps) {
 
       {/* AI assistant — floats above everything */}
       <AskInvesq firm={firm} />
+
+      {/* Admin lens — renders nothing (and loads no JS) for anonymous
+          visitors; only an authenticated admin sees the overlay trigger. */}
+      <AdminLensMount firm={firm} />
     </div>
   );
 }

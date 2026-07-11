@@ -75,6 +75,26 @@ export interface CreateAdminFirmInput {
   website: string;
 }
 
+export interface FirmMeta {
+  statusLabel: string;
+  internalOnly: boolean;
+  /** When true, the tenant portal for this firm requires an authenticated admin session to view. Default/absent = false (public). UI-gate only; the bootstrap API stays public.
+   */
+  requireLogin?: boolean;
+}
+
+/**
+ * "strict" firms fail loudly on bad data; "best_effort" degrade gracefully. Promotion is always an explicit admin action.
+
+ */
+export type FirmDataAuthority =
+  (typeof FirmDataAuthority)[keyof typeof FirmDataAuthority];
+
+export const FirmDataAuthority = {
+  strict: "strict",
+  best_effort: "best_effort",
+} as const;
+
 export interface Firm {
   id: number;
   name: string;
@@ -82,6 +102,12 @@ export interface Firm {
   website: string | null;
   slug: string;
   status: string;
+  /** "strict" firms fail loudly on bad data; "best_effort" degrade gracefully. Promotion is always an explicit admin action.
+   */
+  dataAuthority: FirmDataAuthority;
+  /** Portal display metadata (statusLabel, internalOnly, requireLogin). Null for pipeline firms not yet promoted to a tenant portal.
+   */
+  meta: FirmMeta | null;
   /**
    * Email of the admin who created this firm, captured from their session at creation time. Used to notify them when the build job finishes. Null for firms created before this field existed or outside an authenticated session.
 
@@ -96,6 +122,14 @@ export interface CreateAdminFirmResponse {
   job: Job;
 }
 
+export type AdminFirmSummaryDataAuthority =
+  (typeof AdminFirmSummaryDataAuthority)[keyof typeof AdminFirmSummaryDataAuthority];
+
+export const AdminFirmSummaryDataAuthority = {
+  strict: "strict",
+  best_effort: "best_effort",
+} as const;
+
 export interface AdminFirmSummary {
   id: number;
   name: string;
@@ -103,6 +137,9 @@ export interface AdminFirmSummary {
   website: string | null;
   slug: string;
   status: string;
+  dataAuthority: AdminFirmSummaryDataAuthority;
+  /** Portal display metadata, or null for pipeline firms not yet promoted to a tenant portal. */
+  meta: FirmMeta | null;
   companyCount: number;
   /** The most recently created job (any status) targeting this firm, or null if none exists. */
   latestJob: Job | null;
@@ -252,6 +289,23 @@ export interface AddAdminCompanyInput {
 
 export interface ConfirmAdminFirmInput {
   companyIds: number[];
+}
+
+export type UpdateAdminFirmInputDataAuthority =
+  (typeof UpdateAdminFirmInputDataAuthority)[keyof typeof UpdateAdminFirmInputDataAuthority];
+
+export const UpdateAdminFirmInputDataAuthority = {
+  strict: "strict",
+  best_effort: "best_effort",
+} as const;
+
+/**
+ * Partial update of a firm's admin-controlled fields. Only provided keys are changed. `meta` replaces the whole portal-metadata object.
+
+ */
+export interface UpdateAdminFirmInput {
+  dataAuthority?: UpdateAdminFirmInputDataAuthority;
+  meta?: FirmMeta;
 }
 
 export interface AdminFirmConfirmResult {
@@ -1071,6 +1125,9 @@ export interface PortfolioBootstrapFirm {
   displayName: string;
   statusLabel: string;
   internalOnly: boolean;
+  /** When true, the tenant portal requires an authenticated admin session. Absent/false = public (no behavior change).
+   */
+  requireLogin?: boolean;
   companies: PortfolioCompany[];
 }
 

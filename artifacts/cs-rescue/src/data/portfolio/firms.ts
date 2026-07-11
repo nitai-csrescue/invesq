@@ -28,25 +28,47 @@ export const FIRMS_BY_SLUG: Readonly<Record<string, Firm>> = Object.fromEntries(
 // ---------------------------------------------------------------------------
 const DYNAMIC_FIRMS = new Map<string, Firm>();
 
+// ---------------------------------------------------------------------------
+// Per-slug access policy (requireLogin), derived from the DB-backed bootstrap
+// for EVERY firm — legacy and pipeline alike. This is deliberately NOT read off
+// FIRMS_BY_SLUG: the static LEGACY_FIRMS_META wins slug collisions in the
+// identity registry, so it would silently ignore a DB requireLogin toggle on a
+// legacy tenant. PortfolioGate consults firmRequiresLogin() only.
+// ---------------------------------------------------------------------------
+const REQUIRE_LOGIN_BY_SLUG = new Map<string, boolean>();
+
 export function registerDynamicFirms(
   firms: readonly {
     slug: string;
     displayName: string;
     statusLabel: string;
     internalOnly: boolean;
+    requireLogin?: boolean;
   }[],
 ): void {
   DYNAMIC_FIRMS.clear();
+  REQUIRE_LOGIN_BY_SLUG.clear();
   for (const f of firms) {
-    // A legacy slug is owned by the static list — never shadow it.
+    // Access policy is keyed off the bootstrap for every firm, so record it
+    // before the legacy-slug identity guard below.
+    REQUIRE_LOGIN_BY_SLUG.set(f.slug, f.requireLogin ?? false);
+    // A legacy slug is owned by the static list — never shadow its identity.
     if (FIRMS_BY_SLUG[f.slug]) continue;
     DYNAMIC_FIRMS.set(f.slug, {
       slug: f.slug,
       displayName: f.displayName,
       statusLabel: f.statusLabel,
       internalOnly: f.internalOnly,
+      requireLogin: f.requireLogin,
     });
   }
+}
+
+// Whether a firm's tenant portal requires an authenticated session. Defaults
+// to false for any slug not present in the bootstrap-derived access map (i.e.
+// before hydration, or an unknown slug) — public is always the safe default.
+export function firmRequiresLogin(slug: string): boolean {
+  return REQUIRE_LOGIN_BY_SLUG.get(slug) ?? false;
 }
 
 // All tenants (hand-authored first, then pipeline-onboarded) for listing UIs.

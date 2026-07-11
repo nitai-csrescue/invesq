@@ -5,6 +5,8 @@
  * CS Rescue API specification
  * OpenAPI spec version: 0.1.0
  */
+import type { AdminFirmSummaryDataAuthority } from "./adminFirmSummaryDataAuthority";
+import type { FirmMeta } from "./firmMeta";
 import type { Job } from "./job";
 
 export interface AdminFirmSummary {
@@ -14,6 +16,9 @@ export interface AdminFirmSummary {
   website: string | null;
   slug: string;
   status: string;
+  dataAuthority: AdminFirmSummaryDataAuthority;
+  /** Portal display metadata, or null for pipeline firms not yet promoted to a tenant portal. */
+  meta: FirmMeta | null;
   companyCount: number;
   /** The most recently created job (any status) targeting this firm, or null if none exists. */
   latestJob: Job | null;

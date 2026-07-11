@@ -70,6 +70,11 @@ export interface Firm {
   displayName: string;
   statusLabel: string;   // e.g. "Design-partner preview"
   internalOnly: boolean; // when true, the rose "internal" pill is shown on the dashboard
+  // When true, the tenant portal requires an authenticated admin session.
+  // Absent/false = public (the default — no behavior change today). Enforcement
+  // is keyed off the DB-backed bootstrap, not this static list; see
+  // firmRequiresLogin() in firms.ts.
+  requireLogin?: boolean;
 }
 
 // ---------------------------------------------------------------------------

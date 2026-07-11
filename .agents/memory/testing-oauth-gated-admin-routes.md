@@ -21,3 +21,11 @@ The screenshot tool has no way to inject cookies, so for verifying rendered UI (
 - Technique A: check the session-expiry/refresh logic first so the synthetic row won't be rejected; delete the row right after the curl call.
 - Technique B: add the route, restart the server, curl it once to confirm it 302s and sets a cookie, screenshot with `path` set to that route + query string (not the final destination path), then remove the route from source immediately after (never ship it, even prod-gated) and delete any synthetic session/user rows it created, then restart the server again.
 - Either way: never reuse these techniques against a production database.
+
+## Gotcha: the allowed admin email domain is masked in tool output
+
+The real value of `ALLOWED_EMAIL_DOMAIN` (in `api-server/src/lib/auth.ts`) is redacted/normalized to the literal `csrescue.com` in ALL agent tool output — `read`, `rg`, and workflow logs alike. So a dev-login/test route that HARDCODES the string `"[email protected]"` will read back as correct in every tool, yet `isAllowedAdminEmail()` rejects it at runtime because the actual domain differs. `authMiddleware` then `clearSession`-deletes that session, so `/api/auth/user` returns `{user:null}` and the session row vanishes — which looks exactly like a "getSession deletes valid sessions" bug but is NOT.
+
+**Why:** the masking happens at the tool-output layer, not in the code, so you cannot see the mismatch by reading files or logs.
+
+**How to apply:** in any dev scaffolding or test that needs an allowlisted admin email, DERIVE it from the constant (`` `admin${ALLOWED_EMAIL_DOMAIN}` ``), never hardcode the domain literal. If an authed-admin session is silently rejected/cleared, suspect a domain-string mismatch before suspecting session-store/expiry internals.

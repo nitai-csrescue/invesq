@@ -8,9 +8,10 @@
 // ---------------------------------------------------------------------------
 import { createContext, useContext, useEffect, useState, type ReactNode } from "react";
 import { useLocation } from "wouter";
+import { useAuth } from "@workspace/replit-auth-web";
 import { useGetPortfolioBootstrap } from "@workspace/api-client-react";
 import { hydratePortfolioData } from "./engine";
-import { registerDynamicFirms } from "./firms";
+import { firmRequiresLogin, registerDynamicFirms } from "./firms";
 import type { RawCompany } from "./types";
 
 interface PortfolioDataContextValue {
@@ -87,7 +88,7 @@ export function usePortfolioData(): PortfolioDataContextValue {
 const FIRM_SCOPED_RE = /^\/[^/]+\/(portfolio|findings|benchmarks|risk|data-sources)(\/|$)/;
 
 function needsPortfolioData(location: string): boolean {
-  return location === "/firms" || FIRM_SCOPED_RE.test(location);
+  return FIRM_SCOPED_RE.test(location);
 }
 
 export function PortfolioGate({ children }: { children: ReactNode }) {
@@ -110,6 +111,49 @@ export function PortfolioGate({ children }: { children: ReactNode }) {
     return (
       <div className="flex min-h-screen items-center justify-center px-6 text-center text-sm text-destructive">
         Failed to load portfolio data{error ? `: ${error}` : "."}
+      </div>
+    );
+  }
+
+  // requireLogin enforcement — only for firm-scoped tenant routes, and only
+  // when the bootstrap-derived access map flags this firm. Defaults to false
+  // for every firm today, so RequireLoginGate never mounts and anonymous
+  // tenant pages make ZERO auth calls (no admin footprint in the anon path).
+  const firmSlug = location.split("/")[1] ?? "";
+  if (FIRM_SCOPED_RE.test(location) && firmRequiresLogin(firmSlug)) {
+    return <RequireLoginGate>{children}</RequireLoginGate>;
+  }
+
+  return <>{children}</>;
+}
+
+// Gates a requireLogin firm's portal behind an authenticated session. Isolated
+// into its own component so useAuth() (which fetches /api/auth/user) is only
+// ever called when a firm actually requires login — public firms never pay it.
+function RequireLoginGate({ children }: { children: ReactNode }) {
+  const { isAuthenticated, isLoading, login } = useAuth();
+
+  if (isLoading) {
+    return (
+      <div className="flex min-h-screen items-center justify-center text-sm text-muted-foreground">
+        Checking access…
+      </div>
+    );
+  }
+
+  if (!isAuthenticated) {
+    return (
+      <div className="flex min-h-screen flex-col items-center justify-center gap-4 px-6 text-center">
+        <div className="text-sm text-muted-foreground">
+          This portal requires sign-in.
+        </div>
+        <button
+          type="button"
+          onClick={login}
+          className="rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:opacity-90"
+        >
+          Sign in
+        </button>
       </div>
     );
   }

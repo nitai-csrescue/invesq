@@ -5,6 +5,8 @@
  * CS Rescue API specification
  * OpenAPI spec version: 0.1.0
  */
+import type { FirmDataAuthority } from "./firmDataAuthority";
+import type { FirmMeta } from "./firmMeta";
 
 export interface Firm {
   id: number;
@@ -13,6 +15,12 @@ export interface Firm {
   website: string | null;
   slug: string;
   status: string;
+  /** "strict" firms fail loudly on bad data; "best_effort" degrade gracefully. Promotion is always an explicit admin action.
+   */
+  dataAuthority: FirmDataAuthority;
+  /** Portal display metadata (statusLabel, internalOnly, requireLogin). Null for pipeline firms not yet promoted to a tenant portal.
+   */
+  meta: FirmMeta | null;
   /**
    * Email of the admin who created this firm, captured from their session at creation time. Used to notify them when the build job finishes. Null for firms created before this field existed or outside an authenticated session.
 

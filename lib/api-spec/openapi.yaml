@@ -482,6 +482,46 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/ErrorEnvelope"
+    patch:
+      operationId: updateAdminFirm
+      tags: [admin]
+      summary: Update a firm's dataAuthority and/or portal meta (admin toggle)
+      description: >
+        Admin-only. Promotes dataAuthority (best_effort to strict) and/or
+        updates portal meta (statusLabel, internalOnly, requireLogin).
+        Invalidates the server-side portfolio bootstrap cache so
+        meta/requireLogin changes take effect on the next tenant load.
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateAdminFirmInput"
+      responses:
+        "200":
+          description: Updated firm
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Firm"
+        "400":
+          description: Invalid input
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+        "404":
+          description: Firm not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
 
   /admin/firms/{id}/companies:
     post:
@@ -1005,9 +1045,24 @@ components:
           type: string
           minLength: 1
 
+    FirmMeta:
+      type: object
+      required: [statusLabel, internalOnly]
+      properties:
+        statusLabel:
+          type: string
+        internalOnly:
+          type: boolean
+        requireLogin:
+          type: boolean
+          description: >
+            When true, the tenant portal for this firm requires an
+            authenticated admin session to view. Default/absent = false
+            (public). UI-gate only; the bootstrap API stays public.
+
     Firm:
       type: object
-      required: [id, name, website, slug, status, createdAt]
+      required: [id, name, website, slug, status, dataAuthority, meta, createdAt]
       properties:
         id:
           type: integer
@@ -1019,6 +1074,19 @@ components:
           type: string
         status:
           type: string
+        dataAuthority:
+          type: string
+          enum: [strict, best_effort]
+          description: >
+            "strict" firms fail loudly on bad data; "best_effort" degrade
+            gracefully. Promotion is always an explicit admin action.
+        meta:
+          description: >
+            Portal display metadata (statusLabel, internalOnly, requireLogin).
+            Null for pipeline firms not yet promoted to a tenant portal.
+          oneOf:
+            - $ref: "#/components/schemas/FirmMeta"
+            - type: "null"
         createdByEmail:
           type: [string, "null"]
           description: >
@@ -1060,7 +1128,7 @@ components:
 
     AdminFirmSummary:
       type: object
-      required: [id, name, website, slug, status, companyCount, createdAt, latestJob]
+      required: [id, name, website, slug, status, dataAuthority, meta, companyCount, createdAt, latestJob]
       properties:
         id:
           type: integer
@@ -1072,6 +1140,14 @@ components:
           type: string
         status:
           type: string
+        dataAuthority:
+          type: string
+          enum: [strict, best_effort]
+        meta:
+          description: Portal display metadata, or null for pipeline firms not yet promoted to a tenant portal.
+          oneOf:
+            - $ref: "#/components/schemas/FirmMeta"
+            - type: "null"
         companyCount:
           type: integer
         latestJob:
@@ -1326,6 +1402,18 @@ components:
           type: array
           items:
             type: integer
+
+    UpdateAdminFirmInput:
+      type: object
+      description: >
+        Partial update of a firm's admin-controlled fields. Only provided keys
+        are changed. `meta` replaces the whole portal-metadata object.
+      properties:
+        dataAuthority:
+          type: string
+          enum: [strict, best_effort]
+        meta:
+          $ref: "#/components/schemas/FirmMeta"
 
     AdminFirmConfirmResult:
       type: object
@@ -2237,6 +2325,11 @@ components:
           type: string
         internalOnly:
           type: boolean
+        requireLogin:
+          type: boolean
+          description: >
+            When true, the tenant portal requires an authenticated admin
+            session. Absent/false = public (no behavior change).
         companies:
           type: array
           items:

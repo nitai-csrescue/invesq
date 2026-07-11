@@ -12,5 +12,8 @@ export interface PortfolioBootstrapFirm {
   displayName: string;
   statusLabel: string;
   internalOnly: boolean;
+  /** When true, the tenant portal requires an authenticated admin session. Absent/false = public (no behavior change).
+   */
+  requireLogin?: boolean;
   companies: PortfolioCompany[];
 }

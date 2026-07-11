@@ -4,7 +4,7 @@ import { ReactNode } from "react";
 import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { Layout, BareLayout } from "@/components/layout/Layout";
-import { AdminLayout } from "@/components/layout/AdminLayout";
+import { AdminShell } from "@/components/admin/AdminShell";
 import { PersonaProvider } from "@/lib/persona";
 import { DemoTour } from "@/components/cs/DemoTour";
 import NotFound from "@/pages/not-found";
@@ -32,15 +32,15 @@ import PrenaxMethodology from "@/pages/prenax/Methodology";
 import PortfolioDashboard from "@/pages/portfolio/PortfolioDashboard";
 import PortfolioCompany from "@/pages/portfolio/PortfolioCompany";
 import PortfolioReport from "@/pages/portfolio/PortfolioReport";
-import FirmsIndex from "@/pages/portfolio/FirmsIndex";
 import RavigaGameplan from "@/pages/portfolio/RavigaGameplan";
 import RavigaFindings from "@/pages/portfolio/RavigaFindings";
 import RavigaBenchmarks from "@/pages/portfolio/RavigaBenchmarks";
 import RavigaRisk from "@/pages/portfolio/RavigaRisk";
 import RavigaDataSources from "@/pages/portfolio/RavigaDataSources";
-import AdminHome from "@/pages/AdminHome";
-import AdminFirmsList from "@/pages/admin/FirmsList";
-import AdminFirmReview from "@/pages/admin/FirmReview";
+import AdminFirmsIndex from "@/pages/admin/AdminFirmsIndex";
+import AdminPipeline from "@/pages/admin/AdminPipeline";
+import AdminInsights from "@/pages/admin/AdminInsights";
+import AdminFirmReviewRedirect from "@/pages/admin/FirmReviewRedirect";
 import AdminJobStatus from "@/pages/admin/JobStatus";
 import { ProtectedRoute } from "@/lib/protected-route";
 import { PortfolioDataProvider, PortfolioGate } from "@/data/portfolio/PortfolioDataProvider";
@@ -71,13 +71,15 @@ function Shell({ children }: { children: ReactNode }) {
     return <>{children}</>;
   }
 
-  // Admin surface is an internal tool with its own minimal chrome — never
-  // the client-facing demo shell (sidebar + header).
+  // Admin surface is the internal platform shell (dark sidebar / light canvas)
+  // — never the client-facing demo shell (sidebar + header). Its own routes
+  // are still individually gated by ProtectedRoute below.
   if (location === "/admin" || location.startsWith("/admin/")) {
-    return <AdminLayout>{children}</AdminLayout>;
+    return <AdminShell>{children}</AdminShell>;
   }
 
-  // Internal tenant index — standalone page.
+  // Legacy /firms path — redirected to /admin below; pass the Redirect through
+  // without wrapping it in the demo Layout chrome.
   if (location === "/firms") {
     return <>{children}</>;
   }
@@ -110,30 +112,41 @@ function Router() {
           <Route path="/platform/architecture" component={Architecture} />
           <Route path="/platform/ai-copilot" component={AICopilot} />
 
-          {/* Internal tenant index (unlinked) */}
-          <Route path="/firms" component={FirmsIndex} />
+          {/* Legacy tenant index — consolidated into /admin. */}
+          <Route path="/firms">{() => <Redirect to="/admin" />}</Route>
 
-          {/* Admin — gated to csrescue.com Google accounts. Must stay above the
-              /:firmSlug/* wildcard routes below or "admin" would be swallowed
-              as a firm slug. */}
+          {/* Admin platform — gated to csrescue.com Google accounts. Must stay
+              above the /:firmSlug/* wildcard routes below or "admin" would be
+              swallowed as a firm slug. */}
           <Route path="/admin">
             {() => (
               <ProtectedRoute>
-                <AdminHome />
+                <AdminFirmsIndex />
               </ProtectedRoute>
             )}
           </Route>
-          <Route path="/admin/firms">
+          <Route path="/admin/pipeline">
             {() => (
               <ProtectedRoute>
-                <AdminFirmsList />
+                <AdminPipeline />
               </ProtectedRoute>
             )}
           </Route>
+          <Route path="/admin/insights">
+            {() => (
+              <ProtectedRoute>
+                <AdminInsights />
+              </ProtectedRoute>
+            )}
+          </Route>
+          {/* Legacy admin firm list — consolidated into the /admin index. */}
+          <Route path="/admin/firms">{() => <Redirect to="/admin" />}</Route>
+          {/* Legacy firm-review screen — now the Admin Lens on the tenant
+              portal; this only maps the id → its portal and redirects. */}
           <Route path="/admin/firms/:id">
             {() => (
               <ProtectedRoute>
-                <AdminFirmReview />
+                <AdminFirmReviewRedirect />
               </ProtectedRoute>
             )}
           </Route>

@@ -811,6 +811,12 @@ export const GetPortfolioBootstrapResponse = zod.object({
       displayName: zod.string(),
       statusLabel: zod.string(),
       internalOnly: zod.boolean(),
+      requireLogin: zod
+        .boolean()
+        .optional()
+        .describe(
+          "When true, the tenant portal requires an authenticated admin session. Absent\/false = public (no behavior change).\n",
+        ),
       companies: zod.array(
         zod
           .object({
@@ -891,6 +897,24 @@ export const ListAdminFirmsResponseItem = zod.object({
   website: zod.string().nullable(),
   slug: zod.string(),
   status: zod.string(),
+  dataAuthority: zod.enum(["strict", "best_effort"]),
+  meta: zod
+    .union([
+      zod.object({
+        statusLabel: zod.string(),
+        internalOnly: zod.boolean(),
+        requireLogin: zod
+          .boolean()
+          .optional()
+          .describe(
+            "When true, the tenant portal for this firm requires an authenticated admin session to view. Default\/absent = false (public). UI-gate only; the bootstrap API stays public.\n",
+          ),
+      }),
+      zod.null(),
+    ])
+    .describe(
+      "Portal display metadata, or null for pipeline firms not yet promoted to a tenant portal.",
+    ),
   companyCount: zod.number(),
   latestJob: zod
     .union([
@@ -937,6 +961,28 @@ export const GetAdminFirmResponse = zod.object({
     website: zod.string().nullable(),
     slug: zod.string(),
     status: zod.string(),
+    dataAuthority: zod
+      .enum(["strict", "best_effort"])
+      .describe(
+        '\"strict\" firms fail loudly on bad data; \"best_effort\" degrade gracefully. Promotion is always an explicit admin action.\n',
+      ),
+    meta: zod
+      .union([
+        zod.object({
+          statusLabel: zod.string(),
+          internalOnly: zod.boolean(),
+          requireLogin: zod
+            .boolean()
+            .optional()
+            .describe(
+              "When true, the tenant portal for this firm requires an authenticated admin session to view. Default\/absent = false (public). UI-gate only; the bootstrap API stays public.\n",
+            ),
+        }),
+        zod.null(),
+      ])
+      .describe(
+        "Portal display metadata (statusLabel, internalOnly, requireLogin). Null for pipeline firms not yet promoted to a tenant portal.\n",
+      ),
     createdByEmail: zod
       .string()
       .nullish()
@@ -980,6 +1026,72 @@ export const GetAdminFirmResponse = zod.object({
 });
 
 /**
+ * Admin-only. Promotes dataAuthority (best_effort to strict) and/or updates portal meta (statusLabel, internalOnly, requireLogin). Invalidates the server-side portfolio bootstrap cache so meta/requireLogin changes take effect on the next tenant load.
+
+ * @summary Update a firm's dataAuthority and/or portal meta (admin toggle)
+ */
+export const UpdateAdminFirmParams = zod.object({
+  id: zod.coerce.number(),
+});
+
+export const UpdateAdminFirmBody = zod
+  .object({
+    dataAuthority: zod.enum(["strict", "best_effort"]).optional(),
+    meta: zod
+      .object({
+        statusLabel: zod.string(),
+        internalOnly: zod.boolean(),
+        requireLogin: zod
+          .boolean()
+          .optional()
+          .describe(
+            "When true, the tenant portal for this firm requires an authenticated admin session to view. Default\/absent = false (public). UI-gate only; the bootstrap API stays public.\n",
+          ),
+      })
+      .optional(),
+  })
+  .describe(
+    "Partial update of a firm's admin-controlled fields. Only provided keys are changed. `meta` replaces the whole portal-metadata object.\n",
+  );
+
+export const UpdateAdminFirmResponse = zod.object({
+  id: zod.number(),
+  name: zod.string(),
+  website: zod.string().nullable(),
+  slug: zod.string(),
+  status: zod.string(),
+  dataAuthority: zod
+    .enum(["strict", "best_effort"])
+    .describe(
+      '\"strict\" firms fail loudly on bad data; \"best_effort\" degrade gracefully. Promotion is always an explicit admin action.\n',
+    ),
+  meta: zod
+    .union([
+      zod.object({
+        statusLabel: zod.string(),
+        internalOnly: zod.boolean(),
+        requireLogin: zod
+          .boolean()
+          .optional()
+          .describe(
+            "When true, the tenant portal for this firm requires an authenticated admin session to view. Default\/absent = false (public). UI-gate only; the bootstrap API stays public.\n",
+          ),
+      }),
+      zod.null(),
+    ])
+    .describe(
+      "Portal display metadata (statusLabel, internalOnly, requireLogin). Null for pipeline firms not yet promoted to a tenant portal.\n",
+    ),
+  createdByEmail: zod
+    .string()
+    .nullish()
+    .describe(
+      "Email of the admin who created this firm, captured from their session at creation time. Used to notify them when the build job finishes. Null for firms created before this field existed or outside an authenticated session.\n",
+    ),
+  createdAt: zod.coerce.date(),
+});
+
+/**
  * @summary Add a company to a firm under review
  */
 export const AddAdminFirmCompanyParams = zod.object({
@@ -1011,6 +1123,28 @@ export const ConfirmAdminFirmResponse = zod.object({
     website: zod.string().nullable(),
     slug: zod.string(),
     status: zod.string(),
+    dataAuthority: zod
+      .enum(["strict", "best_effort"])
+      .describe(
+        '\"strict\" firms fail loudly on bad data; \"best_effort\" degrade gracefully. Promotion is always an explicit admin action.\n',
+      ),
+    meta: zod
+      .union([
+        zod.object({
+          statusLabel: zod.string(),
+          internalOnly: zod.boolean(),
+          requireLogin: zod
+            .boolean()
+            .optional()
+            .describe(
+              "When true, the tenant portal for this firm requires an authenticated admin session to view. Default\/absent = false (public). UI-gate only; the bootstrap API stays public.\n",
+            ),
+        }),
+        zod.null(),
+      ])
+      .describe(
+        "Portal display metadata (statusLabel, internalOnly, requireLogin). Null for pipeline firms not yet promoted to a tenant portal.\n",
+      ),
     createdByEmail: zod
       .string()
       .nullish()
@@ -1046,6 +1180,28 @@ export const RefreshAdminFirmResponse = zod.object({
     website: zod.string().nullable(),
     slug: zod.string(),
     status: zod.string(),
+    dataAuthority: zod
+      .enum(["strict", "best_effort"])
+      .describe(
+        '\"strict\" firms fail loudly on bad data; \"best_effort\" degrade gracefully. Promotion is always an explicit admin action.\n',
+      ),
+    meta: zod
+      .union([
+        zod.object({
+          statusLabel: zod.string(),
+          internalOnly: zod.boolean(),
+          requireLogin: zod
+            .boolean()
+            .optional()
+            .describe(
+              "When true, the tenant portal for this firm requires an authenticated admin session to view. Default\/absent = false (public). UI-gate only; the bootstrap API stays public.\n",
+            ),
+        }),
+        zod.null(),
+      ])
+      .describe(
+        "Portal display metadata (statusLabel, internalOnly, requireLogin). Null for pipeline firms not yet promoted to a tenant portal.\n",
+      ),
     createdByEmail: zod
       .string()
       .nullish()

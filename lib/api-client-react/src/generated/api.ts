@@ -39,6 +39,7 @@ import type {
   CreateAdminFirmResponse,
   Deployment,
   ErrorEnvelope,
+  Firm,
   GraphData,
   HandleBrowserLoginCallbackParams,
   HealthStatus,
@@ -58,6 +59,7 @@ import type {
   PortfolioBootstrap,
   Resource,
   SeedLegacyTenantsResult,
+  UpdateAdminFirmInput,
 } from "./api.schemas";
 
 import { customFetch } from "../custom-fetch";
@@ -2035,6 +2037,95 @@ export function useGetAdminFirm<
 
   return { ...query, queryKey: queryOptions.queryKey };
 }
+
+/**
+ * Admin-only. Promotes dataAuthority (best_effort to strict) and/or updates portal meta (statusLabel, internalOnly, requireLogin). Invalidates the server-side portfolio bootstrap cache so meta/requireLogin changes take effect on the next tenant load.
+
+ * @summary Update a firm's dataAuthority and/or portal meta (admin toggle)
+ */
+export const getUpdateAdminFirmUrl = (id: number) => {
+  return `/api/admin/firms/${id}`;
+};
+
+export const updateAdminFirm = async (
+  id: number,
+  updateAdminFirmInput: UpdateAdminFirmInput,
+  options?: RequestInit,
+): Promise<Firm> => {
+  return customFetch<Firm>(getUpdateAdminFirmUrl(id), {
+    ...options,
+    method: "PATCH",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(updateAdminFirmInput),
+  });
+};
+
+export const getUpdateAdminFirmMutationOptions = <
+  TError = ErrorType<ErrorEnvelope>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof updateAdminFirm>>,
+    TError,
+    { id: number; data: BodyType<UpdateAdminFirmInput> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof updateAdminFirm>>,
+  TError,
+  { id: number; data: BodyType<UpdateAdminFirmInput> },
+  TContext
+> => {
+  const mutationKey = ["updateAdminFirm"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof updateAdminFirm>>,
+    { id: number; data: BodyType<UpdateAdminFirmInput> }
+  > = (props) => {
+    const { id, data } = props ?? {};
+
+    return updateAdminFirm(id, data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type UpdateAdminFirmMutationResult = NonNullable<
+  Awaited<ReturnType<typeof updateAdminFirm>>
+>;
+export type UpdateAdminFirmMutationBody = BodyType<UpdateAdminFirmInput>;
+export type UpdateAdminFirmMutationError = ErrorType<ErrorEnvelope>;
+
+/**
+ * @summary Update a firm's dataAuthority and/or portal meta (admin toggle)
+ */
+export const useUpdateAdminFirm = <
+  TError = ErrorType<ErrorEnvelope>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof updateAdminFirm>>,
+    TError,
+    { id: number; data: BodyType<UpdateAdminFirmInput> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof updateAdminFirm>>,
+  TError,
+  { id: number; data: BodyType<UpdateAdminFirmInput> },
+  TContext
+> => {
+  return useMutation(getUpdateAdminFirmMutationOptions(options));
+};
 
 /**
  * @summary Add a company to a firm under review

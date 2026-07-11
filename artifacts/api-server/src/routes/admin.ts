@@ -1,7 +1,12 @@
 import { Router, type IRouter } from "express";
 import { and, count, desc, eq, inArray, like, notInArray } from "drizzle-orm";
 import { db, assessmentsTable, companiesTable, firmsTable, jobsTable } from "@workspace/db";
-import { AddAdminFirmCompanyBody, ConfirmAdminFirmBody, CreateAdminFirmBody } from "@workspace/api-zod";
+import {
+  AddAdminFirmCompanyBody,
+  ConfirmAdminFirmBody,
+  CreateAdminFirmBody,
+  UpdateAdminFirmBody,
+} from "@workspace/api-zod";
 import type {
   AdminFirmConfirmResult,
   AdminFirmDetail,
@@ -99,6 +104,8 @@ function toFirmResponse(row: typeof firmsTable.$inferSelect): Firm {
     website: row.website,
     slug: row.slug,
     status: row.status,
+    dataAuthority: row.dataAuthority,
+    meta: (row.meta as FirmMeta | null) ?? null,
     createdByEmail: row.createdByEmail,
     createdAt: row.createdAt,
   };
@@ -161,6 +168,8 @@ router.get("/firms", async (_req, res) => {
         website: firmsTable.website,
         slug: firmsTable.slug,
         status: firmsTable.status,
+        dataAuthority: firmsTable.dataAuthority,
+        meta: firmsTable.meta,
         createdAt: firmsTable.createdAt,
         companyCount: count(companiesTable.id),
       })
@@ -177,6 +186,8 @@ router.get("/firms", async (_req, res) => {
       website: row.website,
       slug: row.slug,
       status: row.status,
+      dataAuthority: row.dataAuthority,
+      meta: (row.meta as FirmMeta | null) ?? null,
       companyCount: Number(row.companyCount),
       latestJob: latestJobs.get(row.id) ?? null,
       createdAt: row.createdAt,
@@ -281,6 +292,56 @@ router.get("/firms/:id", async (req, res) => {
   } catch (err) {
     req.log.error({ err }, "Failed to load admin firm");
     res.status(500).json({ error: "Failed to load firm" });
+  }
+});
+
+// Admin toggle: promote dataAuthority and/or update portal meta
+// (statusLabel, internalOnly, requireLogin). Only provided keys change; `meta`
+// replaces the whole portal-metadata object. Invalidates the server-side
+// bootstrap cache so meta/requireLogin changes reach tenant pages immediately.
+router.patch("/firms/:id", async (req, res) => {
+  const id = Number(req.params.id);
+  if (!Number.isInteger(id) || id <= 0) {
+    res.status(400).json({ error: "Invalid firm id" });
+    return;
+  }
+
+  const parsed = UpdateAdminFirmBody.safeParse(req.body);
+  if (!parsed.success) {
+    res.status(400).json({ error: parsed.error.message });
+    return;
+  }
+
+  const { dataAuthority, meta } = parsed.data;
+  if (dataAuthority === undefined && meta === undefined) {
+    res.status(400).json({ error: "No updatable fields provided" });
+    return;
+  }
+
+  const updates: Partial<typeof firmsTable.$inferInsert> = {};
+  if (dataAuthority !== undefined) updates.dataAuthority = dataAuthority;
+  if (meta !== undefined) updates.meta = meta;
+
+  try {
+    const [updated] = await db
+      .update(firmsTable)
+      .set(updates)
+      .where(eq(firmsTable.id, id))
+      .returning();
+
+    if (!updated) {
+      res.status(404).json({ error: "Firm not found" });
+      return;
+    }
+
+    // meta (statusLabel/internalOnly/requireLogin) rides the public bootstrap,
+    // which is cached server-side — force the next load to re-read from the DB.
+    invalidatePortfolioCache();
+
+    res.json(toFirmResponse(updated));
+  } catch (err) {
+    req.log.error({ err }, "Failed to update admin firm");
+    res.status(500).json({ error: "Failed to update firm" });
   }
 });
 

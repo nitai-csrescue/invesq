@@ -70,12 +70,18 @@ export interface Firm {
   displayName: string;
   statusLabel: string;   // e.g. "Design-partner preview"
   internalOnly: boolean; // when true, the rose "internal" pill is shown on the dashboard
+  // When true, the tenant portal requires an authenticated admin session to
+  // view. Absent/false = public (the default; no behavior change).
+  requireLogin?: boolean;
 }
 
 // Portal display metadata stored in the firms.meta jsonb column.
 export interface FirmMeta {
   statusLabel: string;
   internalOnly: boolean;
+  // See Firm.requireLogin. Persisted here so an admin can lock a tenant later
+  // without a rebuild; rides the (public) bootstrap so PortfolioGate can gate.
+  requireLogin?: boolean;
 }
 
 // ---------------------------------------------------------------------------
@@ -189,6 +195,7 @@ export interface PortfolioBootstrapFirm {
   displayName: string;
   statusLabel: string;
   internalOnly: boolean;
+  requireLogin?: boolean;
   companies: RawCompany[];
 }
 
