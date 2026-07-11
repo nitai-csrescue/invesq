@@ -11,15 +11,17 @@ export const GOOGLE_FONTS_LINK = `
 <link href="https://fonts.googleapis.com/css2?family=Source+Serif+4:wght@700;900&family=Public+Sans:ital,wght@0,400;0,500;0,600;0,700;1,400&family=IBM+Plex+Mono:wght@500;600&display=swap" rel="stylesheet">
 `;
 
-// `@page { size: 8.5in auto; margin: 0 }` + auto-height `.page` divs (with
-// `break-after: page` on all but the last) is the spec-verbatim pattern:
-// each `.page` renders at its natural content height rather than a fixed
-// 11in, and Chromium still emits exactly 7 physical PDF pages because each
-// `.page` is one paginated unit. Combined with `preferCSSPageSize: true` in
-// renderPdf.ts.
+// `@page { size: 8.5in 11in; margin: 0 }` + fixed-height `.page` divs (with
+// `break-after: page` on all but the last) pins every page to a physical US
+// Letter box so the running header and the position:absolute footer sit flush
+// against the true top/bottom page edges on EVERY page, not floating below
+// short content. `.page { height: 11in; overflow: hidden }` clips anything that
+// would exceed the box. Chromium still emits exactly 7 physical PDF pages
+// because each `.page` is one paginated unit. Combined with
+// `preferCSSPageSize: true` in renderPdf.ts.
 export const BASE_STYLES = `
   @page {
-    size: 8.5in auto;
+    size: 8.5in 11in;
     margin: 0;
   }
 
@@ -42,7 +44,9 @@ export const BASE_STYLES = `
   .page {
     position: relative;
     width: 8.5in;
+    height: 11in;
     padding: 0.5in 0.55in 0.75in 0.55in;
+    overflow: hidden;
     break-after: page;
   }
 

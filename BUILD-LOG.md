@@ -825,3 +825,20 @@ curl -X POST https://<prod-domain>/api/admin/repair-assessments-dedup \
   - Verified rendered PDFs at text + pixel level (pdftotext + pdftoppm) for nomis-solutions (stg, sendable) and profisee (pamlico, internal).
 
 ---
+
+## INVESQ diagnostic PDF refinement (composite panels + flush footers + parity audit)
+- Date: 2026-07-11 13:10 UTC
+- Status: complete
+- Files changed: artifacts/api-server/src/lib/pdf/pages/page1Cover.ts (compositePanel: dark navy header band + separate light stacked context panel); artifacts/api-server/src/lib/pdf/pages/page3Scorecard.ts (bottom score/tier cards: serif "N / D" + "Engagement Tier" header); artifacts/api-server/src/lib/pdf/components.ts (pageFooter left label distribution-aware); artifacts/api-server/src/lib/pdf/baseStyles.ts (fixed letter-height pages: @page 8.5in 11in, .page height:11in + overflow:hidden); artifacts/api-server/scripts/verify-pdf-portal-parity.ts + verify-pdf-portal-parity.runner.mjs (new PDF-vs-portal parity audit); artifacts/api-server/package.json (new "verify-pdf-parity" script)
+- Files changed count: 6 (5 tracked edits + new scripts dir)
+- Validation: typecheck:libs + @workspace/api-server + @workspace/cs-rescue typechecks PASS; verify-db-invariants PASSED (30 companies, 140 assessments, 1120 findings, 13 report_exports); NEW verify-pdf-parity PASSED (27 portal-visible companies, every numeric field — composite, denominator, tier id+label, all 8 pillar scores, name, assessment date — matches the portal engine; gap-title ordering differences reported as informational NOTE only, an intentional algorithm divergence that would need a forbidden RUBRIC_VERSION bump to reconcile); rendered + pixel-verified nomis-solutions (stg, sendable) and profisee (pamlico, internal) — both 7 pages @ 612x792 (letter).
+- Validation status: PASS
+- Republish needed: yes (api-server) — PDF layout changes ship on Republish; no schema/index/data change.
+- QA notes:
+  - PAGE 1 composite: dark navy header band (small-caps "COMPOSITE DIAGNOSTIC SCORE" + huge serif "N / D" + NA exclusion caption on the left; outlined amber "Tier N · Label" chip + tier.engagement on the right) sitting ABOVE a separate light (COLORS.neutral50) panel with three stacked small-caps subsections (COMPOSITE CONTEXT / EXISTING SYSTEMS / PATH FORWARD). Verified on both a low-score 1-NA company (nomis 3/14) and a high-score 1-NA company (profisee 13/14).
+  - PAGE 3 scorecard: two side-by-side cards below the pillar table — dark navy card (serif "N / D") + light amber card ("ENGAGEMENT TIER" small-caps header, "Tier N · Label", engagement descriptor).
+  - FLUSH FOOTERS: pages pinned to physical letter height (11in) with overflow hidden, so every page footer sits flush at the bottom edge (verified page 1, 3, and 7).
+  - PARITY AUDIT: verify-pdf-portal-parity recomputes the portal engine's view (getPortfolioBootstrap -> RawCompany) and hard-compares it against the PDF's getReportData pipeline for every portal-visible company; hard-fails on any numeric/tier/name/date mismatch, treats top-3 gap-title ordering as informational-only (PDF ranks by effective score, portal weakness-ranks). Non-portfolio firms without firms.meta are skipped (mainsail-partners). Runner esbuild-bundles to dist/scripts then dynamic-imports, mirroring build.mjs (api-server tsconfig scopes rootDir to src, so scripts/ is validated by esbuild at run time, not tsc).
+  - INVESQ branding everywhere; zero "CS Rescue" in either rendered PDF. RUBRIC_VERSION unchanged (stays "v5"); no tenant data or copy touched.
+
+---

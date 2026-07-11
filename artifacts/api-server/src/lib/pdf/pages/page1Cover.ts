@@ -1,4 +1,4 @@
-import { COLORS, RADII } from "../theme.js";
+import { COLORS, FONTS } from "../theme.js";
 import { esc, pageShell, eyebrow } from "../components.js";
 import { PREPARED_BY } from "../staticCopy.js";
 import type { ReportContext } from "../types.js";
@@ -23,41 +23,56 @@ function preparedCard(title: string, lines: Array<{ label: string; value: string
   `;
 }
 
+// Page 1 composite section: a dark navy header (huge serif "N / D" score +
+// outlined amber engagement-tier chip) sitting above a separate LIGHT panel
+// that stacks the three narrative subsections vertically. The score is always
+// meta.composite / meta.compositeMax (scored pillars only; Insufficient-Data
+// pillars are EXCLUDED from both numerator and denominator) — never the
+// tierComposite/16 figure used purely for tier banding (see types.ts).
 function compositePanel(ctx: ReportContext): string {
   const { reportData, meta, tier } = ctx;
 
-  return `
-    <div class="rounded-lg" style="background:${COLORS.navy500}; color:${COLORS.white}; padding:11px 14px; margin-top:7px;">
-      <div style="display:flex; align-items:flex-start; justify-content:space-between; gap:24px;">
-        <div>
-          <div style="font-size:24px; font-weight:800; line-height:1;">${meta.composite}<span style="font-size:13px; font-weight:500; opacity:0.75;">/${meta.compositeMax}</span></div>
-          <div class="label" style="color:${COLORS.white}; opacity:0.85; margin-top:3px;">Composite Diagnostic Score</div>
-          <div style="font-size:8px; font-style:italic; opacity:0.7; margin-top:2px; max-width:260px; line-height:1.25;">
-            Reflects only pillars with sufficient evidence to score; pillars marked "Insufficient Data" are excluded from both the score and the total.
-          </div>
-        </div>
-        <div style="text-align:right;">
-          <span class="pill" style="border:1.5px solid ${COLORS.orange500}; color:${COLORS.orange500}; background:transparent; padding:3px 10px; font-size:9px;">
-            Tier ${tier.id} &middot; ${esc(tier.label)}
-          </span>
-          <div style="font-size:8px; opacity:0.7; margin-top:3px; max-width:220px; line-height:1.25;">${esc(tier.engagement)}</div>
-        </div>
-      </div>
+  const naCount = 8 - meta.compositeMax / 2;
+  const allNA = meta.compositeMax === 0;
 
-      <div style="margin-top:8px; padding-top:8px; border-top:1px solid rgba(255,255,255,0.2); display:grid; grid-template-columns:1fr 1fr 1fr; gap:12px;">
+  const scoreDisplay = allNA
+    ? "&mdash;"
+    : `${meta.composite} <span style="opacity:0.5; font-weight:700;">/</span> ${meta.compositeMax}`;
+
+  const caption = allNA
+    ? "All 8 pillars returned Insufficient Data; tier assigned by substituting 1 point per pillar."
+    : naCount > 0
+      ? `${naCount} of 8 ${naCount === 1 ? "pillar" : "pillars"} Insufficient Data, excluded from the score (max reduced from 16 to ${meta.compositeMax}) and counted as 1 each for tier banding.`
+      : "All 8 pillars scored from external signal.";
+
+  const contextSection = (label: string, text: string) => `
+    <div>
+      <div class="label" style="color:${COLORS.navy600}; margin-bottom:3px;">${label}</div>
+      <div style="font-size:9px; line-height:1.4; color:${COLORS.slate700};">${esc(text) || "&mdash;"}</div>
+    </div>
+  `;
+
+  return `
+    <div class="rounded-lg" style="background:${COLORS.navy500}; color:${COLORS.white}; padding:14px 16px; margin-top:8px;">
+      <div style="display:flex; align-items:center; justify-content:space-between; gap:24px;">
         <div>
-          <div class="label" style="color:${COLORS.white}; opacity:0.8; margin-bottom:2px;">Composite Context</div>
-          <div style="font-size:8px; line-height:1.22; opacity:0.92;">${esc(reportData.compositeContext) || "&mdash;"}</div>
+          <div class="label" style="color:${COLORS.white}; opacity:0.8;">Composite Diagnostic Score</div>
+          <div style="font-family:${FONTS.serif}; font-weight:800; font-size:36px; line-height:1.05; margin-top:4px; letter-spacing:-0.01em;">${scoreDisplay}</div>
+          <div style="font-size:8px; font-style:italic; opacity:0.72; margin-top:6px; max-width:320px; line-height:1.3;">${caption}</div>
         </div>
-        <div>
-          <div class="label" style="color:${COLORS.white}; opacity:0.8; margin-bottom:2px;">Existing Systems</div>
-          <div style="font-size:8px; line-height:1.22; opacity:0.92;">${esc(reportData.existingSystems) || "&mdash;"}</div>
-        </div>
-        <div>
-          <div class="label" style="color:${COLORS.white}; opacity:0.8; margin-bottom:2px;">Path Forward</div>
-          <div style="font-size:8px; line-height:1.22; opacity:0.92;">${esc(reportData.pathForward) || "&mdash;"}</div>
+        <div style="text-align:right; flex-shrink:0;">
+          <span class="pill" style="border:1.5px solid ${COLORS.orange500}; color:${COLORS.orange500}; background:transparent; padding:4px 12px; font-size:9.5px;">Tier ${tier.id} &middot; ${esc(tier.label)}</span>
+          <div style="font-size:8.5px; opacity:0.78; margin-top:5px; max-width:210px; line-height:1.3;">${esc(tier.engagement)}</div>
         </div>
       </div>
+    </div>
+
+    <div class="card" style="background:${COLORS.neutral50}; padding:12px 16px; margin-top:8px; display:flex; flex-direction:column; gap:9px;">
+      ${contextSection("Composite Context", reportData.compositeContext)}
+      <div style="height:1px; background:${COLORS.slate200};"></div>
+      ${contextSection("Existing Systems", reportData.existingSystems)}
+      <div style="height:1px; background:${COLORS.slate200};"></div>
+      ${contextSection("Path Forward", reportData.pathForward)}
     </div>
   `;
 }

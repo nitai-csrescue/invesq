@@ -66,6 +66,22 @@ export async function renderHtmlToPdf(html: string): Promise<Buffer> {
     // typecheck; Puppeteer evaluates the string in the browser context.
     await page.evaluateHandle("document.fonts.ready");
 
+    // baseStyles.ts pins every `.page` to a fixed letter height with
+    // `overflow:hidden`, which keeps footers flush but would *silently* clip an
+    // unusually long narrative (exec summary, gaps, pillar evidence). Surface it
+    // in the logs instead of shipping a truncated page unnoticed. Log-only: a
+    // warning must never fail an on-demand PDF request. Evaluated as a string so
+    // this DOM-lib-free file needn't have `document` in scope to typecheck.
+    const overflow = (await page.evaluate(
+      `Array.from(document.querySelectorAll('.page')).map((el, i) => ({ index: i, scrollHeight: el.scrollHeight, clientHeight: el.clientHeight })).filter((p) => p.scrollHeight > p.clientHeight + 2)`,
+    )) as Array<{ index: number; scrollHeight: number; clientHeight: number }>;
+    if (overflow.length > 0) {
+      logger.warn(
+        { overflow },
+        "PDF render: one or more .page elements overflow the fixed letter height and will be clipped",
+      );
+    }
+
     const pdf = await page.pdf({
       printBackground: true,
       preferCSSPageSize: true,

@@ -41,7 +41,9 @@ export function pageHeader(pageNumber: number, ctx: ReportContext): string {
 // "INTERNAL — NOT FOR DISTRIBUTION" so an admin-only export can't be mistaken
 // for a client deliverable.
 export function pageFooter(pageNumber: number, ctx: ReportContext): string {
-  const left = ctx.sendable ? "Prepared by INVESQ" : "INVESQ &middot; Internal";
+  const left = ctx.sendable
+    ? "INVESQ &middot; Customer Success Diagnostic"
+    : "INVESQ &middot; Internal Diagnostic";
   const right = ctx.sendable
     ? `${esc(ctx.reportData.companyName)} &middot; Confidential`
     : `Internal &middot; Not for Distribution`;

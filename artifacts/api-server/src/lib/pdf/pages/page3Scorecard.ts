@@ -1,5 +1,5 @@
 import { PILLARS } from "@workspace/portfolio-engine";
-import { COLORS, RADII, SCORE_STATUS } from "../theme.js";
+import { COLORS, FONTS, RADII, SCORE_STATUS } from "../theme.js";
 import { esc, pageShell, legendPill, scoreBadge } from "../components.js";
 import { parseRawScore } from "../scoreParsing.js";
 import type { ReportContext } from "../types.js";
@@ -61,11 +61,16 @@ export function renderPage3(ctx: ReportContext): string {
 
     <div style="display:flex; gap:14px; margin-top:16px;">
       <div class="rounded-lg" style="flex:1; background:${COLORS.navy500}; color:${COLORS.white}; padding:14px 16px;">
-        <div class="label" style="color:${COLORS.white}; opacity:0.85; margin-bottom:5px;">Composite Diagnostic Score</div>
-        <div style="font-size:24px; font-weight:800;">${meta.composite}<span style="font-size:12px; font-weight:500; opacity:0.75;">/${meta.compositeMax}</span></div>
+        <div class="label" style="color:${COLORS.white}; opacity:0.85; margin-bottom:6px;">Composite Diagnostic Score</div>
+        <div style="font-family:${FONTS.serif}; font-weight:800; font-size:30px; line-height:1;">${
+          meta.compositeMax === 0
+            ? "&mdash;"
+            : `${meta.composite} <span style="opacity:0.5; font-weight:700;">/</span> ${meta.compositeMax}`
+        }</div>
       </div>
       <div class="rounded-lg" style="flex:2; background:#FBF3E7; border:1px solid #E9D8B8; padding:14px 16px;">
-        <div class="label" style="color:${COLORS.orange600}; margin-bottom:5px;">Tier ${tier.id} &middot; ${esc(tier.label)}</div>
+        <div class="label" style="color:${COLORS.orange600}; margin-bottom:6px;">Engagement Tier</div>
+        <div style="font-size:13px; font-weight:700; color:${COLORS.slate900}; margin-bottom:4px;">Tier ${tier.id} &middot; ${esc(tier.label)}</div>
         <div style="font-size:10px; line-height:1.5; color:${COLORS.slate700};">${esc(tier.engagement)}</div>
       </div>
     </div>
