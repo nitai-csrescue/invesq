@@ -58,7 +58,6 @@ import type {
   PatchResourceInput,
   PortfolioBootstrap,
   Resource,
-  SeedLegacyTenantsResult,
   UpdateAdminFirmInput,
 } from "./api.schemas";
 
@@ -2577,89 +2576,6 @@ export const useGenerateAdminCompanyReportExport = <
   return useMutation(
     getGenerateAdminCompanyReportExportMutationOptions(options),
   );
-};
-
-/**
- * Inserts firm/company/assessment rows for any of the 5 legacy demo tenant slugs (stg, pamlico, raviga, longarc, solen) not already present in the firms table. Any slug that already exists — including an unrelated real client firm — is left completely untouched and reported as "skipped". Safe to call repeatedly: a partial prior run (e.g. a crash mid-seed) only fills in whatever slugs are still missing on the next call.
-
- * @summary One-time idempotent seed of the 5 legacy demo tenants (stg/pamlico/raviga/longarc/solen)
- */
-export const getSeedLegacyTenantsUrl = () => {
-  return `/api/admin/seed-legacy-tenants`;
-};
-
-export const seedLegacyTenants = async (
-  options?: RequestInit,
-): Promise<SeedLegacyTenantsResult> => {
-  return customFetch<SeedLegacyTenantsResult>(getSeedLegacyTenantsUrl(), {
-    ...options,
-    method: "POST",
-  });
-};
-
-export const getSeedLegacyTenantsMutationOptions = <
-  TError = ErrorType<ErrorEnvelope>,
-  TContext = unknown,
->(options?: {
-  mutation?: UseMutationOptions<
-    Awaited<ReturnType<typeof seedLegacyTenants>>,
-    TError,
-    void,
-    TContext
-  >;
-  request?: SecondParameter<typeof customFetch>;
-}): UseMutationOptions<
-  Awaited<ReturnType<typeof seedLegacyTenants>>,
-  TError,
-  void,
-  TContext
-> => {
-  const mutationKey = ["seedLegacyTenants"];
-  const { mutation: mutationOptions, request: requestOptions } = options
-    ? options.mutation &&
-      "mutationKey" in options.mutation &&
-      options.mutation.mutationKey
-      ? options
-      : { ...options, mutation: { ...options.mutation, mutationKey } }
-    : { mutation: { mutationKey }, request: undefined };
-
-  const mutationFn: MutationFunction<
-    Awaited<ReturnType<typeof seedLegacyTenants>>,
-    void
-  > = () => {
-    return seedLegacyTenants(requestOptions);
-  };
-
-  return { mutationFn, ...mutationOptions };
-};
-
-export type SeedLegacyTenantsMutationResult = NonNullable<
-  Awaited<ReturnType<typeof seedLegacyTenants>>
->;
-
-export type SeedLegacyTenantsMutationError = ErrorType<ErrorEnvelope>;
-
-/**
- * @summary One-time idempotent seed of the 5 legacy demo tenants (stg/pamlico/raviga/longarc/solen)
- */
-export const useSeedLegacyTenants = <
-  TError = ErrorType<ErrorEnvelope>,
-  TContext = unknown,
->(options?: {
-  mutation?: UseMutationOptions<
-    Awaited<ReturnType<typeof seedLegacyTenants>>,
-    TError,
-    void,
-    TContext
-  >;
-  request?: SecondParameter<typeof customFetch>;
-}): UseMutationResult<
-  Awaited<ReturnType<typeof seedLegacyTenants>>,
-  TError,
-  void,
-  TContext
-> => {
-  return useMutation(getSeedLegacyTenantsMutationOptions(options));
 };
 
 /**

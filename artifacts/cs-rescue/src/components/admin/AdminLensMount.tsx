@@ -14,14 +14,26 @@ const AdminLensPanel = lazy(() => import("./AdminLensPanel"));
 // nothing (and loads nothing) unless the current viewer is an authenticated
 // admin — which, given admin auth is domain-restricted to csrescue.com Google
 // accounts, is the enforceable proxy for "is an INVESQ operator".
+//
+// The drawer's open state is owned by TenantShell (so the prominent "Admin
+// lens" button in the portal header can drive it); this component simply
+// threads it through to the lazy panel.
 // ---------------------------------------------------------------------------
-export function AdminLensMount({ firm }: { firm: Firm }) {
+export function AdminLensMount({
+  firm,
+  open,
+  onOpenChange,
+}: {
+  firm: Firm;
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+}) {
   const { isAuthenticated } = useAuth();
   if (!isAuthenticated) return null;
 
   return (
     <Suspense fallback={null}>
-      <AdminLensPanel firm={firm} />
+      <AdminLensPanel firm={firm} open={open} onOpenChange={onOpenChange} />
     </Suspense>
   );
 }

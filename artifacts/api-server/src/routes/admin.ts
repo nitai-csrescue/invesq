@@ -17,7 +17,6 @@ import type {
   CreateAdminFirmResponse,
   Firm,
   Job,
-  SeedLegacyTenantsResult,
 } from "@workspace/api-zod";
 import { LEGACY_FIRMS_META } from "@workspace/portfolio-engine/data";
 import type { FirmMeta } from "@workspace/portfolio-engine";
@@ -25,7 +24,6 @@ import { normalizeCompanyName } from "@workspace/portfolio-engine";
 import { runDiscoveryJob } from "../lib/jobs/discovery.js";
 import { runBuildJob } from "../lib/jobs/build.js";
 import { getOrigin } from "../lib/http.js";
-import { seedLegacyTenants } from "../lib/seedLegacyTenants.js";
 import { invalidatePortfolioCache } from "../lib/portfolioData.js";
 import { requireAdminAuth } from "../middlewares/authMiddleware.js";
 import {
@@ -733,20 +731,6 @@ router.get("/companies/:id/report-pdf", async (req, res) => {
     }
     req.log.error({ err, companyId: id }, "Failed to render report PDF");
     res.status(500).json({ error: "Failed to render report PDF" });
-  }
-});
-
-// One-time (idempotent) production data-repair endpoint: seeds the 5 legacy
-// demo tenants (stg/pamlico/raviga/longarc/solen) if any are missing from
-// `firms`. Auth is enforced by the router-level `requireAdminAuth` above.
-router.post("/seed-legacy-tenants", async (req, res) => {
-  try {
-    const results = await seedLegacyTenants();
-    const response: SeedLegacyTenantsResult = { results };
-    res.json(response);
-  } catch (err) {
-    req.log.error({ err }, "Failed to seed legacy tenants");
-    res.status(500).json({ error: "Failed to seed legacy tenants" });
   }
 });
 

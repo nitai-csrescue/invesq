@@ -63,11 +63,18 @@ import ExportPanel from "@/pages/admin/ExportPanel";
 // the report Export panel — all in a right-side drawer that floats over the
 // unchanged, shared tenant page.
 // ---------------------------------------------------------------------------
-export default function AdminLensPanel({ firm }: { firm: Firm }) {
+export default function AdminLensPanel({
+  firm,
+  open,
+  onOpenChange,
+}: {
+  firm: Firm;
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+}) {
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
-  const [open, setOpen] = useState(false);
   const [selected, setSelected] = useState<Set<number>>(new Set());
   const [initialized, setInitialized] = useState(false);
   const [newName, setNewName] = useState("");
@@ -255,19 +262,7 @@ export default function AdminLensPanel({ firm }: { firm: Firm }) {
   const requireLoginOn = data?.firm.meta?.requireLogin ?? firm.requireLogin ?? false;
 
   return (
-    <>
-      <button
-        type="button"
-        onClick={() => setOpen(true)}
-        className="fixed bottom-6 left-6 z-50 flex items-center gap-2 rounded-full border border-amber-500/40 px-4 py-2.5 text-sm font-medium text-amber-300 shadow-lg transition-all hover:brightness-110"
-        style={{ backgroundColor: "#1a2332" }}
-        data-testid="button-admin-lens"
-      >
-        <ShieldCheck className="h-4 w-4" />
-        Admin lens
-      </button>
-
-      <Sheet open={open} onOpenChange={setOpen}>
+    <Sheet open={open} onOpenChange={onOpenChange}>
         <SheetContent
           side="right"
           className="w-full overflow-y-auto sm:max-w-xl"
@@ -537,6 +532,5 @@ export default function AdminLensPanel({ firm }: { firm: Firm }) {
           )}
         </SheetContent>
       </Sheet>
-    </>
   );
 }

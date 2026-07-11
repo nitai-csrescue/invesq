@@ -1456,29 +1456,6 @@ export const GenerateAdminCompanyReportExportResponse = zod
   );
 
 /**
- * Inserts firm/company/assessment rows for any of the 5 legacy demo tenant slugs (stg, pamlico, raviga, longarc, solen) not already present in the firms table. Any slug that already exists — including an unrelated real client firm — is left completely untouched and reported as "skipped". Safe to call repeatedly: a partial prior run (e.g. a crash mid-seed) only fills in whatever slugs are still missing on the next call.
-
- * @summary One-time idempotent seed of the 5 legacy demo tenants (stg/pamlico/raviga/longarc/solen)
- */
-export const SeedLegacyTenantsResponse = zod.object({
-  results: zod.array(
-    zod.object({
-      slug: zod.string(),
-      displayName: zod.string(),
-      status: zod.enum(["seeded", "skipped"]),
-      companiesInserted: zod.number(),
-      assessmentsInserted: zod.number(),
-      reason: zod
-        .string()
-        .nullable()
-        .describe(
-          'Set when status is \"skipped\" — e.g. \"firm slug already exists\".',
-        ),
-    }),
-  ),
-});
-
-/**
  * Repairs the firm-level and company-status data on pipeline-onboarded (non-legacy) firms: (1) stamps the default "internal preview" firms.meta on any firm that is already "ready" but has no meta, and (2) resolves duplicate companies within a firm (same normalized name) by keeping the lowest-id active row and marking the rest "excluded" — a unification, never a delete. Leaves the 5 hand-authored legacy tenants completely untouched. Safe to call repeatedly. Note: this does NOT fabricate company CompanyMeta, so a firm built before the pipeline started writing full CompanyMeta still needs a re-run (POST /admin/firms/{id}/refresh) to render — backfill alone only fixes firm meta and duplicate rows.
 
  * @summary Idempotent data-repair for pipeline-onboarded firms

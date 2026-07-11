@@ -1,8 +1,9 @@
 import { type ReactNode, useEffect } from "react";
 import { Link, useLocation } from "wouter";
-import { Building2, GitBranch, Sparkles, ShieldCheck } from "lucide-react";
+import { ShieldCheck, type LucideIcon } from "lucide-react";
 import { useAuth } from "@workspace/replit-auth-web";
 import { Button } from "@/components/ui/button";
+import { ADMIN_NAV } from "./adminNav";
 
 // ---------------------------------------------------------------------------
 // AdminShell
@@ -12,28 +13,6 @@ import { Button } from "@/components/ui/button";
 // the ONE place /admin/* chrome is defined; it is never the client-facing demo
 // Shell (Sidebar + Header).
 // ---------------------------------------------------------------------------
-const NAV = [
-  {
-    href: "/admin",
-    label: "Firms",
-    icon: Building2,
-    match: (loc: string) => loc === "/admin" || loc.startsWith("/admin/firms"),
-  },
-  {
-    href: "/admin/pipeline",
-    label: "Pipeline",
-    icon: GitBranch,
-    match: (loc: string) =>
-      loc === "/admin/pipeline" || loc.startsWith("/admin/jobs"),
-  },
-  {
-    href: "/admin/insights",
-    label: "Insights",
-    icon: Sparkles,
-    match: (loc: string) => loc === "/admin/insights",
-  },
-] as const;
-
 function NavItem({
   href,
   label,
@@ -42,7 +21,7 @@ function NavItem({
 }: {
   href: string;
   label: string;
-  icon: typeof Building2;
+  icon: LucideIcon;
   active: boolean;
 }) {
   return (
@@ -100,7 +79,7 @@ export function AdminShell({ children }: { children: ReactNode }) {
 
         {/* Nav items */}
         <nav className="flex-1 overflow-y-auto space-y-0.5 px-3 py-4">
-          {NAV.map((item) => (
+          {ADMIN_NAV.map((item) => (
             <NavItem
               key={item.href}
               href={item.href}

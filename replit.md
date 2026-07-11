@@ -64,7 +64,7 @@ Tenant portal note: `/:firmSlug/portfolio/:companyId` matches on `companies.slug
 | GET | `/api/auth/user` | Current auth state (`{ user \| null }`) |
 | GET | `/api/login` · `/api/callback` · `/api/logout` | Replit OIDC login / callback / end-session |
 | POST | `/api/mobile-auth/token-exchange` · `/api/mobile-auth/logout` | Mobile auth |
-| * | `/api/admin/*` | Firm onboarding, report-data/export, seed-legacy-tenants (all `requireAdminAuth`) |
+| * | `/api/admin/*` | Firm onboarding, report-data/export (all `requireAdminAuth`) |
 
 ## Admin auth (`/admin`)
 
@@ -135,7 +135,3 @@ Postgres (Replit built-in) via `@workspace/db` (Drizzle). Tables: `users`, `sess
 ### One-time migration + parity
 
 `cs-rescue/scripts/migrate-portfolio-to-db.ts` (`migrate-portfolio`) copied the 5 tenants' hardcoded data into the DB (5 firms, 27 companies, 137 assessments — full history; Raviga alone = 120). Read-only against the TS files; refuses to run once `firms` has rows. `assessments.p1..p8` map 1:1 to `PILLARS` order (`org,onboarding,health,escalation,revenue,leadership,planning,ai`); `"NA"` stored literally. The `companies` table only carries `name` (not `RawCompany`'s id/sector/hq/ARR — those still live in the TS files). `scripts/verify-portfolio-parity.ts` (`verify-portfolio-parity`) recomputes each tenant's counts/avg from files vs DB and diffs them (zero-write); re-run anytime.
-
-### Production data repair: legacy tenant seed
-
-`POST /api/admin/seed-legacy-tenants` (admin-gated, `lib/seedLegacyTenants.ts`) repairs prod DBs missing some/all of the 5 legacy tenants (`stg`/`pamlico`/`raviga`/`longarc`/`solen`). Per-slug, idempotent, additive-only (slug-exact so it can't collide with a real client firm); each missing slug gets a `db.transaction` insert. Raw data lives in `lib/portfolio-engine/src/data/*` so the server can import it without the frontend package. Pre-flight validates via `buildFirmPortfolio` and calls `invalidatePortfolioCache()` after seeding. UI: a card on `/admin` (`AdminHome.tsx`) with a per-slug result table.

@@ -6,7 +6,7 @@
 - [Replit Auth domain-restricted admin gate](replit-auth-domain-gate.md) — OIDC claims don't expose the upstream IdP, so "Google accounts on X.com" must be enforced as an email-domain allowlist, checked server-side before session creation.
 - [OpenAPI/Orval widens fixed-length tuples](openapi-tuple-widening.md) — a hand-written `[number, number]` tuple becomes `number[]` through codegen; cast locally at the handoff point instead of loosening the domain type.
 - [Orval schema naming collision](orval-schema-naming-collision.md) — a component schema named exactly `<OperationId>Response` collides with Orval's auto-generated const of the same name.
-- [Testing OAuth-gated admin routes](testing-oauth-gated-admin-routes.md) — direct `sessions` row insert for curl-testing an API route, or a temporary NODE_ENV-gated login route for screenshotting UI, when no real IdP login is available.
+- [Testing OAuth-gated admin routes](testing-oauth-gated-admin-routes.md) — how to auth a session for testing when no real IdP login exists, plus the NODE_ENV-gate prod-bypass pitfall.
 - [Client-side gating ≠ API protection](admin-api-auth-gap.md) — a ProtectedRoute redirect on a page gives zero server-side protection to that page's API routes; verify by grepping route handlers, not by trusting docs/shared middleware.
 - [Portfolio tenant portal URL ids](portfolio-tenant-url-ids.md) — `/:firmSlug/portfolio/:companyId` matches on `companies.slug`, not the numeric DB id; AI-onboarded firms 404 there until `firms.ts` is updated too.
 - [LLM tone-policy prompts must strip names from evidence](report-export-tone-policy.md) — "never judge individuals" isn't enough; must explicitly forbid echoing names found in upstream evidence text too.
@@ -20,6 +20,6 @@
 - [New Express routes need restart](api-server-new-route-needs-restart.md) — a brand-new route file can 404 until the api-server workflow is explicitly restarted, even while other routes work.
 - [Dual-source audits: check behavior, not just storage](dual-source-vs-behavioral-fork.md) — "two sources of truth" can mean one storage layer with a hardcoded-list behavioral fork; verify which before proposing a fix.
 - [Parity-gate migration pattern](parity-gate-migration-pattern.md) — recompute independently from the DB and diff against the source; exit nonzero on any mismatch, never silently reconcile.
-- [Production data repair via two-Publish](prod-data-repair-two-publish.md) — agent cannot write to prod DB directly; only path is a temporary admin endpoint: remove conflicting schema indexes (Publish 1), call endpoint, re-add indexes (Publish 2).
+- [Production data repair via two-Publish](prod-data-repair-two-publish.md) — agent can't write prod DB directly; only path is a temporary admin endpoint plus the two-Publish index dance.
 - [PDF fixed-height overflow tradeoff](pdf-fixed-height-overflow.md) — pinning .page to fixed letter height for flush footers trades auto-growth; long narratives clip silently, so guard scrollHeight vs clientHeight in the render path.
 - [pg Pool crash loop](pg-pool-crash-loop.md) — a pg Pool with no `pool.on("error")` crash-loops prod on idle-connection termination; a reported client CPU peg was actually this server crash loop.

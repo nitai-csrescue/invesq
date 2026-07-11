@@ -111,7 +111,7 @@ function FirmCard({
 
   return (
     <div
-      className="flex flex-col rounded-xl border border-border bg-card p-5 transition-colors hover:border-primary/40"
+      className="flex h-full flex-col rounded-xl border border-border bg-card p-5 transition-colors hover:border-primary/40"
       data-testid={`admin-firm-card-${firm.slug}`}
     >
       {/* Header: identity */}
@@ -121,7 +121,9 @@ function FirmCard({
         </div>
         <div className="min-w-0 flex-1">
           <div className="flex items-center gap-2">
-            <span className="truncate font-semibold text-foreground">{firm.name}</span>
+            <span className="truncate font-semibold text-foreground" title={firm.name}>
+              {firm.name}
+            </span>
             {internalOnly && (
               <span title="Internal only">
                 <Lock className="h-3.5 w-3.5 text-muted-foreground" />
@@ -134,28 +136,31 @@ function FirmCard({
         </div>
       </div>
 
-      {/* Badges: lifecycle status · statusLabel · dataAuthority */}
-      <div className="mt-3 flex flex-wrap items-center gap-1.5">
+      {/* Badges: lifecycle status · statusLabel · dataAuthority — one line,
+          never wrapping; the variable-length statusLabel truncates + tooltips. */}
+      <div className="mt-3 flex items-center gap-1.5 overflow-hidden">
         <span
-          className={`inline-flex items-center rounded-full border px-2.5 py-0.5 text-[11px] font-medium ${statusPillClass(firm.status)}`}
+          className={`inline-flex shrink-0 items-center whitespace-nowrap rounded-full border px-2.5 py-0.5 text-[11px] font-medium ${statusPillClass(firm.status)}`}
+          title={`Status: ${firm.status}`}
         >
           {firm.status}
         </span>
         {statusLabel && (
           <span
-            className={`inline-flex items-center gap-1 rounded-full border px-2.5 py-0.5 text-[11px] font-medium ${
+            className={`inline-flex min-w-0 shrink items-center gap-1 rounded-full border px-2.5 py-0.5 text-[11px] font-medium ${
               internalOnly
                 ? "border-rose-500/30 bg-rose-500/10 text-rose-600"
                 : "border-border bg-muted/40 text-muted-foreground"
             }`}
+            title={statusLabel}
           >
-            {internalOnly && <ShieldAlert className="h-2.5 w-2.5" />}
-            {statusLabel}
+            {internalOnly && <ShieldAlert className="h-2.5 w-2.5 shrink-0" />}
+            <span className="truncate">{statusLabel}</span>
           </span>
         )}
         <span
-          className={`inline-flex items-center rounded-full border px-2.5 py-0.5 text-[11px] font-medium ${dataAuthorityClass(firm.dataAuthority)}`}
-          title="Data authority"
+          className={`inline-flex shrink-0 items-center whitespace-nowrap rounded-full border px-2.5 py-0.5 text-[11px] font-medium ${dataAuthorityClass(firm.dataAuthority)}`}
+          title={`Data authority: ${dataAuthorityLabel(firm.dataAuthority)}`}
         >
           {dataAuthorityLabel(firm.dataAuthority)}
         </span>
@@ -214,6 +219,9 @@ function FirmCard({
           No diagnostic yet.
         </p>
       )}
+
+      {/* Spacer pushes the footer to the bottom so cards align across rows */}
+      <div className="flex-1" />
 
       {/* Footer link → tenant portal (admin lens lives there) */}
       <div className="mt-4 flex items-center justify-end border-t border-border pt-3">
