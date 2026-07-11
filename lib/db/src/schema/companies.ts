@@ -43,16 +43,11 @@ export const companiesTable = pgTable(
   },
   (table) => [
     index("companies_firm_id_idx").on(table.firmId),
-    // Structural dedup guarantee (ARCHITECTURE-UNIFIED-DB.md Section 3.2 /
-    // Risk #2): at most one non-excluded company per (firm, normalizedName).
-    // Excluded rows are deliberately outside this constraint so a company
-    // can be excluded and later legitimately re-discovered/re-added under
-    // an intentionally similar name without a permanent DB-level block.
-    // Verified zero pre-existing violators via dedup-repair-companies.ts +
-    // normalize-name-matrix.ts before this index was added (see BUILD-LOG.md).
-    uniqueIndex("companies_firm_normalized_name_active_uq")
-      .on(table.firmId, table.normalizedName)
-      .where(sql`${table.status} <> 'excluded'`),
+    // companies_firm_normalized_name_active_uq TEMPORARILY REMOVED 2026-07-11:
+    // production has one duplicate (firm_id=1, name="ClarisHealth") pair.
+    // The repair endpoint sets company_id=6 status='excluded' in Publish 1,
+    // after which the partial index would apply cleanly. Re-added in Publish 2.
+    // See BUILD-LOG.md "Production conflicting-assessments repair".
   ],
 );
 

@@ -38,11 +38,12 @@ export const assessmentsTable = pgTable(
   },
   (table) => [
     index("assessments_company_id_idx").on(table.companyId),
-    // At most one assessment per company per calendar date — append-only
-    // history (a rescore on the same day should update that day's row, not
-    // silently create a second one). Verified against all 140 existing rows
-    // (0 pre-existing (companyId, date) duplicates) before this was added.
-    uniqueIndex("assessments_company_date_uq").on(table.companyId, table.date),
+    // assessments_company_date_uq TEMPORARILY REMOVED 2026-07-11:
+    // production has 6 duplicate (company_id, date) groups from a build-job
+    // retry storm (firm 1, 2026-07-10). A one-time repair endpoint
+    // (POST /api/admin/repair-assessments-dedup) will delete the 18 stale
+    // rows in Publish 1. This index is re-added in Publish 2 once data is
+    // clean. See BUILD-LOG.md "Production conflicting-assessments repair".
   ],
 );
 

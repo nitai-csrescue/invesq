@@ -1,6 +1,6 @@
 import { Router, type IRouter } from "express";
 import { and, count, desc, eq, inArray, like, notInArray } from "drizzle-orm";
-import { db, assessmentsTable, companiesTable, firmsTable, jobsTable } from "@workspace/db";
+import { db, assessmentsTable, companiesTable, firmsTable, jobsTable, reportExportsTable } from "@workspace/db";
 import { AddAdminFirmCompanyBody, ConfirmAdminFirmBody, CreateAdminFirmBody } from "@workspace/api-zod";
 import type {
   AdminFirmConfirmResult,
@@ -749,6 +749,71 @@ router.post("/backfill-pipeline-meta", async (req, res) => {
   } catch (err) {
     req.log.error({ err }, "Failed to backfill pipeline meta");
     res.status(500).json({ error: "Failed to backfill pipeline meta" });
+  }
+});
+
+// ─── ONE-TIME PRODUCTION DATA REPAIR — TEMPORARY, PUBLISH 1 OF 2 ──────────────
+// Owner-approved 2026-07-11. Deletes the 18 duplicate assessment rows created
+// by a build-job retry storm on 2026-07-10 (firm_id=1, pamlico-capital).
+// Canonical rows (ids 156-161, ~19:00 UTC) are KEPT; stale rows are deleted.
+// Also deletes 2 stale report_exports rows that reference deleted assessments,
+// and excludes the duplicate ClarisHealth company row (company_id=6).
+//
+// After this endpoint is called in production:
+//   1. Re-add assessments_company_date_uq + companies_firm_normalized_name_active_uq
+//      to lib/db/src/schema/ (see BUILD-LOG.md "Production conflicting-assessments repair")
+//   2. Remove this endpoint
+//   3. Publish 2 — both unique indexes apply cleanly
+//
+// This endpoint MUST be removed in Publish 2. It is admin-gated and idempotent.
+router.post("/repair-assessments-dedup", async (req, res) => {
+  const ASSESSMENT_IDS_TO_DELETE = [1, 2, 4, 3, 6, 7, 5, 9, 10, 8, 12, 13, 11, 15, 16, 14, 17, 18];
+  const REPORT_EXPORT_IDS_TO_DELETE = [2, 3];
+  const COMPANY_ID_TO_EXCLUDE = 6;
+
+  try {
+    // Step 1: Delete stale report_exports first (FK references assessments).
+    const deletedExports = await db
+      .delete(reportExportsTable)
+      .where(inArray(reportExportsTable.id, REPORT_EXPORT_IDS_TO_DELETE))
+      .returning({ id: reportExportsTable.id });
+
+    // Step 2: Delete the 18 duplicate assessment rows.
+    const deletedAssessments = await db
+      .delete(assessmentsTable)
+      .where(inArray(assessmentsTable.id, ASSESSMENT_IDS_TO_DELETE))
+      .returning({ id: assessmentsTable.id });
+
+    // Step 3: Exclude the duplicate ClarisHealth company row.
+    const updatedCompanies = await db
+      .update(companiesTable)
+      .set({ status: "excluded" })
+      .where(eq(companiesTable.id, COMPANY_ID_TO_EXCLUDE))
+      .returning({ id: companiesTable.id, status: companiesTable.status });
+
+    // Invalidate bootstrap cache so the next portfolio page load reflects clean state.
+    invalidatePortfolioCache();
+
+    req.log.info(
+      {
+        deletedAssessments: deletedAssessments.map((r) => r.id),
+        deletedReportExports: deletedExports.map((r) => r.id),
+        excludedCompanies: updatedCompanies.map((r) => r.id),
+      },
+      "repair-assessments-dedup: completed"
+    );
+
+    res.json({
+      ok: true,
+      deletedAssessments: deletedAssessments.map((r) => r.id),
+      deletedReportExports: deletedExports.map((r) => r.id),
+      excludedCompanies: updatedCompanies.map((r) => r.id),
+      message:
+        "Repair complete. Re-add both unique indexes to schema and remove this endpoint, then Publish 2.",
+    });
+  } catch (err) {
+    req.log.error({ err }, "repair-assessments-dedup: failed");
+    res.status(500).json({ error: "Repair failed", detail: String(err) });
   }
 });
 
