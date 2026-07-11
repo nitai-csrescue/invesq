@@ -730,3 +730,28 @@ curl -X POST https://<prod-domain>/api/admin/repair-assessments-dedup \
   3. Run the Step-4 verification queries from the prior entry (zero dup pairs, pamlico active count = 5, company 6 excluded, no orphan FKs).
   4. **Publish 2**: re-add `assessments_company_date_uq` + `companies_firm_normalized_name_active_uq` to the schema and remove this endpoint.
   
+  ---
+
+  ## 2026-07-11 — Publish 2: re-add unique indexes + remove repair endpoint
+
+  **Pre-check (read-only PRODUCTION audit, before any code change):**
+  - `SELECT company_id, date, COUNT(*) FROM assessments GROUP BY company_id, date HAVING COUNT(*) > 1` -> **zero rows** (no duplicate (company_id, date) pairs remain).
+  - `SELECT id FROM assessments ORDER BY id LIMIT 25` -> lowest id is **19** (no assessment ids in the 1-18 range remain; the Publish-1 repair deleted all 18).
+  - Both preconditions for Publish 2 satisfied, so proceeded with the code changes below.
+
+  **Changes (schema + endpoint removal, no data changes):**
+  - `lib/db/src/schema/assessments.ts`: re-added `uniqueIndex("assessments_company_date_uq").on(companyId, date)`.
+  - `lib/db/src/schema/companies.ts`: re-added the partial `uniqueIndex("companies_firm_normalized_name_active_uq").on(firmId, normalizedName).where(status <> 'excluded')`.
+  - `artifacts/api-server/src/routes/admin.ts`: removed the temporary `POST /api/admin/repair-assessments-dedup` endpoint (comment block + handler) and its now-unused imports (`findingsTable`, `notionSyncStateTable`, `reportExportsTable`). No other endpoints touched.
+  - `pnpm run typecheck:libs` + `@workspace/api-server` typecheck: **PASS**. `rg` confirms zero remaining references to `repair-assessments-dedup` anywhere in the repo (outside this log). (The `cs-rescue-video` full-typecheck failures are pre-existing and unrelated.)
+
+  **Migration mechanism:** `lib/db` uses drizzle `push` (config points at `src/schema/index.ts`; no migration-file directory). The pending schema diff, now including both unique indexes, is applied by the human clicking Republish. It applies cleanly because production data is deduplicated (verified above).
+
+  **After Publish 2:** `assessments_company_date_uq` becomes an immediately-effective live guard: a build-job retry re-inserting a duplicate assessment for the same (company, day) now errors at the INSERT instead of silently duplicating (this is the exact incident being repaired). Per the earlier Phase-5 note, that guard fails loudly rather than silently; a true skip-if-exists upsert in `scoreAndPersistCompany()` remains deferred to Phase 5.
+
+**Caveat on the companies index (do not overstate):** `companies_firm_normalized_name_active_uq` is created cleanly but is effectively INERT in production today. No live insert path (discovery.ts, build.ts, admin add-company) sets `companies.normalized_name`; only the one-time `backfill-unified-db.ts` script does, and production rows are almost certainly all NULL. Because Postgres treats NULLs as distinct in a unique index, this partial index provides ~zero dedup protection against a repeat of the original duplicate-company (ClarisHealth) discovery incident until (a) the insert paths populate `normalized_name` and (b) production rows are backfilled. Tracked as a follow-up, out of scope for this Publish-2 (schema + endpoint-removal) task.
+
+  **Next (human):** click Republish. No further code steps.
+
+  STATUS: READY FOR PUBLISH 2.
+  

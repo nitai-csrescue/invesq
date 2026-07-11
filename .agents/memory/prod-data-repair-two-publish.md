@@ -18,6 +18,6 @@ When the data being repaired violates a unique index you want to (re)enforce:
 ## Finding the REAL FK blocker (learned the hard way)
 A destructive parent-row delete that 500s in prod is almost always an unlisted FK child row. **Do not trust the prior diagnosis or a hardcoded child-id list** — audit prod read-only first:
 - Enumerate every table with an FK to the parent (grep `references(() => parentTable.id)` in `lib/db/src/schema/`), then `SELECT` each for rows referencing the ids being deleted.
-- Real incident: the endpoint hardcoded `reportExportIds = [2,3]` and assumed `findings` was the blocker. Prod truth: `findings`/`notion_sync_state` were empty; ids 2,3 were gone; the actual blockers were freshly-regenerated `report_exports` ids 4,5. Hardcoded child ids go stale as cache rows regenerate.
+- Real incident: the endpoint hardcoded a child-row id list and assumed the wrong table was the blocker. By the time it ran, the assumed-blocker tables were empty and the hardcoded child rows had been replaced by freshly-regenerated cache rows the list didn't cover, so the delete was a no-op and the real children still blocked the parent delete. Hardcoded child ids go stale as cache rows regenerate.
 
 **How to apply:** delete FK children **by the parent key** (`inArray(child.parentId, PARENT_IDS)`), never by hardcoded child ids. This is robust to regeneration, idempotent, and covers rows that didn't exist when the endpoint was written. Delete children before parent, all in one `db.transaction`, and log full child-row contents before deletion (guardrail).

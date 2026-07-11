@@ -38,12 +38,10 @@ export const assessmentsTable = pgTable(
   },
   (table) => [
     index("assessments_company_id_idx").on(table.companyId),
-    // assessments_company_date_uq TEMPORARILY REMOVED 2026-07-11:
-    // production has 6 duplicate (company_id, date) groups from a build-job
-    // retry storm (firm 1, 2026-07-10). A one-time repair endpoint
-    // (POST /api/admin/repair-assessments-dedup) will delete the 18 stale
-    // rows in Publish 1. This index is re-added in Publish 2 once data is
-    // clean. See BUILD-LOG.md "Production conflicting-assessments repair".
+    // Re-added in Publish 2 (2026-07-11) after the one-time repair cleared the
+    // duplicate (company_id, date) rows. This is the production guard against a
+    // build-job retry re-inserting a duplicate assessment for the same day.
+    uniqueIndex("assessments_company_date_uq").on(table.companyId, table.date),
   ],
 );
 
