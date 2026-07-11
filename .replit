@@ -54,5 +54,6 @@ channel = "stable-25_05"
 [userenv]
 
 [userenv.shared]
+VALIDATOR_EMAILS = "nitai@csrescue.com,jay@csrescue.com"
 
 [userenv.development]
