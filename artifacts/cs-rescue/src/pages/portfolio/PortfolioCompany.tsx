@@ -27,6 +27,7 @@ import {
 } from "recharts";
 import { ConfidenceBadge } from "@/components/portfolio/ConfidenceBadge";
 import { TenantShell } from "@/components/portfolio/TenantShell";
+import { TenantExportButton } from "@/components/portfolio/TenantExportButton";
 import {
   getFirm,
   getFirmCompany,
@@ -1275,12 +1276,20 @@ export default function PortfolioCompany() {
             </div>
           </div>
         </div>
-        <Link
-          href={`/${firm.slug}/portfolio/${company.id}/report`}
-          className="inline-flex items-center justify-center gap-2 rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground transition-opacity hover:opacity-90"
-        >
-          <FileText className="h-4 w-4" /> View sample diagnostic report
-        </Link>
+        <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
+          <Link
+            href={`/${firm.slug}/portfolio/${company.id}/report`}
+            className="inline-flex items-center justify-center gap-2 rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground transition-opacity hover:opacity-90"
+          >
+            <FileText className="h-4 w-4" /> View sample diagnostic report
+          </Link>
+          <TenantExportButton
+            firmSlug={firm.slug}
+            companySlug={company.id}
+            internalOnly={firm.internalOnly}
+            requireLogin={firm.requireLogin}
+          />
+        </div>
       </div>
 
       <p className="mt-4 text-center text-[11px] text-muted-foreground">

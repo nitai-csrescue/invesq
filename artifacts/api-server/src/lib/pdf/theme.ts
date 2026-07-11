@@ -83,7 +83,8 @@ export function scoreStatusFor(score: number | "NA" | null): ScoreStatus {
 // throughout (spec: "a four-point sparkle/star character").
 export const SPARKLE = "\u2726"; // ✦ BLACK FOUR POINTED STAR
 
-// 2026-07-10: dropped from 7 to 6 — the "Methodology & Sources" page
-// (page7Sources.ts) was removed from the render (incomplete source list).
-// See reportHtml.ts.
-export const TOTAL_PAGES = 6;
+// 7 pages: the "Methodology & Sources" page (page7Sources.ts) is rendered
+// again (sources framed as methodology categories, not fabricated URLs).
+// Consumed by pageFooter's "PAGE N OF T", so this single constant is the one
+// place the total is declared.
+export const TOTAL_PAGES = 7;

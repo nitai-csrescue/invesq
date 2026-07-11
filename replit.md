@@ -60,6 +60,7 @@ Tenant portal note: `/:firmSlug/portfolio/:companyId` matches on `companies.slug
 | GET | `/api/healthz` | Health check |
 | GET | `/api/build-status` | Latest parseable BUILD-LOG.md entry as JSON (public, no auth) |
 | GET | `/api/portfolio/bootstrap` | Live `firms`/`companies`/`assessments` reshaped to `RawCompany[]` |
+| GET | `/api/portfolio/:firmSlug/companies/:companySlug/report-pdf` | Public tenant PDF download (cache-only; 404 unresolved/non-active slug, 403 internal-only/login-gated, 409 no narrative) |
 | GET | `/api/auth/user` | Current auth state (`{ user \| null }`) |
 | GET | `/api/login` · `/api/callback` · `/api/logout` | Replit OIDC login / callback / end-session |
 | POST | `/api/mobile-auth/token-exchange` · `/api/mobile-auth/logout` | Mobile auth |

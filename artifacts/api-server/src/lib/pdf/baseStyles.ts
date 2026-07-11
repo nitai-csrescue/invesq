@@ -74,10 +74,16 @@ export const BASE_STYLES = `
   }
 
   h2.section-heading {
-    font-size: 15px;
-    font-weight: 700;
-    letter-spacing: -0.01em;
-    margin-bottom: 8px;
+    font-family: ${FONTS.sans};
+    font-size: 12px;
+    font-weight: 600;
+    font-variant-caps: all-small-caps;
+    text-transform: lowercase;
+    letter-spacing: 0.07em;
+    color: ${COLORS.navy600};
+    padding-bottom: 5px;
+    border-bottom: 1px solid ${COLORS.slate200};
+    margin: 0 0 12px 0;
   }
 
   p {

@@ -19,10 +19,8 @@ Originally (through prod incident 2026-07-10) the build job blind-`INSERT`ed one
 
 **How to apply:** the re-score transaction must delete EVERY table that FKs `assessments.id` before deleting the assessment, or the delete FK-violates. Today that is `report_exports`, `findings`, and `notion_sync_state` (the last has zero writers now — Phase 5 — but is deleted anyway so wiring it later can't turn a re-score into an FK landmine). Any new child table of `assessments` must be added to this delete list. Re-score does not regenerate `findings`; they are re-fanned-out by `scripts/backfill-unified-db.ts`, so `verify-db-invariants` (exactly 8 findings/assessment) only passes after that script runs — true for fresh builds too.
 
-## Notion "Portfolio Company Diagnostics" DB sharing gap (resolved 2026-07-10)
+## Notion writer resolves its target DB by title/search at runtime
 
-As of 2026-07-09, the Notion integration bot ("INVESQ Self-Serve", workspace "InvesQ") resolved fine and `NOTION_API_KEY` was valid, but `/v1/search` returned zero results — no databases/pages (including "Portfolio Company Diagnostics" and "fund profiles") were actually shared with the integration, despite the user believing they'd already shared them.
+The build-job Notion writer (`artifacts/api-server/src/lib/notion.ts`) searches by title at runtime rather than hardcoding a database id, so a database that is not shared with the integration surfaces as a clean, logged "database not found or not shared" failure rather than a crash.
 
-**Why:** the build-job Notion writer (`artifacts/api-server/src/lib/notion.ts`) searches by title at runtime rather than hardcoding a database id, so this showed up as a clean, logged "database not found or not shared" failure rather than a crash.
-
-**How to apply:** if asked to debug "Notion write isn't working" for an integration that resolves by title/search at runtime, verify sharing first (`/v1/search` from the integration's own key) before assuming a schema/property-mapping bug. Confirmed fixed 2026-07-10 once the database was actually shared — no code change was needed, matching the "runtime resolution" design.
+**How to apply:** if asked to debug "Notion write isn't working" for an integration that resolves by title/search at runtime, verify sharing first (`/v1/search` from the integration's own key) before assuming a schema/property-mapping bug — an unshared DB looks identical to a missing one.

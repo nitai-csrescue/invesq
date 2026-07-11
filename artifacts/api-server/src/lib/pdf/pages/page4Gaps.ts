@@ -44,5 +44,5 @@ export function renderPage4(ctx: ReportContext): string {
     ${cards}
   `;
 
-  return pageShell(4, reportData.companyName, body);
+  return pageShell(4, ctx, body);
 }

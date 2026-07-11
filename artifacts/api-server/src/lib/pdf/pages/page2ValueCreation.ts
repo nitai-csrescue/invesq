@@ -34,5 +34,5 @@ export function renderPage2(ctx: ReportContext): string {
     </p>
   `;
 
-  return pageShell(2, reportData.companyName, body);
+  return pageShell(2, ctx, body);
 }

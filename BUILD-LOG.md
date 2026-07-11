@@ -809,3 +809,19 @@ curl -X POST https://<prod-domain>/api/admin/repair-assessments-dedup \
   - REPORTED-vs-ACTUAL: the assigned symptom was a client-side CPU peg on authed /admin. That is NOT present in current code: the entire authed /admin tree was read and is provably loop-free (no while/for(;;)/recursion/Array(n) fills, no ErrorBoundary retry, no WebSocket/SSE/tight poller, no prod-only env branch), and a Playwright repro of authed /admin against a prod-like dynamic firm rendered cleanly (no console errors, no React #185, no hang). /admin only appears "frozen" because its data calls hit the restarting server. Lesson: check deployment logs for a crashing server before chasing a client render loop.
   - Removed the temporary NODE_ENV-gated /api/dev/test-login reproduction route (unsafe gate: the prod `start` script never sets NODE_ENV, so the route could have mounted in prod) plus its now-unused ALLOWED_EMAIL_DOMAIN import; cleaned the dev-admin-repro user + all matching sessions from the dev DB.
   - LEFT UNTOUCHED per scope: no client code changed; no schema/index change; no tenant data/copy/scoring changes.
+
+## INVESQ diagnostic PDF rebuild (distribution-aware, 7-page)
+- Date: 2026-07-11 08:30 UTC
+- Status: complete
+- Files changed: artifacts/api-server/src/lib/reportExport.ts (FirmDistribution + getFirmDistribution + resolveCompanyBySlug + latest-assessment tiebreak); artifacts/api-server/src/lib/pdf/{theme.ts,components.ts,baseStyles.ts,staticCopy.ts,types.ts,reportHtml.ts}; artifacts/api-server/src/lib/pdf/pages/{page1..page6,page7Sources.ts}; artifacts/api-server/src/routes/{admin.ts,portfolio.ts}; artifacts/cs-rescue/src/components/portfolio/TenantExportButton.tsx (new); artifacts/cs-rescue/src/pages/portfolio/{PortfolioCompany.tsx,PortfolioReport.tsx}
+- Validation: typecheck:libs + api-server + cs-rescue all pass (full typecheck intentionally skipped — cs-rescue-video has pre-existing errors); verify-db-invariants PASSED; generated nomis-solutions v5 narrative (report_exports id 14) and rendered both test PDFs
+- Republish needed: yes
+- QA notes:
+  - Rebuilt the server-generated diagnostic PDF to match the handmade "CS Diagnostic" template per 10-point spec: 7 pages, page-1 single-column exec summary with distribution status pill, small-caps hairline section headers, 8-pillar scorecard (legend chips + table, "P n: Name" rows with right-aligned score badges), Top-3 gaps cards, restored page-7 SOURCES & METHODOLOGY, running header (pg2+) and "PAGE N OF 7" footer.
+  - Distribution-aware chrome: sendable firm (stg/nomis) renders "CLEARED FOR DISTRIBUTION" + "PREPARED BY INVESQ · CONFIDENTIAL"; internal firm (pamlico/profisee) renders "INTERNAL - NOT FOR DISTRIBUTION" stamps. metaToDistribution fails closed (null meta => internal).
+  - Insufficient-Data pillars shown as "— · Insufficient Data" (em-dash badge); composite from LATEST assessment excluding NA (13/14 profisee, 3/14 nomis) — no live 3/8 bug.
+  - New public tenant route GET /api/portfolio/:firmSlug/companies/:companySlug/report-pdf (cache-only, 404/403/409) + admin route now distribution-aware; both never call Claude. Shared TenantExportButton on tenant company-detail + report pages, hidden for internal-only/login-gated firms.
+  - INVESQ branding everywhere; zero "CS Rescue" in either rendered PDF. RUBRIC_VERSION unchanged (stays "v5").
+  - Verified rendered PDFs at text + pixel level (pdftotext + pdftoppm) for nomis-solutions (stg, sendable) and profisee (pamlico, internal).
+
+---

@@ -20,9 +20,11 @@ function pillarBlock(index: number, reportData: DiagnosticReportData, isLast: bo
 
   return `
     <div style="padding:5px 0; break-inside:avoid;">
-      <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:3px;">
-        <div style="font-weight:700; font-size:11px;">${esc(pillar.name)}</div>
-        ${scoreBadge(score, { compact: true })}
+      <div style="display:flex; align-items:center; justify-content:space-between; gap:12px; margin-bottom:3px;">
+        <div style="font-weight:700; font-size:11px;">
+          <span style="font-family:'IBM Plex Mono', monospace; color:${COLORS.orange600};">P${index + 1}</span>: ${esc(pillar.name)}
+        </div>
+        <div style="flex-shrink:0;">${scoreBadge(score, { compact: true })}</div>
       </div>
       <p style="font-size:9.5px; line-height:1.32;">
         ${esc(evidence) || `<span style="color:${COLORS.slate500}; font-style:italic;">No evidence on file for this pillar.</span>`}
@@ -47,5 +49,5 @@ export function renderPage5(ctx: ReportContext): string {
     ${blocks}
   `;
 
-  return pageShell(5, reportData.companyName, body);
+  return pageShell(5, ctx, body);
 }

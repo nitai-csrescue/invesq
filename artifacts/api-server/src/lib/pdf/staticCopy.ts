@@ -45,8 +45,11 @@ export const INITIATIVES: Array<{ initiative: string; outcome: string }> = [
 export const METHODOLOGY_PARAGRAPH =
   "This diagnostic is built entirely from public, verifiable signals: company websites, job postings, product and pricing pages, and other publicly observable operational evidence. It does not rely on internal data access, customer interviews, or vendor-provided metrics. Each of the eight pillars below is scored against a fixed rubric (0 = Infrastructure Gap, 1 = Partial, 2 = Optimized, or Insufficient Data where public signal is too thin to score responsibly), so that scores are comparable across companies and over time.";
 
+// Org is INVESQ per the mandatory INVESQ-branding rule (replit.md + spec):
+// all user-visible chrome says INVESQ, never the legacy "CS Rescue". No email
+// is included: INVESQ has no established public contact address in this app,
+// and fabricating a domain/inbox would be worse than omitting it.
 export const PREPARED_BY = {
   name: "Nitai Vinitzky",
-  org: "CS Rescue",
-  email: "nitai@csrescue.com",
+  org: "INVESQ",
 };

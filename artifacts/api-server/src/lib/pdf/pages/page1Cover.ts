@@ -79,7 +79,11 @@ export function renderPage1(ctx: ReportContext): string {
         <h1 style="font-family:'Source Serif 4', Georgia, serif; font-weight:800; font-size:24px; color:${COLORS.slate900}; letter-spacing:-0.01em;">
           ${esc(reportData.companyName)}
         </h1>
-        <span class="label" style="color:${COLORS.slate500};">Confidential</span>
+        ${
+          ctx.sendable
+            ? `<span class="pill" style="border:1.5px solid ${COLORS.orange500}; color:${COLORS.orange500}; padding:3px 10px; font-size:8.5px;">Cleared for Distribution</span>`
+            : `<span class="pill" style="border:1.5px solid ${COLORS.danger500}; color:${COLORS.danger500}; padding:3px 10px; font-size:8.5px;">Internal &middot; Not for Distribution</span>`
+        }
       </div>
     </div>
 
@@ -92,16 +96,15 @@ export function renderPage1(ctx: ReportContext): string {
       ${preparedCard("Prepared By", [
         { label: "Name", value: PREPARED_BY.name },
         { label: "Organization", value: PREPARED_BY.org },
-        { label: "Email", value: PREPARED_BY.email },
         { label: "Date", value: reportData.reportDate },
       ])}
     </div>
 
-    <h2 class="section-heading" style="margin-bottom:4px;">Executive Summary</h2>
-    <div style="column-count:2; column-gap:16px;">${execSummaryHtml}</div>
+    <h2 class="section-heading">Executive Summary</h2>
+    <div>${execSummaryHtml}</div>
 
     ${compositePanel(ctx)}
   `;
 
-  return pageShell(1, reportData.companyName, body);
+  return pageShell(1, ctx, body);
 }

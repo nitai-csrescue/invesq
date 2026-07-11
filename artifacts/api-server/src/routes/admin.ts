@@ -32,6 +32,7 @@ import {
   getReportData,
   getOrGenerateReportExport,
   getCompanyWebsite,
+  getFirmDistribution,
   CompanyNotFoundError,
   NoAssessmentError,
 } from "../lib/reportExport.js";
@@ -683,13 +684,15 @@ router.post("/companies/:id/report-export", async (req, res) => {
   }
 });
 
-// Renders the branded "CS Rescue" Diagnostic Report PDF (7-page print
-// template, see lib/pdf/) for a company's latest assessment. Read-only —
-// reuses the same cache-only `getReportData` as the JSON export route, so it
-// never calls Claude and is safe to hit repeatedly. Requires a previously
-// generated narrative (meta.generatedAt) since the PDF's narrative sections
-// (exec summary, composite context, next steps, etc.) would otherwise render
-// as designed-blank placeholders — 409 tells the admin to generate first.
+// Renders the branded INVESQ Diagnostic Report PDF (7-page print template, see
+// lib/pdf/) for a company's latest assessment. Read-only — reuses the same
+// cache-only `getReportData` as the JSON export route, so it never calls Claude
+// and is safe to hit repeatedly. Requires a previously generated narrative
+// (meta.generatedAt) since the PDF's narrative sections (exec summary,
+// composite context, next steps, etc.) would otherwise render as designed-blank
+// placeholders — 409 tells the admin to generate first. Admins may export a
+// company at ANY time; the chrome is stamped "INTERNAL — NOT FOR DISTRIBUTION"
+// unless the firm is sendable (not internal-only).
 router.get("/companies/:id/report-pdf", async (req, res) => {
   const id = Number(req.params.id);
   if (!Number.isInteger(id) || id <= 0) {
@@ -698,18 +701,24 @@ router.get("/companies/:id/report-pdf", async (req, res) => {
   }
 
   try {
-    const [data, website] = await Promise.all([getReportData(id), getCompanyWebsite(id)]);
+    const [data, website, distribution] = await Promise.all([
+      getReportData(id),
+      getCompanyWebsite(id),
+      getFirmDistribution(id),
+    ]);
 
     if (!data.meta.generatedAt) {
       res.status(409).json({ error: "Report narrative has not been generated yet for this assessment" });
       return;
     }
 
-    const html = buildReportPdfHtml(data, website);
+    const html = buildReportPdfHtml(data, website, distribution.sendable);
     const pdf = await renderHtmlToPdf(html);
 
     const safeCompanyName = data.reportData.companyName.replace(/[\\/:*?"<>|]/g, "").trim();
-    const filename = `${safeCompanyName} - CSRescue Diagnostic Report.pdf`;
+    const filename = distribution.sendable
+      ? `${safeCompanyName} - INVESQ Diagnostic Report.pdf`
+      : `${safeCompanyName} - INVESQ Diagnostic (Internal).pdf`;
     res.setHeader("Content-Type", "application/pdf");
     res.setHeader("Content-Disposition", `attachment; filename="${filename}"`);
     res.send(pdf);

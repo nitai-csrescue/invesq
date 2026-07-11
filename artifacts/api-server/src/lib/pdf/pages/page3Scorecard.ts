@@ -18,7 +18,7 @@ function scoreRow(index: number, reportData: DiagnosticReportData): string {
   return `
     <tr>
       <td style="padding:10px 14px; border-bottom:1px solid ${COLORS.slate200}; font-weight:600; vertical-align:top; width:22%;">
-        ${esc(pillar.name)}
+        <span style="font-family:'IBM Plex Mono', monospace; color:${COLORS.orange600}; font-weight:600;">P${index + 1}</span>: ${esc(pillar.name)}
       </td>
       <td style="padding:10px 14px; border-bottom:1px solid ${COLORS.slate200}; vertical-align:top; width:1%; white-space:nowrap;">
         ${scoreBadge(rawScore, { compact: true })}
@@ -40,7 +40,7 @@ export function renderPage3(ctx: ReportContext): string {
       ${legendPill(SCORE_STATUS["2"], "2")}
       ${legendPill(SCORE_STATUS["1"], "1")}
       ${legendPill(SCORE_STATUS["0"], "0")}
-      ${legendPill(SCORE_STATUS.na, "NA")}
+      ${legendPill(SCORE_STATUS.na, "\u2014")}
     </div>
   `;
 
@@ -76,5 +76,5 @@ export function renderPage3(ctx: ReportContext): string {
     </p>
   `;
 
-  return pageShell(3, reportData.companyName, body);
+  return pageShell(3, ctx, body);
 }

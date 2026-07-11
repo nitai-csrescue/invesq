@@ -1,7 +1,7 @@
 import { and, desc, eq } from "drizzle-orm";
 import { db, assessmentsTable, companiesTable, firmsTable, reportExportsTable } from "@workspace/db";
 import type { AdminCompanyReportData, DiagnosticReportData } from "@workspace/api-zod";
-import { PILLARS, getTier, textToScore } from "@workspace/portfolio-engine";
+import { PILLARS, getTier, textToScore, type FirmMeta } from "@workspace/portfolio-engine";
 import { getAnthropicClient, extractText, extractJsonFence } from "./anthropic.js";
 import { fetchScoringRubricText } from "./notion.js";
 import { redactNamedIndividuals } from "./nameRedaction.js";
@@ -56,7 +56,12 @@ async function loadCompanyContext(
     .select()
     .from(assessmentsTable)
     .where(eq(assessmentsTable.companyId, companyId))
-    .orderBy(desc(assessmentsTable.date))
+    // Match the portal's "latest assessment" selection exactly: max(date),
+    // then max(id) as a deterministic tiebreak. `assessments_company_date_uq`
+    // makes a same-date tie impossible today, but the explicit id ordering
+    // keeps the PDF's composite in lockstep with the portal engine (which
+    // takes the last of asc(date), asc(id)) even if that guard ever changes.
+    .orderBy(desc(assessmentsTable.date), desc(assessmentsTable.id))
     .limit(1);
   if (!assessment) throw new NoAssessmentError(`Company ${companyId} has no assessments yet`);
 
@@ -449,6 +454,59 @@ export async function getCompanyWebsite(companyId: number): Promise<string | nul
     .limit(1);
   if (!company) throw new CompanyNotFoundError(`Company ${companyId} not found`);
   return company.website;
+}
+
+// Distribution posture for a company's owning firm, derived from the firm's
+// FirmMeta jsonb. Fail CLOSED: a null/missing meta is treated as internal-only
+// (not sendable) so a mis-seeded or pipeline-created firm can never leak a
+// client-facing "Prepared by INVESQ" PDF by accident. `requireLogin` firms are
+// additionally not exportable via the public tenant route.
+export interface FirmDistribution {
+  internalOnly: boolean;
+  requireLogin: boolean;
+  sendable: boolean;
+}
+
+function metaToDistribution(meta: FirmMeta | null): FirmDistribution {
+  const internalOnly = meta?.internalOnly ?? true;
+  const requireLogin = meta?.requireLogin ?? false;
+  return { internalOnly, requireLogin, sendable: !internalOnly };
+}
+
+export async function getFirmDistribution(companyId: number): Promise<FirmDistribution> {
+  const [row] = await db
+    .select({ meta: firmsTable.meta })
+    .from(companiesTable)
+    .innerJoin(firmsTable, eq(companiesTable.firmId, firmsTable.id))
+    .where(eq(companiesTable.id, companyId))
+    .limit(1);
+  if (!row) throw new CompanyNotFoundError(`Company ${companyId} not found`);
+  return metaToDistribution(row.meta as FirmMeta | null);
+}
+
+// Resolve a tenant portal URL (firms.slug + companies.slug) to a numeric
+// company id plus its firm's distribution posture, for the public tenant PDF
+// route. Returns null when either slug does not match an ACTIVE company row —
+// candidate/excluded companies are never publicly downloadable even under a
+// sendable firm.
+export async function resolveCompanyBySlug(
+  firmSlug: string,
+  companySlug: string,
+): Promise<{ companyId: number } & FirmDistribution | null> {
+  const [row] = await db
+    .select({ companyId: companiesTable.id, meta: firmsTable.meta })
+    .from(companiesTable)
+    .innerJoin(firmsTable, eq(companiesTable.firmId, firmsTable.id))
+    .where(
+      and(
+        eq(firmsTable.slug, firmSlug),
+        eq(companiesTable.slug, companySlug),
+        eq(companiesTable.status, "active"),
+      ),
+    )
+    .limit(1);
+  if (!row) return null;
+  return { companyId: row.companyId, ...metaToDistribution(row.meta as FirmMeta | null) };
 }
 
 // Read-only: serves a previously-generated report_exports row for the

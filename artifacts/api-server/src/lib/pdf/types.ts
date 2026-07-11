@@ -19,4 +19,10 @@ export interface ReportContext {
   // Not part of DiagnosticReportData — fetched separately from the
   // `companies` row for the Page 7 Sources list.
   companyWebsite: string | null;
+  // Whether this render is cleared for external distribution (firm is NOT
+  // internal-only). Drives the chrome variant: sendable => "Prepared by
+  // INVESQ" / "Confidential"; not sendable => "INTERNAL — NOT FOR
+  // DISTRIBUTION". Public tenant exports are only ever produced with
+  // sendable=true; admin exports set it per the firm's posture.
+  sendable: boolean;
 }

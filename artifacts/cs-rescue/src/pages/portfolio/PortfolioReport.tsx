@@ -3,6 +3,7 @@ import { ArrowLeft, FileText, Info, TrendingDown } from "lucide-react";
 import { ConfidenceBadge } from "@/components/portfolio/ConfidenceBadge";
 import { TenantShell } from "@/components/portfolio/TenantShell";
 import { PillarScorecard } from "@/components/portfolio/PillarScorecard";
+import { TenantExportButton } from "@/components/portfolio/TenantExportButton";
 import {
   AS_OF_DATE,
   PILLAR_MAX,
@@ -243,6 +244,15 @@ export default function PortfolioReport() {
             demonstration purposes.
           </span>
         </div>
+      </div>
+
+      <div className="mt-6 flex justify-center">
+        <TenantExportButton
+          firmSlug={firm.slug}
+          companySlug={company.id}
+          internalOnly={firm.internalOnly}
+          requireLogin={firm.requireLogin}
+        />
       </div>
 
       <p className="mt-4 text-center text-[11px] text-muted-foreground">
