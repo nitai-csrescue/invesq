@@ -755,3 +755,21 @@ curl -X POST https://<prod-domain>/api/admin/repair-assessments-dedup \
 
   STATUS: READY FOR PUBLISH 2.
   
+---
+
+## 2026-07-11 - Pipeline write-path hardening + build-status/bootstrap robustness
+
+- Date: 2026-07-11
+- Status: Complete (code committed; awaiting human Republish for the prod normalized_name backfill and the build-status fix to take effect).
+- Files changed: artifacts/api-server/src/lib/jobs/build.ts, artifacts/api-server/src/lib/jobs/discovery.ts, artifacts/api-server/src/routes/admin.ts, artifacts/api-server/src/lib/backfillNormalizedNames.ts (new), artifacts/api-server/src/index.ts, artifacts/api-server/src/lib/buildLog.ts, artifacts/api-server/build.mjs, artifacts/cs-rescue/src/data/portfolio/PortfolioDataProvider.tsx, replit.md, BUILD-LOG.md.
+- Validation: typecheck:libs + @workspace/api-server + @workspace/cs-rescue typechecks PASS; verify-db-invariants PASS (30 companies, 140 assessments, 1120 findings, 12 report_exports, zero duplicate (companyId,date) pairs); startup normalized_name backfill ran clean in dev (no-op, 0 NULL rows). cs-rescue-video full-typecheck failures are pre-existing and unrelated.
+- Files changed count: 10
+- Validation status: PASS
+- Republish needed: Yes (api-server). On Republish: (1) backfillCompanyNormalizedNames() fills any NULL companies.normalized_name in prod (idempotent, non-fatal, row-by-row), making companies_firm_normalized_name_active_uq an effective dedup guard; (2) build.mjs ships BUILD-LOG.md into dist/ so GET /api/build-status returns real entries in prod. No schema or index change ships in this step.
+- QA notes:
+  - build.ts scoreAndPersistCompany now REPLACES an existing (companyId, date) assessment inside a transaction (delete report_exports, then findings, then notion_sync_state, then the assessment, then insert) instead of blind-inserting against assessments_company_date_uq. The notion_sync_state delete is a no-op today (zero writers, Phase 5) but keeps the transaction FK-safe once that table is wired. Findings are not regenerated here; they are re-fanned-out operationally by scripts/backfill-unified-db.ts exactly as after any fresh build, so verify-db-invariants stays green.
+  - discovery.ts and admin add-company set normalizedName on insert; discovery also skips any candidate whose normalized name matches a non-excluded company in the firm (plus intra-batch duplicates), closing the inert-index gap called out in the Publish 2 caveat above.
+  - buildLog.ts returns the latest PARSEABLE entry (scans blocks from the end, skipping freeform/indented blocks like the ones above) and reads a dist-adjacent BUILD-LOG.md first (copied by build.mjs), with a repo-root fallback; this is why /api/build-status previously 404'd even in dev.
+  - PortfolioDataProvider shape-guards the bootstrap payload (validates the firms array and wraps hydrate in try/catch) so a malformed 200 shows a visible error state instead of white-screening or infinite-spinning the SPA.
+  - replit.md trimmed from ~9.1k to ~2.9k tokens with all conventions preserved.
+  - LEFT UNTOUCHED per scope: tenant data/copy for all firms, the scoring engine, live-data stays Raviga-only, and the separate scoring.ts evidence pipeline (names/em-dashes in raw evidence there remain a tracked follow-up).

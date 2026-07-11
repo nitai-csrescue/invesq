@@ -1,5 +1,6 @@
 import { and, eq, inArray } from "drizzle-orm";
 import { db, companiesTable, firmsTable, jobsTable, type Firm } from "@workspace/db";
+import { normalizeCompanyName } from "@workspace/portfolio-engine";
 import { getAnthropicClient, extractText, extractJsonFence } from "../anthropic.js";
 import { logger } from "../logger.js";
 import { claimJob, createJobTicker } from "./common.js";
@@ -167,17 +168,46 @@ export async function runDiscoveryJob(jobId: number, opts: { allowReclaimRunning
     const candidates = await discoverCandidates(firm);
     stopProgress();
 
-    if (candidates.length > 0) {
-      await db.insert(companiesTable).values(
-        candidates.map((c) => ({
-          firmId,
-          name: c.name,
-          website: c.website,
-          status: "candidate",
-          slug: slugify(c.name),
-          meta: { discoveryRationale: c.rationale },
-        })),
-      );
+    // Dedup guard against companies_firm_normalized_name_active_uq — a partial
+    // unique index over NON-excluded rows (WHERE status <> 'excluded', i.e.
+    // active + candidate). A candidate whose normalizedName already belongs to
+    // a non-excluded company in this firm would hard-fail the batch insert, so
+    // skip it (and any intra-batch duplicate) instead. Every inserted row now
+    // stamps normalizedName so the index actually protects future inserts.
+    const existingCompanies = await db
+      .select({ status: companiesTable.status, normalizedName: companiesTable.normalizedName })
+      .from(companiesTable)
+      .where(eq(companiesTable.firmId, firmId));
+    const takenNormalized = new Set(
+      existingCompanies
+        .filter((c) => c.status !== "excluded" && c.normalizedName != null)
+        .map((c) => c.normalizedName as string),
+    );
+
+    const toInsert: (typeof companiesTable.$inferInsert)[] = [];
+    for (const c of candidates) {
+      const normalizedName = normalizeCompanyName(c.name);
+      if (takenNormalized.has(normalizedName)) {
+        logger.info(
+          { firmId, candidate: c.name, normalizedName },
+          "Discovery job: skipping candidate — a non-excluded company with the same normalized name already exists in this firm",
+        );
+        continue;
+      }
+      takenNormalized.add(normalizedName);
+      toInsert.push({
+        firmId,
+        name: c.name,
+        website: c.website,
+        status: "candidate",
+        slug: slugify(c.name),
+        normalizedName,
+        meta: { discoveryRationale: c.rationale },
+      });
+    }
+
+    if (toInsert.length > 0) {
+      await db.insert(companiesTable).values(toInsert);
     }
 
     await db

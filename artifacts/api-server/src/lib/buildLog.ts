@@ -8,7 +8,7 @@
 // regardless of which source file this code originated from. Three levels up
 // from there is the repo root.
 // ---------------------------------------------------------------------------
-import { readFileSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { logger } from "./logger.js";
@@ -23,9 +23,21 @@ export interface BuildLogEntry {
   notes: string[];
 }
 
-function resolveBuildLogPath(): string {
+function resolveBuildLogPath(): string | null {
   const bundleDir = path.dirname(fileURLToPath(import.meta.url));
-  return path.resolve(bundleDir, "../../../BUILD-LOG.md");
+  const candidates = [
+    // Preferred: the copy build.mjs places next to the bundle so it ships with
+    // the deploy (the repo-root file is not part of the deployed bundle, which
+    // is why /api/build-status 404s in production without this).
+    path.resolve(bundleDir, "./BUILD-LOG.md"),
+    // Fallback for non-bundled runs (e.g. tsx) and older layouts: the repo
+    // root, three levels up from artifacts/api-server/dist/index.mjs.
+    path.resolve(bundleDir, "../../../BUILD-LOG.md"),
+  ];
+  for (const candidate of candidates) {
+    if (existsSync(candidate)) return candidate;
+  }
+  return null;
 }
 
 function parseEntryBlock(block: string): BuildLogEntry | null {
@@ -71,17 +83,27 @@ function parseEntryBlock(block: string): BuildLogEntry | null {
  * or malformed log must never take down the /api/build-status endpoint.
  */
 export function getLatestBuildLogEntry(): BuildLogEntry | null {
+  const filePath = resolveBuildLogPath();
+  if (!filePath) {
+    logger.warn("BUILD-LOG.md not found in any known location");
+    return null;
+  }
+
   let content: string;
   try {
-    content = readFileSync(resolveBuildLogPath(), "utf-8");
+    content = readFileSync(filePath, "utf-8");
   } catch (err) {
     logger.warn({ err }, "BUILD-LOG.md not found or unreadable");
     return null;
   }
 
   const blocks = content.split(/\n-{3,}\n/).filter((b) => /^##\s+/m.test(b));
-  if (blocks.length === 0) return null;
-
-  const lastBlock = blocks[blocks.length - 1];
-  return parseEntryBlock(lastBlock);
+  // Return the most recent PARSEABLE entry, scanning from the end. Freeform
+  // trailing blocks (missing the canonical "- Date:"/"- Status:" bullets that
+  // parseEntryBlock requires) are skipped rather than 404ing the endpoint.
+  for (let i = blocks.length - 1; i >= 0; i--) {
+    const entry = parseEntryBlock(blocks[i]!);
+    if (entry) return entry;
+  }
+  return null;
 }

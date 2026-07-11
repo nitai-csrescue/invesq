@@ -16,6 +16,7 @@ import type {
 } from "@workspace/api-zod";
 import { LEGACY_FIRMS_META } from "@workspace/portfolio-engine/data";
 import type { FirmMeta } from "@workspace/portfolio-engine";
+import { normalizeCompanyName } from "@workspace/portfolio-engine";
 import { runDiscoveryJob } from "../lib/jobs/discovery.js";
 import { runBuildJob } from "../lib/jobs/build.js";
 import { getOrigin } from "../lib/http.js";
@@ -308,7 +309,7 @@ router.post("/firms/:id/companies", async (req, res) => {
     const { name, website } = parsed.data;
     const [company] = await db
       .insert(companiesTable)
-      .values({ firmId: id, name, website, status: "active", slug: slugify(name) })
+      .values({ firmId: id, name, website, status: "active", slug: slugify(name), normalizedName: normalizeCompanyName(name) })
       .returning();
 
     if (!company) {

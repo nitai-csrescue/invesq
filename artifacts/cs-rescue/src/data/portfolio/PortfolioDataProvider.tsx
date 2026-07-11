@@ -23,9 +23,21 @@ const PortfolioDataContext = createContext<PortfolioDataContextValue | null>(nul
 export function PortfolioDataProvider({ children }: { children: ReactNode }) {
   const { data, isError, error } = useGetPortfolioBootstrap();
   const [hydratedOnce, setHydratedOnce] = useState(false);
+  const [hydrationError, setHydrationError] = useState<string | undefined>(undefined);
 
   useEffect(() => {
-    if (data && !hydratedOnce) {
+    if (!data || hydratedOnce || hydrationError) return;
+
+    // A 200 response is not a guarantee of a well-formed payload — the generated
+    // client does no runtime body validation. Guard the shape before handing it
+    // to the engine so a malformed or partial bootstrap surfaces as a visible
+    // error state instead of white-screening or infinite-spinning the whole SPA.
+    if (typeof data !== "object" || !Array.isArray((data as { firms?: unknown }).firms)) {
+      setHydrationError("Portfolio bootstrap payload was malformed (missing firms array).");
+      return;
+    }
+
+    try {
       // The OpenAPI-generated type widens arrForRollup's tuple to number[]
       // (OpenAPI/Zod can't express fixed-length tuples). The server already
       // validates + writes this as a [number, number] pair (see
@@ -36,17 +48,21 @@ export function PortfolioDataProvider({ children }: { children: ReactNode }) {
       // (legacy slugs are ignored inside registerDynamicFirms).
       registerDynamicFirms(data.firms);
       setHydratedOnce(true);
+    } catch (err) {
+      setHydrationError(err instanceof Error ? err.message : "Failed to hydrate portfolio data.");
     }
-  }, [data, hydratedOnce]);
+  }, [data, hydratedOnce, hydrationError]);
 
-  const value: PortfolioDataContextValue = isError
-    ? {
-        status: "error",
-        error: error instanceof Error ? error.message : "Failed to load portfolio data",
-      }
-    : hydratedOnce
-      ? { status: "ready", error: undefined }
-      : { status: "loading", error: undefined };
+  const value: PortfolioDataContextValue =
+    isError || hydrationError
+      ? {
+          status: "error",
+          error:
+            hydrationError ?? (error instanceof Error ? error.message : "Failed to load portfolio data"),
+        }
+      : hydratedOnce
+        ? { status: "ready", error: undefined }
+        : { status: "loading", error: undefined };
 
   return (
     <PortfolioDataContext.Provider value={value}>{children}</PortfolioDataContext.Provider>

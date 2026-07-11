@@ -1,5 +1,16 @@
 import { and, eq, inArray } from "drizzle-orm";
-import { db, assessmentsTable, companiesTable, firmsTable, jobsTable, type Company, type Firm } from "@workspace/db";
+import {
+  db,
+  assessmentsTable,
+  companiesTable,
+  findingsTable,
+  firmsTable,
+  jobsTable,
+  notionSyncStateTable,
+  reportExportsTable,
+  type Company,
+  type Firm,
+} from "@workspace/db";
 import {
   PILLARS,
   scoreToText,
@@ -93,7 +104,39 @@ async function scoreAndPersistCompany(company: Company, firm: Firm): Promise<Com
 
   // Postgres is the source of truth — this write must succeed for the
   // company's scoring to count as done, regardless of what happens with Notion.
-  await db.insert(assessmentsTable).values(assessmentValues as never);
+  //
+  // Re-score guard: the assessments_company_date_uq unique index rejects a
+  // second row for the same (companyId, date). A pipeline retry on the same day
+  // is a deliberate re-score, so replace the existing same-day row instead of
+  // hard-failing on the constraint. Wrapped in a transaction so the day never
+  // has zero assessments mid-swap; the old row's FK children (report_exports,
+  // findings, notion_sync_state) are removed first so the delete can't violate
+  // FK integrity. notion_sync_state has zero writers today (Phase 5, out of
+  // scope) so this delete is a no-op now, but deleting it here keeps the
+  // transaction correct once that table is wired, instead of leaving a re-score
+  // FK landmine. This does not regenerate findings — they are re-fanned-out
+  // operationally by scripts/backfill-unified-db.ts exactly as after any fresh
+  // build, so the end-state matches today's blind-insert path.
+  await db.transaction(async (tx) => {
+    const [existing] = await tx
+      .select({ id: assessmentsTable.id })
+      .from(assessmentsTable)
+      .where(and(eq(assessmentsTable.companyId, company.id), eq(assessmentsTable.date, assessmentDate)))
+      .limit(1);
+
+    if (existing) {
+      await tx.delete(reportExportsTable).where(eq(reportExportsTable.assessmentId, existing.id));
+      await tx.delete(findingsTable).where(eq(findingsTable.assessmentId, existing.id));
+      await tx.delete(notionSyncStateTable).where(eq(notionSyncStateTable.assessmentId, existing.id));
+      await tx.delete(assessmentsTable).where(eq(assessmentsTable.id, existing.id));
+      logger.info(
+        { companyId: company.id, companyName: company.name, assessmentDate, replacedAssessmentId: existing.id },
+        "Replaced existing same-day assessment (deliberate re-score)",
+      );
+    }
+
+    await tx.insert(assessmentsTable).values(assessmentValues as never);
+  });
 
   // Populate the descriptive companies.meta the tenant-portal engine reads, so
   // this company renders through the exact same components as a hand-authored
