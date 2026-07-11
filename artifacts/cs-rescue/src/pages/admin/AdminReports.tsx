@@ -106,7 +106,9 @@ function FirmReportRows({ firm }: { firm: AdminFirmSummary }) {
     query: { queryKey: getGetAdminFirmQueryKey(firm.id) },
   });
 
-  const assessed = (data?.companies ?? []).filter((c) => c.hasAssessment);
+  const assessed = (data?.companies ?? []).filter(
+    (c) => c.hasAssessment && c.status !== "excluded",
+  );
   if (assessed.length === 0) return null;
 
   return (

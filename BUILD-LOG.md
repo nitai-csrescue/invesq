@@ -912,3 +912,18 @@ curl -X POST https://<prod-domain>/api/admin/repair-assessments-dedup \
   - INVESQ branding throughout; zero "CS Rescue" in any new user-visible string. No em-dashes in user-visible copy (admin menu labels reworded to parentheticals; remaining "-" glyphs are null-placeholder display convention). NO data/scoring/backend change.
 
 ---
+
+## Filter excluded companies from admin firm cards + report index
+- Date: 2026-07-11 20:20 UTC
+- Status: complete
+- Files changed: artifacts/cs-rescue/src/pages/admin/AdminReports.tsx; artifacts/cs-rescue/src/pages/admin/AdminFirmsIndex.tsx
+- Validation: `pnpm run typecheck:libs` pass; `pnpm --filter @workspace/cs-rescue run typecheck` pass; api-server restarted and serving (lingering-instance EADDRINUSE cleared on restart)
+- Republish needed: yes
+- QA notes:
+  - Root cause: excluded companies leaked into two authed /admin surfaces. For LEGACY firms the bootstrap includes every company row regardless of status, and the firms-list companyCount is a raw count(companies.id); both expose/count excluded (and candidate) rows.
+  - FIX 1 (/admin/reports): FirmReportRows now filters `hasAssessment && status !== "excluded"`, so an excluded duplicate (e.g. ClarisHealth under Pamlico) no longer appears twice.
+  - FIX 2 (/admin firm cards): FirmCard now pulls authoritative status from the admin firm-detail endpoint (useGetAdminFirm). Company count = active-only companies (was firm.companyCount); the quick-link list = engine companies intersected with active slugs (tier chips preserved). Pamlico shows 5 active, not 6.
+  - Not reproducible in the dev DB (dev Pamlico has 3 active companies, no excluded/ClarisHealth rows); the reported 6/duplicate is production data. Verified by typecheck + logic review; dev normal-case (3 active) preserved unchanged. Confirm counts on prod after Republish.
+  - Scope: only the two admin page components. No bootstrap/engine/server/schema/data change. INVESQ branding; no em-dashes in user-visible copy.
+
+---

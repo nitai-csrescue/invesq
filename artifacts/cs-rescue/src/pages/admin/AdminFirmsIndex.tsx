@@ -23,6 +23,8 @@ import {
   useCreateAdminFirm,
   useListAdminFirms,
   getListAdminFirmsQueryKey,
+  useGetAdminFirm,
+  getGetAdminFirmQueryKey,
   type AdminFirmSummary,
 } from "@workspace/api-client-react";
 import { isJobActive } from "@/lib/adminJobs";
@@ -113,6 +115,24 @@ function FirmCard({
   const statusLabel = firm.meta?.statusLabel ?? identity?.statusLabel;
   const internalOnly = firm.meta?.internalOnly ?? identity?.internalOnly ?? false;
 
+  // Authoritative company status comes from the admin firm detail. Both the
+  // engine (legacy firms include every status in the bootstrap) and the
+  // list-level companyCount count excluded/candidate rows, so neither is a
+  // safe source here. Only "active" companies feed the count and quick-links.
+  const { data: detail } = useGetAdminFirm(firm.id, {
+    query: { queryKey: getGetAdminFirmQueryKey(firm.id) },
+  });
+  const activeCompanies = detail?.companies.filter((c) => c.status === "active");
+  const companyCount = activeCompanies ? activeCompanies.length : firm.companyCount;
+  const activeSlugs = new Set(
+    (activeCompanies ?? [])
+      .map((c) => c.slug)
+      .filter((s): s is string => !!s),
+  );
+  const linkedCompanies = activeCompanies
+    ? (companies ?? []).filter((c) => activeSlugs.has(c.id))
+    : companies ?? [];
+
   return (
     <div
       className="flex h-full flex-col rounded-xl border border-border bg-card p-5 transition-colors hover:border-primary/40"
@@ -178,7 +198,7 @@ function FirmCard({
           </div>
           <div className="mt-0.5 flex items-center gap-1.5 font-mono text-foreground">
             <Building2 className="h-3.5 w-3.5 text-muted-foreground" />
-            {firm.companyCount}
+            {companyCount}
           </div>
         </div>
         <div>
@@ -225,13 +245,13 @@ function FirmCard({
       )}
 
       {/* Assessed companies — quick links straight into each portco's portal */}
-      {companies && companies.length > 0 && (
+      {linkedCompanies.length > 0 && (
         <div className="mt-4 border-t border-border pt-3">
           <div className="mb-2 text-[11px] uppercase tracking-wider text-muted-foreground">
             Companies
           </div>
           <ul className="space-y-0.5">
-            {companies.slice(0, 5).map((company) => (
+            {linkedCompanies.slice(0, 5).map((company) => (
               <li key={company.id}>
                 <Link
                   href={`/${firm.slug}/portfolio/${company.id}`}
@@ -253,13 +273,13 @@ function FirmCard({
               </li>
             ))}
           </ul>
-          {companies.length > 5 && (
+          {linkedCompanies.length > 5 && (
             <Link
               href={`/${firm.slug}/portfolio`}
               className="mt-1 inline-block px-2 text-xs text-primary hover:underline"
               data-testid={`admin-firm-company-more-${firm.slug}`}
             >
-              +{companies.length - 5} more
+              +{linkedCompanies.length - 5} more
             </Link>
           )}
         </div>
