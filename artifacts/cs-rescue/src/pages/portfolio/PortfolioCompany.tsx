@@ -28,6 +28,7 @@ import {
 import { ConfidenceBadge } from "@/components/portfolio/ConfidenceBadge";
 import { TenantShell } from "@/components/portfolio/TenantShell";
 import { TenantExportButton } from "@/components/portfolio/TenantExportButton";
+import { PortcoReportWorkflow } from "./PortcoReportWorkflow";
 import {
   getFirm,
   getFirmCompany,
@@ -1295,6 +1296,7 @@ export default function PortfolioCompany() {
       <p className="mt-4 text-center text-[11px] text-muted-foreground">
         Prepared for {firm.displayName} · as of {formatDate(AS_OF_DATE)} · Design-partner preview
       </p>
+      <PortcoReportWorkflow firmSlug={firmSlug} companySlug={params?.companyId ?? ""} />
     </TenantShell>
   );
 }

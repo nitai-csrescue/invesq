@@ -725,11 +725,16 @@ export async function loadEffectiveReport(companyId: number): Promise<EffectiveR
       name: v.name,
       hasValidated: !!sig,
       validatedAt: sig ? sig.createdAt.toISOString() : null,
+      overrideFor: sig?.overrideFor ?? null,
+      overrideReason: sig?.overrideReason ?? null,
     };
   });
   const requiredCount = validators.length;
   const validatedCount = validatorEntries.filter((e) => e.hasValidated).length;
-  const isValidated = requiredCount > 0 && currentRevision !== null && validatedCount === requiredCount;
+  // Unlocked when every validator has signed OR any validation row carries an
+  // override (one validator waiving the other's missing sign-off).
+  const hasOverride = signatures.some((s) => s.overrideFor !== null && s.overrideReason !== null);
+  const isValidated = requiredCount > 0 && currentRevision !== null && (validatedCount === requiredCount || hasOverride);
   const validatorNames = validatorEntries.filter((e) => e.hasValidated).map((e) => e.name);
   const signedAts = validatorEntries
     .map((e) => e.validatedAt)
@@ -801,11 +806,22 @@ export function toWorkflow(eff: EffectiveReport): AdminReportWorkflow {
 }
 
 // Convert the validation state into the PDF chrome stamp (see pdf/types.ts).
+// If one validator overrode the other's missing sign-off the stamp includes an
+// "override: {other} - {reason}" note appended after the signer name(s).
 export function toValidationStamp(validation: ReportValidationState): ReportValidationStamp {
+  let overrideNote: string | null = null;
+  const overrider = validation.validators.find((v) => v.overrideFor);
+  if (overrider?.overrideFor && overrider?.overrideReason) {
+    const overriddenEmail = overrider.overrideFor.toLowerCase();
+    const overridden = validation.validators.find((v) => v.email === overriddenEmail);
+    const overriddenName = overridden?.name ?? overriddenEmail;
+    overrideNote = `override: ${overriddenName} - ${overrider.overrideReason}`;
+  }
   return {
     validated: validation.isValidated,
     validatorNames: validation.validatorNames,
     validatedAt: validation.validatedAt,
+    overrideNote,
   };
 }
 
@@ -870,22 +886,42 @@ export async function saveReportRevision(
 // (revision, validator) via the unique index. Rejects a stale/absent target
 // (NoCurrentRevisionError) or a mismatched revisionId (RevisionMismatchError)
 // so a client can't sign off a revision that a newer Save has superseded.
+//
+// Override flow: when overrideFor + overrideReason are supplied the row is
+// UPSERTED (not ignored on conflict) so a validator who already has a normal
+// sign-off can upgrade it to an override without hitting the unique index.
+// The override unlocks the report even when the other validator has no row.
 export async function validateReport(
   companyId: number,
   revisionId: number,
   validatorEmail: string,
   validatorName: string,
+  overrideFor?: string | null,
+  overrideReason?: string | null,
 ): Promise<AdminReportWorkflow> {
   const eff = await loadEffectiveReport(companyId);
   if (eff.currentRevisionId === null) throw new NoCurrentRevisionError();
   if (eff.currentRevisionId !== revisionId) throw new RevisionMismatchError();
 
-  await db
-    .insert(reportValidationsTable)
-    .values({ revisionId, validatorEmail: validatorEmail.toLowerCase(), validatorName })
-    .onConflictDoNothing({
-      target: [reportValidationsTable.revisionId, reportValidationsTable.validatorEmail],
-    });
+  const email = validatorEmail.toLowerCase();
+  if (overrideFor && overrideReason) {
+    const normOverrideFor = overrideFor.toLowerCase();
+    const cleanReason = stripEmDashes(overrideReason);
+    await db
+      .insert(reportValidationsTable)
+      .values({ revisionId, validatorEmail: email, validatorName, overrideFor: normOverrideFor, overrideReason: cleanReason })
+      .onConflictDoUpdate({
+        target: [reportValidationsTable.revisionId, reportValidationsTable.validatorEmail],
+        set: { overrideFor: normOverrideFor, overrideReason: cleanReason },
+      });
+  } else {
+    await db
+      .insert(reportValidationsTable)
+      .values({ revisionId, validatorEmail: email, validatorName })
+      .onConflictDoNothing({
+        target: [reportValidationsTable.revisionId, reportValidationsTable.validatorEmail],
+      });
+  }
 
   return toWorkflow(await loadEffectiveReport(companyId));
 }

@@ -3,17 +3,20 @@ import type { Tier } from "@workspace/portfolio-engine";
 
 // Dual-validation stamp driving the PDF chrome. `validated` is true only when
 // the report's current revision has been signed off by every configured
-// validator (see reportExport.ts / validators.ts). A validated render is the
-// client-facing "Validated · {names} · {date}" deliverable; a non-validated
-// render is stamped "DRAFT · NOT VALIDATED" and is admin-only (the public
-// tenant route 409s before ever rendering an unvalidated report). This
-// REPLACES the former firm-internalOnly `sendable` flag as the client-export
-// control.
+// validator (see reportExport.ts / validators.ts), OR when one validator has
+// submitted an override for the other's missing sign-off. A validated render
+// is the client-facing deliverable; a non-validated render is stamped
+// "DRAFT · NOT VALIDATED" and is admin-only (the public tenant route 409s
+// before ever rendering an unvalidated report).
 export interface ReportValidationStamp {
   validated: boolean;
   validatorNames: string[];
   // ISO timestamp of the completing signature, or null when not validated.
   validatedAt: string | null;
+  // Pre-formatted override note shown in the stamp when one validator overrode
+  // the other's missing sign-off. Format: "override: {other} - {reason}".
+  // Null on a normal dual sign-off or when not validated.
+  overrideNote: string | null;
 }
 
 export interface ReportContext {

@@ -280,6 +280,16 @@ export interface ReportValidator {
   hasValidated: boolean;
   /** @nullable */
   validatedAt: string | null;
+  /**
+   * If this validator submitted an override, the email of the validator they overrode. Null on a normal sign-off.
+   * @nullable
+   */
+  overrideFor?: string | null;
+  /**
+   * The typed override justification, or null if no override was submitted.
+   * @nullable
+   */
+  overrideReason?: string | null;
 }
 
 /**
@@ -292,7 +302,8 @@ export interface ReportValidationState {
   requiredCount: number;
   /** How many required validators have signed the current revision. */
   validatedCount: number;
-  /** True only when a current revision exists and every configured validator has signed it. */
+  /** True when a current revision exists and either every configured validator has signed it, or one validator has submitted an override for the other's missing sign-off (override_for IS NOT NULL on any validation row for the revision).
+   */
   isValidated: boolean;
   validators: ReportValidator[];
   /** Display names of the validators who have signed the current revision (used for the PDF stamp). */
@@ -379,6 +390,18 @@ export interface ReportRevisionInput {
 export interface ReportValidateInput {
   /** The revision the caller intends to validate; must equal the current revision or the request 409s. */
   revisionId: number;
+  /**
+   * Email of the validator being overridden. When present, overrideReason is also required. The submitter's sign-off is recorded AND the other validator's missing sign-off is waived, unlocking the client PDF. Stored in report_validations.override_for.
+
+   * @nullable
+   */
+  overrideFor?: string | null;
+  /**
+   * Mandatory justification text when overrideFor is set. Stored verbatim and shown in the PDF validation stamp as "override: {other} - {reason}".
+
+   * @nullable
+   */
+  overrideReason?: string | null;
 }
 
 export interface AdminFirmDetail {

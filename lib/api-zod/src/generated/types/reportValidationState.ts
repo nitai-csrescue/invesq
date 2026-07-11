@@ -17,7 +17,8 @@ export interface ReportValidationState {
   requiredCount: number;
   /** How many required validators have signed the current revision. */
   validatedCount: number;
-  /** True only when a current revision exists and every configured validator has signed it. */
+  /** True when a current revision exists and either every configured validator has signed it, or one validator has submitted an override for the other's missing sign-off (override_for IS NOT NULL on any validation row for the revision).
+   */
   isValidated: boolean;
   validators: ReportValidator[];
   /** Display names of the validators who have signed the current revision (used for the PDF stamp). */

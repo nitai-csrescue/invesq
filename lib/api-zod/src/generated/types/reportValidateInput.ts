@@ -9,4 +9,16 @@
 export interface ReportValidateInput {
   /** The revision the caller intends to validate; must equal the current revision or the request 409s. */
   revisionId: number;
+  /**
+   * Email of the validator being overridden. When present, overrideReason is also required. The submitter's sign-off is recorded AND the other validator's missing sign-off is waived, unlocking the client PDF. Stored in report_validations.override_for.
+
+   * @nullable
+   */
+  overrideFor?: string | null;
+  /**
+   * Mandatory justification text when overrideFor is set. Stored verbatim and shown in the PDF validation stamp as "override: {other} - {reason}".
+
+   * @nullable
+   */
+  overrideReason?: string | null;
 }

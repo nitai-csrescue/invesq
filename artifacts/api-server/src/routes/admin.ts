@@ -628,6 +628,28 @@ router.post("/firms/:id/refresh", async (req, res) => {
   }
 });
 
+// Resolve a (firmSlug, companySlug) URL pair to the numeric company DB id.
+// Used by the portco-page admin workflow component so it can call the
+// id-based admin API without changing the tenant bootstrap shape.
+router.get("/companies/resolve", async (req, res) => {
+  const { firmSlug, companySlug } = req.query;
+  if (typeof firmSlug !== "string" || !firmSlug || typeof companySlug !== "string" || !companySlug) {
+    res.status(400).json({ error: "firmSlug and companySlug query params are required" });
+    return;
+  }
+  const [row] = await db
+    .select({ id: companiesTable.id })
+    .from(companiesTable)
+    .innerJoin(firmsTable, eq(firmsTable.id, companiesTable.firmId))
+    .where(and(eq(firmsTable.slug, firmSlug), eq(companiesTable.slug, companySlug)))
+    .limit(1);
+  if (!row) {
+    res.status(404).json({ error: "Company not found" });
+    return;
+  }
+  res.json({ companyId: row.id });
+});
+
 // Serves the full report WORKFLOW for a company's latest assessment: the
 // effective report data (computed scores/tier/gap-titles + the current
 // edited-or-generated narrative) plus revision, dual-validation, and Drive
@@ -732,8 +754,35 @@ router.post("/companies/:id/validate", async (req, res) => {
     return;
   }
 
+  // Override path: a reason is MANDATORY, and the waived validator must be a
+  // different configured validator (never yourself, never an arbitrary string).
+  const overrideFor = parsed.data.overrideFor ?? null;
+  const overrideReason = parsed.data.overrideReason ?? null;
+  if (overrideFor) {
+    if (!overrideReason || overrideReason.trim().length === 0) {
+      res.status(400).json({ error: "An override requires a written reason" });
+      return;
+    }
+    const target = findValidator(overrideFor);
+    if (!target) {
+      res.status(400).json({ error: "You can only override another configured validator" });
+      return;
+    }
+    if (target.email.toLowerCase() === validator.email.toLowerCase()) {
+      res.status(400).json({ error: "You cannot override your own sign-off" });
+      return;
+    }
+  }
+
   try {
-    const workflow = await validateReport(id, parsed.data.revisionId, validator.email, validator.name);
+    const workflow = await validateReport(
+      id,
+      parsed.data.revisionId,
+      validator.email,
+      validator.name,
+      overrideFor,
+      overrideReason ? overrideReason.trim() : null,
+    );
     res.json(workflow);
   } catch (err) {
     if (err instanceof CompanyNotFoundError) {

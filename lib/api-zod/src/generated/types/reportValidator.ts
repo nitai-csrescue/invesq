@@ -13,4 +13,14 @@ export interface ReportValidator {
   hasValidated: boolean;
   /** @nullable */
   validatedAt: string | null;
+  /**
+   * If this validator submitted an override, the email of the validator they overrode. Null on a normal sign-off.
+   * @nullable
+   */
+  overrideFor?: string | null;
+  /**
+   * The typed override justification, or null if no override was submitted.
+   * @nullable
+   */
+  overrideReason?: string | null;
 }

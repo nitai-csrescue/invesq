@@ -1372,7 +1372,7 @@ export const GetAdminCompanyReportDataResponse = zod
         isValidated: zod
           .boolean()
           .describe(
-            "True only when a current revision exists and every configured validator has signed it.",
+            "True when a current revision exists and either every configured validator has signed it, or one validator has submitted an override for the other's missing sign-off (override_for IS NOT NULL on any validation row for the revision).\n",
           ),
         validators: zod.array(
           zod.object({
@@ -1384,6 +1384,18 @@ export const GetAdminCompanyReportDataResponse = zod
                 "Whether this validator has signed off on the CURRENT revision.",
               ),
             validatedAt: zod.string().nullable(),
+            overrideFor: zod
+              .string()
+              .nullish()
+              .describe(
+                "If this validator submitted an override, the email of the validator they overrode. Null on a normal sign-off.",
+              ),
+            overrideReason: zod
+              .string()
+              .nullish()
+              .describe(
+                "The typed override justification, or null if no override was submitted.",
+              ),
           }),
         ),
         validatorNames: zod
@@ -1598,7 +1610,7 @@ export const SaveAdminCompanyReportRevisionResponse = zod
         isValidated: zod
           .boolean()
           .describe(
-            "True only when a current revision exists and every configured validator has signed it.",
+            "True when a current revision exists and either every configured validator has signed it, or one validator has submitted an override for the other's missing sign-off (override_for IS NOT NULL on any validation row for the revision).\n",
           ),
         validators: zod.array(
           zod.object({
@@ -1610,6 +1622,18 @@ export const SaveAdminCompanyReportRevisionResponse = zod
                 "Whether this validator has signed off on the CURRENT revision.",
               ),
             validatedAt: zod.string().nullable(),
+            overrideFor: zod
+              .string()
+              .nullish()
+              .describe(
+                "If this validator submitted an override, the email of the validator they overrode. Null on a normal sign-off.",
+              ),
+            overrideReason: zod
+              .string()
+              .nullish()
+              .describe(
+                "The typed override justification, or null if no override was submitted.",
+              ),
           }),
         ),
         validatorNames: zod
@@ -1664,6 +1688,18 @@ export const ValidateAdminCompanyReportBody = zod.object({
     .number()
     .describe(
       "The revision the caller intends to validate; must equal the current revision or the request 409s.",
+    ),
+  overrideFor: zod
+    .string()
+    .nullish()
+    .describe(
+      "Email of the validator being overridden. When present, overrideReason is also required. The submitter's sign-off is recorded AND the other validator's missing sign-off is waived, unlocking the client PDF. Stored in report_validations.override_for.\n",
+    ),
+  overrideReason: zod
+    .string()
+    .nullish()
+    .describe(
+      'Mandatory justification text when overrideFor is set. Stored verbatim and shown in the PDF validation stamp as \"override: {other} - {reason}\".\n',
     ),
 });
 
@@ -1809,7 +1845,7 @@ export const ValidateAdminCompanyReportResponse = zod
         isValidated: zod
           .boolean()
           .describe(
-            "True only when a current revision exists and every configured validator has signed it.",
+            "True when a current revision exists and either every configured validator has signed it, or one validator has submitted an override for the other's missing sign-off (override_for IS NOT NULL on any validation row for the revision).\n",
           ),
         validators: zod.array(
           zod.object({
@@ -1821,6 +1857,18 @@ export const ValidateAdminCompanyReportResponse = zod
                 "Whether this validator has signed off on the CURRENT revision.",
               ),
             validatedAt: zod.string().nullable(),
+            overrideFor: zod
+              .string()
+              .nullish()
+              .describe(
+                "If this validator submitted an override, the email of the validator they overrode. Null on a normal sign-off.",
+              ),
+            overrideReason: zod
+              .string()
+              .nullish()
+              .describe(
+                "The typed override justification, or null if no override was submitted.",
+              ),
           }),
         ),
         validatorNames: zod
@@ -2012,7 +2060,7 @@ export const ShipAdminCompanyReportToDriveResponse = zod
         isValidated: zod
           .boolean()
           .describe(
-            "True only when a current revision exists and every configured validator has signed it.",
+            "True when a current revision exists and either every configured validator has signed it, or one validator has submitted an override for the other's missing sign-off (override_for IS NOT NULL on any validation row for the revision).\n",
           ),
         validators: zod.array(
           zod.object({
@@ -2024,6 +2072,18 @@ export const ShipAdminCompanyReportToDriveResponse = zod
                 "Whether this validator has signed off on the CURRENT revision.",
               ),
             validatedAt: zod.string().nullable(),
+            overrideFor: zod
+              .string()
+              .nullish()
+              .describe(
+                "If this validator submitted an override, the email of the validator they overrode. Null on a normal sign-off.",
+              ),
+            overrideReason: zod
+              .string()
+              .nullish()
+              .describe(
+                "The typed override justification, or null if no override was submitted.",
+              ),
           }),
         ),
         validatorNames: zod

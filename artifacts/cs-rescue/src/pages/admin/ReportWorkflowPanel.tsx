@@ -13,7 +13,7 @@ import {
   X,
 } from "lucide-react";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
+
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
@@ -33,8 +33,6 @@ import type {
   ReportRevisionInput,
 } from "@workspace/api-client-react";
 import { AdminReportPreview } from "./AdminReportPreview";
-
-type ExportFormat = "editable" | "client-pdf";
 
 function statusOf(err: unknown): number | undefined {
   return err instanceof ApiError ? err.status : undefined;
@@ -102,7 +100,7 @@ function NarrativeEditor({
   };
 
   return (
-    <div className="space-y-4 rounded-xl border border-primary/30 bg-primary/5 p-5" data-testid="narrative-editor">
+    <div className="space-y-4 rounded-xl border border-primary/30 bg-white p-5 text-gray-900" data-testid="narrative-editor">
       <div className="flex items-center justify-between gap-3">
         <div>
           <h3 className="text-sm font-semibold text-foreground">Edit narrative</h3>
@@ -165,7 +163,7 @@ function NarrativeEditor({
         <div className="space-y-3">
           <Label>Identified gaps</Label>
           {gaps.map((gap, i) => (
-            <div key={i} className="space-y-2 rounded-lg border border-border bg-background/60 p-3">
+            <div key={i} className="space-y-2 rounded-lg border border-slate-200 bg-white p-3">
               <div className="text-sm font-medium text-foreground">{gap.title}</div>
               <div className="space-y-1.5">
                 <Label htmlFor={`edit-gap-impact-${i}`} className="text-xs text-muted-foreground">
@@ -394,7 +392,6 @@ export function ReportWorkflowPanel({ companyId }: { companyId: number }) {
   const hasSelectedId = Number.isInteger(companyId) && companyId > 0;
   const queryKey = getGetAdminCompanyReportDataQueryKey(companyId);
 
-  const [format, setFormat] = useState<ExportFormat>("client-pdf");
   const [copied, setCopied] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
   const [isDownloadingPdf, setIsDownloadingPdf] = useState(false);
@@ -518,9 +515,7 @@ export function ReportWorkflowPanel({ companyId }: { companyId: number }) {
   const report = data?.report;
   const json = report ? JSON.stringify(report.reportData, null, 2) : "";
   const prompt = report
-    ? format === "client-pdf"
-      ? `Fill report-data.json with this data and export the Diagnostic Report to PDF:\n\n${json}`
-      : `Fill report-data.json with this data and export the Diagnostic Report to PPTX (editable):\n\n${json}`
+    ? `Fill report-data.json with this data and export the Diagnostic Report to PDF:\n\n${json}`
     : "";
 
   const handleCopy = () => {
@@ -649,40 +644,21 @@ export function ReportWorkflowPanel({ companyId }: { companyId: number }) {
 
       <DeliveryPanel workflow={data} onShip={handleShip} shipping={shipMutation.isPending} />
 
-      <div className="flex flex-col gap-3 rounded-lg border border-dashed border-border bg-background/40 p-3 sm:flex-row sm:items-center sm:justify-between">
-        <div className="space-y-1.5">
-          <Label>Prompt format</Label>
-          <RadioGroup
-            value={format}
-            onValueChange={(v) => setFormat(v as ExportFormat)}
-            className="flex items-center gap-4"
-          >
-            <label className="flex items-center gap-2 text-sm cursor-pointer">
-              <RadioGroupItem value="client-pdf" data-testid="radio-format-client-pdf" />
-              Client PDF
-            </label>
-            <label className="flex items-center gap-2 text-sm cursor-pointer">
-              <RadioGroupItem value="editable" data-testid="radio-format-editable" />
-              Editable
-            </label>
-          </RadioGroup>
-        </div>
-        <div className="flex items-center gap-2">
-          <Button
-            size="sm"
-            variant="outline"
-            onClick={handleDownloadPdf}
-            disabled={isDownloadingPdf}
-            data-testid="button-download-pdf"
-          >
-            {isDownloadingPdf ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Download className="h-3.5 w-3.5" />}
-            {downloadLabel}
-          </Button>
-          <Button size="sm" variant="outline" onClick={handleCopy} data-testid="button-copy-export-prompt">
-            {copied ? <Check className="h-3.5 w-3.5" /> : <ClipboardCopy className="h-3.5 w-3.5" />}
-            Copy prompt
-          </Button>
-        </div>
+      <div className="flex items-center gap-2">
+        <Button
+          size="sm"
+          variant="outline"
+          onClick={handleDownloadPdf}
+          disabled={isDownloadingPdf}
+          data-testid="button-download-pdf"
+        >
+          {isDownloadingPdf ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Download className="h-3.5 w-3.5" />}
+          {downloadLabel}
+        </Button>
+        <Button size="sm" variant="outline" onClick={handleCopy} data-testid="button-copy-export-prompt">
+          {copied ? <Check className="h-3.5 w-3.5" /> : <ClipboardCopy className="h-3.5 w-3.5" />}
+          Copy prompt
+        </Button>
       </div>
     </div>
   );

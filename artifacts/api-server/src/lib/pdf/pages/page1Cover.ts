@@ -81,13 +81,22 @@ function compositePanel(ctx: ReportContext): string {
 // Validated => "Validated · {names} · {date}" (orange, client deliverable);
 // not validated => "DRAFT · NOT VALIDATED" (danger red, admin-only draft).
 function validationStamp(ctx: ReportContext): string {
-  const { validated, validatorNames, validatedAt } = ctx.validation;
+  const { validated, validatorNames, validatedAt, overrideNote } = ctx.validation;
   if (!validated) {
     return `<span class="pill" style="border:1.5px solid ${COLORS.danger500}; color:${COLORS.danger500}; padding:3px 10px; font-size:8.5px;">DRAFT &middot; NOT VALIDATED</span>`;
   }
   const names = validatorNames.length > 0 ? validatorNames.join(", ") : "INVESQ";
   const date = validatedAt ? new Date(validatedAt).toISOString().slice(0, 10) : "";
-  const label = date ? `Validated &middot; ${esc(names)} &middot; ${esc(date)}` : `Validated &middot; ${esc(names)}`;
+  // Override stamp: "Validated · {signer} · override: {other} - {reason} · {date}"
+  // Normal stamp:   "Validated · {names} · {date}"
+  let label: string;
+  if (overrideNote) {
+    label = date
+      ? `Validated &middot; ${esc(names)} &middot; ${esc(overrideNote)} &middot; ${esc(date)}`
+      : `Validated &middot; ${esc(names)} &middot; ${esc(overrideNote)}`;
+  } else {
+    label = date ? `Validated &middot; ${esc(names)} &middot; ${esc(date)}` : `Validated &middot; ${esc(names)}`;
+  }
   return `<span class="pill" style="border:1.5px solid ${COLORS.orange500}; color:${COLORS.orange500}; padding:3px 10px; font-size:8.5px;">${label}</span>`;
 }
 

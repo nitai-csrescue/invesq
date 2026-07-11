@@ -1487,6 +1487,12 @@ components:
           description: Whether this validator has signed off on the CURRENT revision.
         validatedAt:
           type: [string, "null"]
+        overrideFor:
+          type: [string, "null"]
+          description: If this validator submitted an override, the email of the validator they overrode. Null on a normal sign-off.
+        overrideReason:
+          type: [string, "null"]
+          description: The typed override justification, or null if no override was submitted.
 
     ReportValidationState:
       type: object
@@ -1515,7 +1521,10 @@ components:
           description: How many required validators have signed the current revision.
         isValidated:
           type: boolean
-          description: True only when a current revision exists and every configured validator has signed it.
+          description: >
+            True when a current revision exists and either every configured validator has
+            signed it, or one validator has submitted an override for the other's missing
+            sign-off (override_for IS NOT NULL on any validation row for the revision).
         validators:
           type: array
           items:
@@ -1641,6 +1650,18 @@ components:
         revisionId:
           type: integer
           description: The revision the caller intends to validate; must equal the current revision or the request 409s.
+        overrideFor:
+          type: [string, "null"]
+          description: >
+            Email of the validator being overridden. When present, overrideReason is
+            also required. The submitter's sign-off is recorded AND the other validator's
+            missing sign-off is waived, unlocking the client PDF. Stored in
+            report_validations.override_for.
+        overrideReason:
+          type: [string, "null"]
+          description: >
+            Mandatory justification text when overrideFor is set. Stored verbatim and
+            shown in the PDF validation stamp as "override: {other} - {reason}".
 
     AdminFirmDetail:
       type: object
