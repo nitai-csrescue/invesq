@@ -55,10 +55,19 @@ export function pageFooter(pageNumber: number, ctx: ReportContext): string {
   `;
 }
 
+// Diagonal "DRAFT" watermark rendered as a position:absolute overlay inside
+// the position:relative .page div. Absolutely-positioned children are removed
+// from flow, so this does not add to the page's scrollHeight or trigger the
+// overflow-clipping guard in renderPdf.ts.
+function draftWatermark(): string {
+  return `<div style="position:absolute;top:50%;left:50%;transform:translate(-50%,-50%) rotate(-45deg);font-size:88px;font-weight:900;color:rgba(220,38,38,0.07);letter-spacing:0.18em;white-space:nowrap;pointer-events:none;user-select:none;z-index:0;font-family:sans-serif;">DRAFT</div>`;
+}
+
 export function pageShell(pageNumber: number, ctx: ReportContext, bodyHtml: string): string {
   return `
     <div class="page">
       ${pageHeader(pageNumber, ctx)}
+      ${ctx.validation.validated ? "" : draftWatermark()}
       ${bodyHtml}
       ${pageFooter(pageNumber, ctx)}
     </div>

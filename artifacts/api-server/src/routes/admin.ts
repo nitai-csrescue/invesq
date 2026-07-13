@@ -987,7 +987,9 @@ router.get("/companies/:id/report-pdf", async (req, res) => {
     const data = eff.response;
 
     if (!data.meta.generatedAt) {
-      res.status(409).json({ error: "Report narrative has not been generated yet for this assessment" });
+      res.status(422).json({
+        error: "Report narrative has not been generated yet. Click \"Export editable report\" in the report panel to generate it first.",
+      });
       return;
     }
 

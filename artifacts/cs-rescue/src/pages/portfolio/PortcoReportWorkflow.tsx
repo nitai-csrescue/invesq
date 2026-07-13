@@ -459,7 +459,15 @@ export function PortcoReportWorkflow({
   const downloadPdfBlob = async () => {
     if (companyId == null) return;
     const response = await fetch(`/api/admin/companies/${companyId}/report-pdf`, { credentials: "include" });
-    if (!response.ok) { toast({ title: "Download failed", variant: "destructive" }); return; }
+    if (!response.ok) {
+      let description = "Could not download the PDF. Try again.";
+      try {
+        const body = await response.json() as { error?: string };
+        if (body.error) description = body.error;
+      } catch { /* ignore parse errors */ }
+      toast({ title: "Download failed", description, variant: "destructive" });
+      return;
+    }
     const blob = await response.blob();
     const disposition = response.headers.get("content-disposition") ?? "";
     const filenameMatch = /filename="([^"]+)"/.exec(disposition);
@@ -559,6 +567,10 @@ export function PortcoReportWorkflow({
             {kebab}
           </div>
         </div>
+
+        <p className="text-xs text-slate-500">
+          Draft PDF available for internal review via the menu above. The client PDF is locked until all reviewers sign off -- use the override control on a pending signer's chip to bypass.
+        </p>
 
         <ValidatorStatusStrip
           validators={validation.validators}
