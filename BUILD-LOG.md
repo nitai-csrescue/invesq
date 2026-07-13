@@ -942,3 +942,19 @@ curl -X POST https://<prod-domain>/api/admin/repair-assessments-dedup \
   - Existing tenants (stg, pamlico, raviga, longarc, solen, mainsail-partners) untouched — seeder only triggers on staley-capital and inflexion slugs with 0 non-excluded companies.
 
 ---
+
+## Admin recovery panel: handle candidate-status companies (not active-only)
+
+- Date: 2026-07-13
+- Status: completed
+- Files changed: artifacts/cs-rescue/src/pages/admin/FirmReviewRedirect.tsx
+- Validation: typecheck:libs pass; cs-rescue typecheck pass; api-server typecheck pass; verify-db-invariants PASSED; architect review PASS after hooks fix
+- Republish needed: yes
+- QA notes:
+  - Root cause (prod bug): both stuck firms (staley-capital id=7, inflexion id=8) sat at status="pending" with only "candidate"-status companies from a prior discovery run (staley: MNTN + Capacity; inflexion: Axiom GRC + EcoOnline + aosphere), 0 "active". The startup seeder correctly SKIPPED them (idempotency guard: non-excluded count > 0), so it never inserted the intended companies. The recovery panel computed activeCompanies = filter(status === "active"), so candidates never surfaced: it wrongly showed the "empty discovery" guided state, and "Build now" POSTed only active IDs to /confirm — which would have EXCLUDED the good candidates (confirm sets passed IDs active, all others excluded).
+  - FIX: recovery panel now derives selectableCompanies = filter(status !== "excluded") (candidate + active). Candidates render in a checkbox list (all checked by default, "suggested" badge), admin unchecks any to exclude, and "Build" POSTs the SELECTED IDs to /confirm. discoveryEmpty / needsGuidance / fallback all gate on selectableCompanies.length === 0 (not active-only), so guidance shows only when nothing was found. Build button disabled until >=1 company selected. Selection list hidden while discovery is running.
+  - Also fixed a latent Rules-of-Hooks crash (found in review): the two job-redirect early returns ran BEFORE the three useMutation hooks, so a successful Build (now first reachable for these firms) would render fewer hooks and white-screen. Moved both early returns below the last hook. rerunMutation now also invalidates the firm-detail query so re-discovered candidates surface without a manual reload.
+  - Recovery flow after Republish (admin, live UI): staley → uncheck Capacity, keep MNTN, add Looma + Olo, Build (MNTN+Looma+Olo). inflexion → uncheck all 3, add Curinos + Infront + Ranger Fire, Build. confirm marks selected active + rest excluded + fires build.
+  - Scope: single frontend component. No server/schema/data change. INVESQ branding; no em-dashes in user-visible copy.
+
+---

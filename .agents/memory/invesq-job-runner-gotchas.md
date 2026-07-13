@@ -19,6 +19,14 @@ Originally (through prod incident 2026-07-10) the build job blind-`INSERT`ed one
 
 **How to apply:** the re-score transaction must delete EVERY table that FKs `assessments.id` before deleting the assessment, or the delete FK-violates. Today that is `report_exports`, `findings`, and `notion_sync_state` (the last has zero writers now — Phase 5 — but is deleted anyway so wiring it later can't turn a re-score into an FK landmine). Any new child table of `assessments` must be added to this delete list. Re-score does not regenerate `findings`; they are re-fanned-out by `scripts/backfill-unified-db.ts`, so `verify-db-invariants` (exactly 8 findings/assessment) only passes after that script runs — true for fresh builds too.
 
+## Discovery writes companies as "candidate", not "active" — confirm promotes them
+
+Discovery inserts portfolio companies with `status: "candidate"`; only `POST /admin/firms/:id/confirm` promotes a chosen subset to `active` (and marks every other company in the firm `excluded`, then fires the build). Manual add-company inserts as `active` directly.
+
+**Why:** an admin recovery/review UI that computes its "companies to score" set as `filter(status === "active")` silently hides every discovery candidate, makes a firm that DID find companies look empty, and — worse — its confirm call passes only the active IDs, so confirming EXCLUDES the good candidates. The startup seeder's idempotency guard counts non-excluded (candidate + active) companies, so a firm with candidates-only is correctly skipped by the seeder yet still stuck at `pending` with no active rows — the two must agree on the same "eligible = not excluded" definition.
+
+**How to apply:** any UI/query that decides which companies are eligible for confirm/build/display must use `status !== "excluded"` (candidate + active), never `status === "active"`. Confirm accepts the selected subset; unselected non-excluded companies become excluded.
+
 ## Notion writer resolves its target DB by title/search at runtime
 
 The build-job Notion writer (`artifacts/api-server/src/lib/notion.ts`) searches by title at runtime rather than hardcoding a database id, so a database that is not shared with the integration surfaces as a clean, logged "database not found or not shared" failure rather than a crash.

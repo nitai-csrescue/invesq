@@ -7,7 +7,6 @@ import {
   PlusCircle,
   ArrowRight,
   Building2,
-  CheckCircle2,
 } from "lucide-react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import {
@@ -21,6 +20,7 @@ import { isJobActive } from "@/lib/adminJobs";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Checkbox } from "@/components/ui/checkbox";
 
 // ---------------------------------------------------------------------------
 // Status pill styling shared with AdminFirmsIndex
@@ -42,27 +42,45 @@ function FirmRecoveryPage({ firm }: { firm: AdminFirmSummary }) {
   const [newWebsite, setNewWebsite] = useState("");
   const [rerunCount, setRerunCount] = useState(0);
   const [buildJobId, setBuildJobId] = useState<number | null>(null);
+  const [deselectedIds, setDeselectedIds] = useState<Set<number>>(new Set());
 
   const { data: detail, isLoading: detailLoading } = useGetAdminFirm(firm.id, {
     query: { queryKey: getGetAdminFirmQueryKey(firm.id) },
   });
   const allCompanies = detail?.companies ?? [];
-  const activeCompanies = allCompanies.filter((c) => c.status === "active");
+  // Both candidate (from discovery) and active (from manual add) companies are
+  // eligible to be confirmed for scoring. Only excluded companies are hidden.
+  // Filtering on "active" alone hid discovery candidates and made firms that DID
+  // find companies look empty, and confirming would have excluded those candidates.
+  const selectableCompanies = allCompanies.filter((c) => c.status !== "excluded");
+  const selectedCompanies = selectableCompanies.filter((c) => !deselectedIds.has(c.id));
+
+  const toggleCompany = (id: number) =>
+    setDeselectedIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
 
   const latestJob = firm.latestJob;
   const isDiscoveryRunning = latestJob?.type === "discovery" && isJobActive(latestJob);
   const isBuildRunning = latestJob?.type === "build" && isJobActive(latestJob);
   const discoveryCompleted = latestJob?.type === "discovery" && latestJob.status === "completed";
-  const discoveryEmpty = discoveryCompleted && activeCompanies.length === 0;
+  const discoveryEmpty = discoveryCompleted && selectableCompanies.length === 0;
   const discoveryFailed = latestJob?.type === "discovery" && latestJob.status === "failed";
-  const needsGuidance = !isDiscoveryRunning && (discoveryEmpty || discoveryFailed || !latestJob);
+  // Guidance (manual entry / deeper review) only applies when NOTHING was found.
+  // If candidates exist, the selection list below is the correct next step.
+  const needsGuidance =
+    !isDiscoveryRunning &&
+    selectableCompanies.length === 0 &&
+    (discoveryEmpty || discoveryFailed || !latestJob);
   const isEscalated = rerunCount > 0 && (discoveryEmpty || discoveryFailed);
 
-  // Redirect to job status when a build starts
-  if (buildJobId) return <Redirect to={`/admin/jobs/${buildJobId}`} />;
-  if (isBuildRunning && latestJob) return <Redirect to={`/admin/jobs/${latestJob.id}`} />;
-
   // ----- mutations -----
+  // NOTE: all hooks (incl. these useMutation calls) must run on every render.
+  // The job-redirect early returns therefore live AFTER the last hook below —
+  // returning before them would call fewer hooks and crash the component.
 
   const rerunMutation = useMutation({
     mutationFn: async () => {
@@ -77,6 +95,8 @@ function FirmRecoveryPage({ firm }: { firm: AdminFirmSummary }) {
       setRerunCount((c) => c + 1);
       setShowAddForm(false);
       void queryClient.invalidateQueries({ queryKey: getListAdminFirmsQueryKey() });
+      // Surface newly discovered candidates without a manual reload.
+      void queryClient.invalidateQueries({ queryKey: getGetAdminFirmQueryKey(firm.id) });
     },
   });
 
@@ -106,7 +126,7 @@ function FirmRecoveryPage({ firm }: { firm: AdminFirmSummary }) {
       const res = await fetch(`/api/admin/firms/${firm.id}/confirm`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ companyIds: activeCompanies.map((c) => c.id) }),
+        body: JSON.stringify({ companyIds: selectedCompanies.map((c) => c.id) }),
       });
       if (!res.ok) {
         const body = (await res.json().catch(() => ({}))) as { error?: string };
@@ -119,6 +139,11 @@ function FirmRecoveryPage({ firm }: { firm: AdminFirmSummary }) {
       if (data.job?.id) setBuildJobId(data.job.id);
     },
   });
+
+  // Redirect to job status when a build starts. These early returns MUST stay
+  // below every hook above so hook count is stable across renders.
+  if (buildJobId) return <Redirect to={`/admin/jobs/${buildJobId}`} />;
+  if (isBuildRunning && latestJob) return <Redirect to={`/admin/jobs/${latestJob.id}`} />;
 
   return (
     <div className="mx-auto max-w-2xl space-y-6 p-8" data-testid="firm-recovery-page">
@@ -163,7 +188,7 @@ function FirmRecoveryPage({ firm }: { firm: AdminFirmSummary }) {
       )}
 
       {/* Guided empty / failed state */}
-      {needsGuidance && (
+      {needsGuidance && !detailLoading && (
         <div className="space-y-4 rounded-xl border border-amber-500/30 bg-amber-500/5 p-5">
           <div className="flex items-start gap-3">
             <AlertTriangle className="mt-0.5 h-5 w-5 shrink-0 text-amber-500" />
@@ -293,20 +318,45 @@ function FirmRecoveryPage({ firm }: { firm: AdminFirmSummary }) {
         </div>
       )}
 
-      {/* Companies ready to score */}
-      {!detailLoading && activeCompanies.length > 0 && (
+      {/* Companies found — select which to score */}
+      {!detailLoading && !isDiscoveryRunning && selectableCompanies.length > 0 && (
         <div className="space-y-3 rounded-xl border border-border bg-card p-5">
-          <p className="text-sm font-medium">Companies ready to score</p>
+          <div>
+            <p className="text-sm font-medium">Companies found</p>
+            <p className="mt-0.5 text-xs text-muted-foreground">
+              Select the companies to score. Anything left unchecked is excluded from this build.
+            </p>
+          </div>
           <ul className="space-y-1.5">
-            {activeCompanies.map((c) => (
-              <li key={c.id} className="flex items-center gap-2 text-sm">
-                <CheckCircle2 className="h-4 w-4 shrink-0 text-emerald-500" />
-                <span>{c.name}</span>
-                {c.website && (
-                  <span className="text-xs text-muted-foreground">{c.website}</span>
-                )}
-              </li>
-            ))}
+            {selectableCompanies.map((c) => {
+              const checked = !deselectedIds.has(c.id);
+              return (
+                <li key={c.id} className="flex items-center gap-2.5 text-sm">
+                  <Checkbox
+                    id={`co-${c.id}`}
+                    checked={checked}
+                    onCheckedChange={() => toggleCompany(c.id)}
+                    data-testid={`checkbox-company-${c.id}`}
+                  />
+                  <label
+                    htmlFor={`co-${c.id}`}
+                    className="flex flex-1 cursor-pointer items-center gap-2"
+                  >
+                    <span className={checked ? "" : "text-muted-foreground line-through"}>
+                      {c.name}
+                    </span>
+                    {c.website && (
+                      <span className="text-xs text-muted-foreground">{c.website}</span>
+                    )}
+                    {c.status === "candidate" && (
+                      <span className="rounded-full border border-cyan-500/30 bg-cyan-500/10 px-1.5 py-0.5 text-[10px] font-medium text-cyan-600">
+                        suggested
+                      </span>
+                    )}
+                  </label>
+                </li>
+              );
+            })}
           </ul>
 
           {!showAddForm && (
@@ -321,12 +371,17 @@ function FirmRecoveryPage({ firm }: { firm: AdminFirmSummary }) {
           <div className="pt-1">
             <Button
               onClick={() => { buildMutation.reset(); buildMutation.mutate(); }}
-              disabled={buildMutation.isPending}
+              disabled={buildMutation.isPending || selectedCompanies.length === 0}
               className="gap-1.5"
             >
               {buildMutation.isPending && <Loader2 className="h-4 w-4 animate-spin" />}
-              Build {firm.name} <ArrowRight className="h-4 w-4" />
+              Build {firm.name} ({selectedCompanies.length}) <ArrowRight className="h-4 w-4" />
             </Button>
+            {selectedCompanies.length === 0 && (
+              <p className="mt-2 text-xs text-muted-foreground">
+                Select at least one company to start the build.
+              </p>
+            )}
             {buildMutation.isError && (
               <p className="mt-2 text-xs text-destructive">
                 {(buildMutation.error as Error).message}
@@ -337,7 +392,7 @@ function FirmRecoveryPage({ firm }: { firm: AdminFirmSummary }) {
       )}
 
       {/* Fallback: no job, no guidance, no companies — e.g. freshly created firm */}
-      {!isDiscoveryRunning && !needsGuidance && activeCompanies.length === 0 && !detailLoading && (
+      {!isDiscoveryRunning && !needsGuidance && selectableCompanies.length === 0 && !detailLoading && (
         <div className="flex items-center gap-3 rounded-xl border border-border bg-card p-5 text-sm">
           <Building2 className="h-5 w-5 shrink-0 text-muted-foreground" />
           <div>
