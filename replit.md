@@ -135,3 +135,53 @@ Postgres (Replit built-in) via `@workspace/db` (Drizzle). Tables: `users`, `sess
 ### One-time migration + parity
 
 `cs-rescue/scripts/migrate-portfolio-to-db.ts` (`migrate-portfolio`) copied the 5 tenants' hardcoded data into the DB (5 firms, 27 companies, 137 assessments — full history; Raviga alone = 120). Read-only against the TS files; refuses to run once `firms` has rows. `assessments.p1..p8` map 1:1 to `PILLARS` order (`org,onboarding,health,escalation,revenue,leadership,planning,ai`); `"NA"` stored literally. The `companies` table only carries `name` (not `RawCompany`'s id/sector/hq/ARR — those still live in the TS files). `scripts/verify-portfolio-parity.ts` (`verify-portfolio-parity`) recomputes each tenant's counts/avg from files vs DB and diffs them (zero-write); re-run anytime.
+
+## Durable QA and operational conventions
+
+These lessons were learned from production incidents. They must be honored in every future build.
+
+### 1 — No dead-end admin states
+
+Every firm, in every lifecycle status (`pending`, `reviewed`, `active`, `ready`), **must be reachable in the admin UI and must expose a clear recovery path.** An admin visiting `/admin/firms/:id` should always see either a live pipeline (discovery running, build running) or an actionable recovery flow (company entry, re-run discovery). A silent dead-end, a blank panel, or a guided UI that offers no way forward is a bug, not a valid terminal state.
+
+- Discovery that completed with zero candidates is a **soft flag for human review** — it is never a clean "done" state. The admin recovery panel must show guided company entry + "Run a deeper review" in that branch.
+- A failed discovery or a failed build must surface its error and offer a retry path, not just a status badge.
+- Every firm in `pending` or `reviewed` status must be reachable via `/admin/firms/:id`; every firm in `ready` status must resolve `/:firmSlug/portfolio` without a 404.
+
+### 2 — Discovery must cross-reference multiple sources
+
+Discovery must search Crunchbase, PitchBook, news sources, and LinkedIn — **not just the firm's own website**. Portfolio pages that show companies only as logo images (no text) are a known failure mode; discovery must account for this by falling back to press releases, news mentions, and public filings. A zero-candidate result always means "try harder," never "this firm has no portfolio."
+
+The startup seeder (`seedStuckFirms.ts`) is the fallback of last resort for firms whose discovery genuinely could not find companies. It should not be the primary recovery path.
+
+### 3 — Production database is separate from dev; fixes require Republish
+
+The deployed production app runs against a **separate Postgres database** from the workspace/dev environment. Data changes made in the workspace (direct DB queries, scripts, the verify-db-invariants gate, etc.) do not reach production automatically. The only path to a prod data fix is:
+
+1. Write an idempotent startup routine (seeder, backfill) in the api-server.
+2. Republish — the deployment runs the routine on boot against the prod DB.
+3. Verify the fix landed (check prod via the admin UI or `executeSql` with `environment: "production"`).
+
+Never report a prod data issue "fixed" until the Republish is confirmed and the prod state is verified. See also: `.agents/memory/prod-data-repair-two-publish.md`.
+
+### 4 — A build is not done until writes are confirmed
+
+Before calling any task complete:
+- Run `git status` or `git --no-optional-locks diff --name-only` to verify the changed files are actually committed (or staged and about to be committed).
+- Do not report success from Plan mode without writing code.
+- Onboarding a firm is not complete until its portal (`/:firmSlug/portfolio`) resolves with at least one active company and at least one assessment row.
+- A code change is not "shipped" until Republish completes and the live admin UI reflects the new behavior.
+
+### 5 — Post-build QA gates (run after every pipeline or admin change)
+
+- `pnpm --filter @workspace/cs-rescue run verify-db-invariants` — permanent DB invariant gate (findings completeness, dedup, report composites, FK integrity, firm state health). **Must PASS.**
+- `pnpm --filter @workspace/cs-rescue run pipeline-smoke-test` — walks fixture firms through each pipeline state and asserts every edge case (including empty-discovery and failed-build branches) lands in a valid, recoverable state. **Must PASS.**
+- `GET /api/admin/system-health` (or `/admin/health` in the admin UI) — live audit listing any stuck/broken/orphaned firm. No issues should appear after a clean build.
+- The admin Health page shows a pre-publish blocking banner if any firm is in a broken state; resolve all issues before republishing.
+
+### 6 — Copy and data policies (non-negotiable)
+
+- **No em-dashes** anywhere in user-visible copy, firm names, company names, LLM-generated narrative, or static labels. Use double hyphens or restructure the sentence.
+- **INVESQ branding** everywhere in the user-facing chrome. Never "CS Rescue" in visible copy (artifact slugs/dirs may still use the legacy name).
+- **No named individuals** in generated narratives. Names found in raw assessment evidence must be redacted to "the current CS leader" before surfacing to users.
+- **N/A denominators**: composite scores exclude NA-pillar assessments from the denominator. Never divide by a fixed 16 when NA pillars are present.

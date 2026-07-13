@@ -2268,6 +2268,44 @@ export const BackfillPipelineMetaResponse = zod.object({
 });
 
 /**
+ * Returns a structured health report classifying every firm by its current operational state. Stuck, discovery-empty, and build-failed firms are flagged with their recovery URLs. Used by the admin Health dashboard and the pre-publish gate banner.
+
+ * @summary Live system health audit of all firm states
+ */
+export const GetAdminSystemHealthResponse = zod.object({
+  ok: zod.boolean().describe("True when no firm is in a broken state"),
+  checkedAt: zod.string().describe("ISO 8601 timestamp of when this check ran"),
+  summary: zod.object({
+    total: zod.number(),
+    healthy: zod.number(),
+    needsAction: zod.number(),
+    broken: zod.number(),
+  }),
+  issues: zod.array(
+    zod.object({
+      firmId: zod.number(),
+      firmName: zod.string(),
+      slug: zod.string(),
+      firmStatus: zod.string(),
+      issue: zod.enum([
+        "discovery_empty",
+        "discovery_failed",
+        "build_failed",
+        "ready_no_active_companies",
+        "pending_no_job",
+        "candidate_review_needed",
+      ]),
+      issueLabel: zod.string(),
+      severity: zod.enum(["broken", "needs_action"]),
+      recoveryUrl: zod.string(),
+      lastJobType: zod.string().nullish(),
+      lastJobStatus: zod.string().nullish(),
+      companyCount: zod.number(),
+    }),
+  ),
+});
+
+/**
  * @summary Get a job's current status, progress, and ETA
  */
 export const GetJobParams = zod.object({

@@ -4,6 +4,7 @@ import { resumeQueuedDiscoveryJobs } from "./lib/jobs/discovery";
 import { resumeQueuedBuildJobs } from "./lib/jobs/build";
 import { backfillCompanyNormalizedNames } from "./lib/backfillNormalizedNames";
 import { seedStuckFirms } from "./lib/seedStuckFirms";
+import { logSystemHealthOnStartup } from "./lib/systemHealth";
 
 // Defense-in-depth: a stray rejected promise or thrown async error must never
 // silently kill the server. Log rejections; on a truly uncaught exception, log
@@ -43,4 +44,5 @@ app.listen(port, (err) => {
   void seedStuckFirms();
   void resumeQueuedDiscoveryJobs();
   void resumeQueuedBuildJobs();
+  void logSystemHealthOnStartup();
 });

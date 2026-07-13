@@ -1,9 +1,13 @@
 import { type ReactNode, useEffect } from "react";
 import { Link, useLocation } from "wouter";
-import { ShieldCheck, type LucideIcon } from "lucide-react";
+import { AlertTriangle, ShieldCheck, XCircle, type LucideIcon } from "lucide-react";
 import { useAuth } from "@workspace/replit-auth-web";
 import { Button } from "@/components/ui/button";
 import { ADMIN_NAV } from "./adminNav";
+import {
+  useGetAdminSystemHealth,
+  getGetAdminSystemHealthQueryKey,
+} from "@workspace/api-client-react";
 
 // ---------------------------------------------------------------------------
 // AdminShell
@@ -38,6 +42,53 @@ function NavItem({
       <Icon className="h-4 w-4 shrink-0" />
       {label}
     </Link>
+  );
+}
+
+function HealthBanner() {
+  const { data } = useGetAdminSystemHealth({
+    query: {
+      queryKey: getGetAdminSystemHealthQueryKey(),
+      refetchInterval: 120_000,
+      staleTime: 60_000,
+    },
+  });
+
+  if (!data || (data.summary.broken === 0 && data.summary.needsAction === 0)) {
+    return null;
+  }
+
+  const isBroken = data.summary.broken > 0;
+
+  return (
+    <div
+      className={`flex shrink-0 items-center gap-3 border-b px-6 py-2.5 text-sm ${
+        isBroken
+          ? "border-rose-200 bg-rose-50 text-rose-800"
+          : "border-amber-200 bg-amber-50 text-amber-800"
+      }`}
+      data-testid="admin-health-banner"
+    >
+      {isBroken ? (
+        <XCircle className="h-4 w-4 shrink-0 text-rose-500" />
+      ) : (
+        <AlertTriangle className="h-4 w-4 shrink-0 text-amber-500" />
+      )}
+      <span>
+        {isBroken
+          ? `${data.summary.broken} broken firm(s) — tenant portal will 404 in production. Resolve before Republish.`
+          : `${data.summary.needsAction} firm(s) need attention before Republish.`}
+      </span>
+      <Link
+        href="/admin/health"
+        className={`ml-2 shrink-0 rounded px-2 py-0.5 text-xs font-medium underline-offset-2 hover:underline ${
+          isBroken ? "text-rose-700" : "text-amber-700"
+        }`}
+        data-testid="admin-health-banner-link"
+      >
+        View details
+      </Link>
+    </div>
   );
 }
 
@@ -128,6 +179,7 @@ export function AdminShell({ children }: { children: ReactNode }) {
 
       {/* ── Light canvas ───────────────────────────────────────── */}
       <div className="raviga-canvas flex flex-1 flex-col overflow-hidden bg-background">
+        <HealthBanner />
         <main className="flex-1 overflow-y-auto">
           <div className="mx-auto max-w-screen-xl px-8 py-8">{children}</div>
         </main>

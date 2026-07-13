@@ -25,6 +25,7 @@ import type { FirmMeta } from "@workspace/portfolio-engine";
 import { normalizeCompanyName } from "@workspace/portfolio-engine";
 import { runDiscoveryJob } from "../lib/jobs/discovery.js";
 import { runBuildJob } from "../lib/jobs/build.js";
+import { checkSystemHealth } from "../lib/systemHealth.js";
 import { getOrigin } from "../lib/http.js";
 import { invalidatePortfolioCache } from "../lib/portfolioData.js";
 import { requireAdminAuth } from "../middlewares/authMiddleware.js";
@@ -1084,6 +1085,16 @@ router.post("/backfill-pipeline-meta", async (req, res) => {
   } catch (err) {
     req.log.error({ err }, "Failed to backfill pipeline meta");
     res.status(500).json({ error: "Failed to backfill pipeline meta" });
+  }
+});
+
+router.get("/system-health", async (req, res) => {
+  try {
+    const report = await checkSystemHealth();
+    res.json(report);
+  } catch (err) {
+    req.log.error({ err }, "Failed to compute system health");
+    res.status(500).json({ error: "Failed to compute system health" });
   }
 });
 

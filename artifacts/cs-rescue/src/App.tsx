@@ -40,6 +40,7 @@ import RavigaDataSources from "@/pages/portfolio/RavigaDataSources";
 import AdminFirmsIndex from "@/pages/admin/AdminFirmsIndex";
 import AdminPipeline from "@/pages/admin/AdminPipeline";
 import AdminInsights from "@/pages/admin/AdminInsights";
+import AdminHealth from "@/pages/admin/AdminHealth";
 import AdminFirmReviewRedirect from "@/pages/admin/FirmReviewRedirect";
 import AdminJobStatus from "@/pages/admin/JobStatus";
 import AdminReports from "@/pages/admin/AdminReports";
@@ -137,6 +138,13 @@ function Router() {
             {() => (
               <ProtectedRoute>
                 <AdminInsights />
+              </ProtectedRoute>
+            )}
+          </Route>
+          <Route path="/admin/health">
+            {() => (
+              <ProtectedRoute>
+                <AdminHealth />
               </ProtectedRoute>
             )}
           </Route>

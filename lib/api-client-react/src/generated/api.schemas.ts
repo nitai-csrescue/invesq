@@ -1237,6 +1237,56 @@ export interface PortfolioBootstrapFirm {
   companies: PortfolioCompany[];
 }
 
+export type SystemHealthFirmIssueIssue =
+  (typeof SystemHealthFirmIssueIssue)[keyof typeof SystemHealthFirmIssueIssue];
+
+export const SystemHealthFirmIssueIssue = {
+  discovery_empty: "discovery_empty",
+  discovery_failed: "discovery_failed",
+  build_failed: "build_failed",
+  ready_no_active_companies: "ready_no_active_companies",
+  pending_no_job: "pending_no_job",
+  candidate_review_needed: "candidate_review_needed",
+} as const;
+
+export type SystemHealthFirmIssueSeverity =
+  (typeof SystemHealthFirmIssueSeverity)[keyof typeof SystemHealthFirmIssueSeverity];
+
+export const SystemHealthFirmIssueSeverity = {
+  broken: "broken",
+  needs_action: "needs_action",
+} as const;
+
+export interface SystemHealthFirmIssue {
+  firmId: number;
+  firmName: string;
+  slug: string;
+  firmStatus: string;
+  issue: SystemHealthFirmIssueIssue;
+  issueLabel: string;
+  severity: SystemHealthFirmIssueSeverity;
+  recoveryUrl: string;
+  lastJobType?: string | null;
+  lastJobStatus?: string | null;
+  companyCount: number;
+}
+
+export type SystemHealthReportSummary = {
+  total: number;
+  healthy: number;
+  needsAction: number;
+  broken: number;
+};
+
+export interface SystemHealthReport {
+  /** True when no firm is in a broken state */
+  ok: boolean;
+  /** ISO 8601 timestamp of when this check ran */
+  checkedAt: string;
+  summary: SystemHealthReportSummary;
+  issues: SystemHealthFirmIssue[];
+}
+
 export interface PortfolioBootstrap {
   asOfDate: string;
   firms: PortfolioBootstrapFirm[];

@@ -39,9 +39,14 @@ interface ReportDataScoresShape {
 }
 
 const violations: string[] = [];
+const stateWarnings: string[] = [];
 
 function fail(msg: string) {
   violations.push(msg);
+}
+
+function warn(msg: string) {
+  stateWarnings.push(msg);
 }
 
 // ---------------------------------------------------------------------------
@@ -254,6 +259,72 @@ async function checkFkIntegrityAndAppendOnly() {
   console.log(`(d.2) append-only: checked ${assessments.length} assessment row(s) for duplicate (companyId, date) pairs`);
 }
 
+// ---------------------------------------------------------------------------
+// (e) firm pipeline state audit — broken states fail the gate;
+//     needs-action states are printed as warnings
+// ---------------------------------------------------------------------------
+async function checkFirmStateHealth() {
+  const firms = await db.select().from(firmsTable);
+  const allCompanies = await db.select().from(companiesTable);
+  const allJobs = await db.select().from(jobsTable);
+
+  let brokenCount = 0;
+  let needsActionCount = 0;
+
+  for (const firm of firms) {
+    const companyRows = allCompanies.filter(
+      (c) => c.firmId === firm.id && c.status !== "excluded",
+    );
+    const activeCount = companyRows.filter((c) => c.status === "active").length;
+    const candidateCount = companyRows.filter((c) => c.status === "candidate").length;
+    const totalSelectable = activeCount + candidateCount;
+
+    const firmJobs = allJobs
+      .filter((j) => j.targetId === String(firm.id))
+      .sort((a, b) => b.id - a.id);
+    const lastJob = firmJobs[0] ?? null;
+
+    if (firm.status === "ready" && activeCount === 0) {
+      fail(
+        `(e) firm "${firm.slug}" is ready but has 0 active companies — tenant portal 404s`,
+      );
+      brokenCount++;
+      continue;
+    }
+
+    if (firm.status === "pending" || firm.status === "reviewed") {
+      if (!lastJob) {
+        warn(`(e) firm "${firm.slug}" is pending with no discovery job`);
+        needsActionCount++;
+      } else if (lastJob.type === "discovery" && lastJob.status === "failed") {
+        warn(`(e) firm "${firm.slug}" discovery job failed`);
+        needsActionCount++;
+      } else if (lastJob.type === "build" && lastJob.status === "failed") {
+        warn(`(e) firm "${firm.slug}" build job failed`);
+        needsActionCount++;
+      } else if (
+        lastJob.type === "discovery" &&
+        lastJob.status === "completed" &&
+        totalSelectable === 0
+      ) {
+        warn(
+          `(e) firm "${firm.slug}" discovery completed but found 0 companies — admin must add manually`,
+        );
+        needsActionCount++;
+      } else if (candidateCount > 0 && activeCount === 0) {
+        warn(
+          `(e) firm "${firm.slug}" has ${candidateCount} candidate(s) awaiting confirmation`,
+        );
+        needsActionCount++;
+      }
+    }
+  }
+
+  console.log(
+    `(e) firm state audit: ${firms.length} firm(s) — ${brokenCount} broken, ${needsActionCount} needing action`,
+  );
+}
+
 async function main() {
   console.log("=== DB invariants gate (permanent, file-independent) ===\n");
 
@@ -261,6 +332,7 @@ async function main() {
   await checkCompanyDedup();
   await checkReportExportComposites();
   await checkFkIntegrityAndAppendOnly();
+  await checkFirmStateHealth();
 
   console.log("\n=== Result ===");
   if (violations.length > 0) {
@@ -269,6 +341,11 @@ async function main() {
     process.exitCode = 1;
   } else {
     console.log("PASSED — no invariant violations found.");
+  }
+
+  if (stateWarnings.length > 0) {
+    console.log(`\nWARNINGS (${stateWarnings.length} firm(s) need action — not a gate failure):`);
+    for (const w of stateWarnings) console.log(`  ! ${w}`);
   }
 }
 

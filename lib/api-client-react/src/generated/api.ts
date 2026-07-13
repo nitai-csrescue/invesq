@@ -61,6 +61,7 @@ import type {
   ReportRevisionInput,
   ReportValidateInput,
   Resource,
+  SystemHealthReport,
   UpdateAdminFirmInput,
 } from "./api.schemas";
 
@@ -2937,6 +2938,83 @@ export const useBackfillPipelineMeta = <
 > => {
   return useMutation(getBackfillPipelineMetaMutationOptions(options));
 };
+
+/**
+ * Returns a structured health report classifying every firm by its current operational state. Stuck, discovery-empty, and build-failed firms are flagged with their recovery URLs. Used by the admin Health dashboard and the pre-publish gate banner.
+
+ * @summary Live system health audit of all firm states
+ */
+export const getGetAdminSystemHealthUrl = () => {
+  return `/api/admin/system-health`;
+};
+
+export const getAdminSystemHealth = async (
+  options?: RequestInit,
+): Promise<SystemHealthReport> => {
+  return customFetch<SystemHealthReport>(getGetAdminSystemHealthUrl(), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getGetAdminSystemHealthQueryKey = () => {
+  return [`/api/admin/system-health`] as const;
+};
+
+export const getGetAdminSystemHealthQueryOptions = <
+  TData = Awaited<ReturnType<typeof getAdminSystemHealth>>,
+  TError = ErrorType<ErrorEnvelope>,
+>(options?: {
+  query?: UseQueryOptions<
+    Awaited<ReturnType<typeof getAdminSystemHealth>>,
+    TError,
+    TData
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey = queryOptions?.queryKey ?? getGetAdminSystemHealthQueryKey();
+
+  const queryFn: QueryFunction<
+    Awaited<ReturnType<typeof getAdminSystemHealth>>
+  > = ({ signal }) => getAdminSystemHealth({ signal, ...requestOptions });
+
+  return { queryKey, queryFn, ...queryOptions } as UseQueryOptions<
+    Awaited<ReturnType<typeof getAdminSystemHealth>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type GetAdminSystemHealthQueryResult = NonNullable<
+  Awaited<ReturnType<typeof getAdminSystemHealth>>
+>;
+export type GetAdminSystemHealthQueryError = ErrorType<ErrorEnvelope>;
+
+/**
+ * @summary Live system health audit of all firm states
+ */
+
+export function useGetAdminSystemHealth<
+  TData = Awaited<ReturnType<typeof getAdminSystemHealth>>,
+  TError = ErrorType<ErrorEnvelope>,
+>(options?: {
+  query?: UseQueryOptions<
+    Awaited<ReturnType<typeof getAdminSystemHealth>>,
+    TError,
+    TData
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getGetAdminSystemHealthQueryOptions(options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
 
 /**
  * @summary Get a job's current status, progress, and ETA
