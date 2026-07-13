@@ -393,6 +393,71 @@ router.post("/firms/:id/companies", async (req, res) => {
   }
 });
 
+// Re-runs discovery for a firm that completed discovery with 0 candidates or
+// whose discovery job failed. Guards against firms that already have a
+// discovery job in flight. Creates a new "queued" discovery job and fires it.
+router.post("/firms/:id/rerun-discovery", async (req, res) => {
+  const id = Number(req.params.id);
+  if (!Number.isInteger(id) || id <= 0) {
+    res.status(400).json({ error: "Invalid firm id" });
+    return;
+  }
+
+  try {
+    const [firm] = await db.select().from(firmsTable).where(eq(firmsTable.id, id)).limit(1);
+    if (!firm) {
+      res.status(404).json({ error: "Firm not found" });
+      return;
+    }
+
+    const [activeDiscoveryJob] = await db
+      .select()
+      .from(jobsTable)
+      .where(
+        and(
+          eq(jobsTable.type, "discovery"),
+          eq(jobsTable.targetId, String(id)),
+          inArray(jobsTable.status, ["queued", "running"]),
+        ),
+      )
+      .orderBy(desc(jobsTable.createdAt))
+      .limit(1);
+
+    if (activeDiscoveryJob) {
+      res.status(409).json({ error: "A discovery job for this firm is already in progress." });
+      return;
+    }
+
+    const [job] = await db
+      .insert(jobsTable)
+      .values({ type: "discovery", targetId: String(id), status: "queued" })
+      .returning();
+
+    if (!job) throw new Error("Job insert returned no row");
+
+    res.status(201).json({
+      job: {
+        id: job.id,
+        type: job.type,
+        targetId: job.targetId,
+        status: job.status,
+        progressPct: job.progressPct ?? 0,
+        etaSeconds: job.etaSeconds ?? null,
+        error: job.error ?? null,
+        createdAt: job.createdAt?.toISOString() ?? new Date().toISOString(),
+        completedAt: null,
+      },
+    });
+
+    void runDiscoveryJob(job.id).catch((err) => {
+      req.log.error({ err, jobId: job.id }, "Rerun discovery job crashed outside its own error handling");
+    });
+  } catch (err) {
+    req.log.error({ err }, "Failed to start rerun-discovery for firm");
+    res.status(500).json({ error: "Failed to start discovery" });
+  }
+});
+
 // Confirms the reviewed selection: checked companies -> "active", unchecked
 // ones -> "excluded", firm -> "reviewed", plus a stub "build" job.
 router.post("/firms/:id/confirm", async (req, res) => {

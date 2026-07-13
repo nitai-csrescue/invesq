@@ -3,6 +3,7 @@ import { logger } from "./lib/logger";
 import { resumeQueuedDiscoveryJobs } from "./lib/jobs/discovery";
 import { resumeQueuedBuildJobs } from "./lib/jobs/build";
 import { backfillCompanyNormalizedNames } from "./lib/backfillNormalizedNames";
+import { seedStuckFirms } from "./lib/seedStuckFirms";
 
 // Defense-in-depth: a stray rejected promise or thrown async error must never
 // silently kill the server. Log rejections; on a truly uncaught exception, log
@@ -39,6 +40,7 @@ app.listen(port, (err) => {
   logger.info({ port }, "Server listening");
 
   void backfillCompanyNormalizedNames();
+  void seedStuckFirms();
   void resumeQueuedDiscoveryJobs();
   void resumeQueuedBuildJobs();
 });

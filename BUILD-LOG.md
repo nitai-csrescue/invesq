@@ -927,3 +927,18 @@ curl -X POST https://<prod-domain>/api/admin/repair-assessments-dedup \
   - Scope: only the two admin page components. No bootstrap/engine/server/schema/data change. INVESQ branding; no em-dashes in user-visible copy.
 
 ---
+
+## Stuck-firm seeder + admin recovery UI + discovery hardening
+
+- Date: 2026-07-13
+- Status: completed
+- Files changed: artifacts/api-server/src/lib/seedStuckFirms.ts (new), artifacts/api-server/src/index.ts, artifacts/api-server/src/routes/admin.ts, artifacts/api-server/src/lib/jobs/discovery.ts, artifacts/cs-rescue/src/pages/admin/FirmReviewRedirect.tsx, artifacts/cs-rescue/src/pages/admin/AdminPipeline.tsx, artifacts/cs-rescue/src/pages/admin/AdminFirmsIndex.tsx
+- Validation: typecheck:libs pass; api-server typecheck pass; cs-rescue typecheck pass; verify-db-invariants PASSED (140 assessments, 30 companies, 6 firms — no other tenant altered)
+- Republish needed: yes
+- QA notes:
+  - PART A (seeder): seedStuckFirms.ts runs at api-server startup for staley-capital (MNTN, Looma, Olo) and inflexion (Curinos, Infront, Ranger Fire). Idempotency guard: skips if non-excluded companies already exist for the firm, or a build job is already queued/running. After Republish the seeder runs against the production DB, inserts the companies as "active", queues a build job, and fires it — advancing both firms to "ready" without any manual admin action.
+  - PART B (admin recovery UI): FirmReviewRedirect now routes non-ready firms to a guided recovery panel instead of redirecting to the 404-prone tenant portal. Panel shows friendly state (empty/failed/running discovery), inline "Add companies manually" form, and "Run a deeper review" button. After companies are added, a "Build [firm]" button calls /confirm with all active company IDs and redirects to the JobStatus page. AdminPipeline and AdminFirmsIndex "Open portal" links now route non-ready firms to /admin/firms/:id instead. POST /admin/firms/:id/rerun-discovery endpoint added.
+  - PART C (discovery hardening): discovery.ts now uses a two-pass strategy. First pass uses 8 web searches with an updated multi-source prompt that explicitly instructs Claude to not rely on the firm's own website alone (cross-reference Crunchbase/PitchBook, news, LinkedIn). If first pass yields 0 candidates, a second pass runs with 12 searches and a broader recall-over-precision prompt. Zero-candidate results are surfaced as a soft flag (error field on completed job) so the UI can distinguish empty from success. Discovery budget extended from 45s to 90s to accommodate both passes.
+  - Existing tenants (stg, pamlico, raviga, longarc, solen, mainsail-partners) untouched — seeder only triggers on staley-capital and inflexion slugs with 0 non-excluded companies.
+
+---

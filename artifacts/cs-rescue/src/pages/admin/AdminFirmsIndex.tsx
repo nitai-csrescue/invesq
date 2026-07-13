@@ -288,14 +288,15 @@ function FirmCard({
       {/* Spacer pushes the footer to the bottom so cards align across rows */}
       <div className="flex-1" />
 
-      {/* Footer link → tenant portal (admin lens lives there) */}
+      {/* Footer link → tenant portal for ready firms, recovery panel for others */}
       <div className="mt-4 flex items-center justify-end border-t border-border pt-3">
         <Link
-          href={`/${firm.slug}/portfolio`}
+          href={firm.status === "ready" ? `/${firm.slug}/portfolio` : `/admin/firms/${firm.id}`}
           className="inline-flex items-center gap-1 rounded-md border border-border bg-card px-3 py-1.5 text-xs text-foreground transition-colors hover:border-primary/40 hover:text-primary"
           data-testid={`admin-firm-open-${firm.slug}`}
         >
-          Open portal <ArrowRight className="h-3 w-3" />
+          {firm.status === "ready" ? "Open portal" : "Review firm"}{" "}
+          <ArrowRight className="h-3 w-3" />
         </Link>
       </div>
     </div>

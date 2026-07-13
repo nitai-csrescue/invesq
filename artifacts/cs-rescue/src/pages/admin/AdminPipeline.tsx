@@ -90,11 +90,18 @@ function BuildQueue({ firms }: { firms: AdminFirmSummary[] }) {
                 </td>
                 <td className="px-5 py-4 text-right">
                   <Link
-                    href={active ? `/admin/jobs/${job.id}` : `/${firm.slug}/portfolio`}
+                    href={
+                      active
+                        ? `/admin/jobs/${job.id}`
+                        : firm.status === "ready"
+                          ? `/${firm.slug}/portfolio`
+                          : `/admin/firms/${firm.id}`
+                    }
                     className="inline-flex items-center gap-1 rounded-md border border-border bg-card px-3 py-1.5 text-xs text-foreground transition-colors hover:border-primary/40 hover:text-primary"
                     data-testid={`link-pipeline-${firm.id}`}
                   >
-                    {active ? "View job" : "Open portal"} <ArrowRight className="h-3 w-3" />
+                    {active ? "View job" : firm.status === "ready" ? "Open portal" : "Review firm"}{" "}
+                    <ArrowRight className="h-3 w-3" />
                   </Link>
                 </td>
               </tr>
