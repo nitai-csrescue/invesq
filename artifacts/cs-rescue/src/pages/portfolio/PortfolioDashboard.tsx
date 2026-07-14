@@ -68,9 +68,9 @@ export default function PortfolioDashboard() {
         <div className="flex flex-wrap items-start justify-between gap-4">
           <div className="flex flex-wrap items-center gap-2.5">
             <h1 className="text-2xl font-bold text-foreground">Portfolio Overview</h1>
-            {summary.suggestedIcpFit !== "Unknown" && (
+            {firm.icpFit && firm.icpFit !== "Unknown" && (
               <span
-                title="Suggested fit based on portfolio mix, not an authoritative rating"
+                title="Firm-level ICP fit rating assigned by INVESQ"
                 className="inline-flex items-center gap-1.5"
               >
                 <span className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
@@ -78,14 +78,14 @@ export default function PortfolioDashboard() {
                 </span>
                 <span
                   className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-[11px] font-medium ${
-                    summary.suggestedIcpFit === "Strong"
+                    firm.icpFit === "Strong"
                       ? "bg-green-100 text-green-800"
-                      : summary.suggestedIcpFit === "Moderate"
+                      : firm.icpFit === "Moderate"
                         ? "bg-blue-100 text-blue-800"
                         : "bg-muted text-muted-foreground"
                   }`}
                 >
-                  {summary.suggestedIcpFit}
+                  {firm.icpFit}
                 </span>
               </span>
             )}

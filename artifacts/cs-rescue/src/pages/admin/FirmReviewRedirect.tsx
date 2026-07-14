@@ -160,7 +160,7 @@ function FirmRecoveryPage({ firm }: { firm: AdminFirmSummary }) {
             {firm.name.slice(0, 2).toUpperCase()}
           </div>
           <div>
-            <h1 className="text-xl font-semibold">{firm.name}</h1>
+            <h1 className="text-xl font-semibold text-primary">{firm.name}</h1>
             <span className="text-xs text-muted-foreground">{firm.slug}</span>
           </div>
           <span
@@ -322,7 +322,7 @@ function FirmRecoveryPage({ firm }: { firm: AdminFirmSummary }) {
       {!detailLoading && !isDiscoveryRunning && selectableCompanies.length > 0 && (
         <div className="space-y-3 rounded-xl border border-border bg-card p-5">
           <div>
-            <p className="text-sm font-medium">Companies found</p>
+            <p className="text-sm font-medium text-primary">Companies found</p>
             <p className="mt-0.5 text-xs text-muted-foreground">
               Select the companies to score. Anything left unchecked is excluded from this build.
             </p>
@@ -342,7 +342,7 @@ function FirmRecoveryPage({ firm }: { firm: AdminFirmSummary }) {
                     htmlFor={`co-${c.id}`}
                     className="flex flex-1 cursor-pointer items-center gap-2"
                   >
-                    <span className={checked ? "" : "text-muted-foreground line-through"}>
+                    <span className={checked ? "text-foreground" : "text-muted-foreground line-through"}>
                       {c.name}
                     </span>
                     {c.website && (

@@ -75,6 +75,9 @@ export interface Firm {
   // is keyed off the DB-backed bootstrap, not this static list; see
   // firmRequiresLogin() in firms.ts.
   requireLogin?: boolean;
+  // Stored, human-assigned firm-level ICP fit rating shown as the rollup badge
+  // on the tenant dashboard. Optional: firms without it show no badge.
+  icpFit?: IcpFitLabel;
 }
 
 // ---------------------------------------------------------------------------

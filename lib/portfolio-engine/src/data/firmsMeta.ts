@@ -13,12 +13,14 @@ export const LEGACY_FIRMS_META: Firm[] = [
     displayName: "STG",
     statusLabel: "Design-partner preview",
     internalOnly: false,
+    icpFit: "Strong",
   },
   {
     slug: "pamlico",
     displayName: "Pamlico Capital",
     statusLabel: "Internal preview — not cleared for external distribution",
     internalOnly: true,
+    icpFit: "Moderate",
   },
   {
     slug: "raviga",

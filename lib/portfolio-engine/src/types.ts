@@ -73,6 +73,11 @@ export interface Firm {
   // When true, the tenant portal requires an authenticated admin session to
   // view. Absent/false = public (the default; no behavior change).
   requireLogin?: boolean;
+  // Stored, human-assigned firm-level ICP fit rating shown as the rollup badge
+  // on the tenant dashboard. Optional: firms without it show no badge. This is
+  // deliberately NOT derived from portfolio mix (see suggestedIcpFit on
+  // PortfolioSummary, which remains for per-company analytics only).
+  icpFit?: IcpFitLabel;
 }
 
 // Portal display metadata stored in the firms.meta jsonb column.
