@@ -7,7 +7,6 @@ import {
   Users,
   CalendarClock,
   TrendingDown,
-  FileText,
   Info,
   Plug,
   X,
@@ -27,7 +26,6 @@ import {
 } from "recharts";
 import { ConfidenceBadge } from "@/components/portfolio/ConfidenceBadge";
 import { TenantShell } from "@/components/portfolio/TenantShell";
-import { TenantExportButton } from "@/components/portfolio/TenantExportButton";
 import { PortcoReportWorkflow } from "./PortcoReportWorkflow";
 import { IcpEligibilityChip } from "./RavigaCompanyList";
 import {
@@ -1256,44 +1254,6 @@ export default function PortfolioCompany() {
 
       {/* Phase 2 integrations */}
       <Phase2Integrations company={company} isRaviga={isRaviga} />
-
-      {/* Phase footer + CTA */}
-      <div className="mt-4 flex flex-col gap-4 rounded-xl border border-border bg-card p-6 sm:flex-row sm:items-center sm:justify-between">
-        <div className="flex flex-wrap gap-x-8 gap-y-2">
-          <div>
-            <div className="text-[10px] uppercase tracking-wider text-muted-foreground">Phase 1 · unweighted</div>
-            <div className="font-mono text-lg font-semibold text-foreground">
-              {company.compositeDisplay}{" "}
-              <span className="text-xs text-muted-foreground">
-                {company.displayMax > 0 ? `/ ${company.displayMax}` : "Insufficient Data"}
-              </span>
-            </div>
-          </div>
-          <div>
-            <div className="text-[10px] uppercase tracking-wider text-muted-foreground">Phase 2 · weighted</div>
-            <div className="font-mono text-lg font-semibold text-foreground">
-              {company.weightedMax > 0 ? company.weightedComposite : "—"}{" "}
-              <span className="text-xs text-muted-foreground">
-                {company.weightedMax > 0 ? `/ ${company.weightedMax}` : "Insufficient Data"}
-              </span>
-            </div>
-          </div>
-        </div>
-        <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
-          <Link
-            href={`/${firm.slug}/portfolio/${company.id}/report`}
-            className="inline-flex items-center justify-center gap-2 rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground transition-opacity hover:opacity-90"
-          >
-            <FileText className="h-4 w-4" /> View sample diagnostic report
-          </Link>
-          <TenantExportButton
-            firmSlug={firm.slug}
-            companySlug={company.id}
-            internalOnly={firm.internalOnly}
-            requireLogin={firm.requireLogin}
-          />
-        </div>
-      </div>
 
       <p className="mt-4 text-center text-[11px] text-muted-foreground">
         Prepared for {firm.displayName} · as of {formatDate(AS_OF_DATE)} · Design-partner preview
