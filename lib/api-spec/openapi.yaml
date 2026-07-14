@@ -889,6 +889,53 @@ paths:
               schema:
                 $ref: "#/components/schemas/ErrorEnvelope"
 
+  /admin/companies/{id}/pillar-evidence:
+    patch:
+      operationId: updateAdminCompanyPillarEvidence
+      tags: [admin]
+      summary: Update the per-pillar evidence text on a company's latest assessment
+      description: >
+        Persists admin corrections to the raw per-pillar evidence text on the
+        company's latest assessment (assessments.p1_evidence..p8_evidence) and
+        mirrors each change into the matching findings row. Only supplied
+        fields are changed; an empty string or null clears the field. The
+        effective report rebuilds pillar evidence and gap descriptions from
+        the live assessment on every load, so edits show up immediately in
+        the scorecard pillar notes and gap cards WITHOUT creating a revision,
+        resetting sign-offs, or changing any score, composite, or tier.
+        Returns the fresh workflow state.
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdatePillarEvidenceInput"
+      responses:
+        "200":
+          description: Pillar evidence saved; fresh workflow state
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AdminReportWorkflow"
+        "400":
+          description: Invalid company id or malformed body
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+        "404":
+          description: Company not found, or has no assessments yet
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+
   /admin/companies/{id}/validate:
     post:
       operationId: validateAdminCompanyReport
@@ -1956,6 +2003,32 @@ components:
           type: [string, "null"]
           pattern: "^\\d{4}-\\d{2}-\\d{2}$"
           description: Report date shown on the Prepared By card (YYYY-MM-DD); becomes reportData.reportDate.
+
+    UpdatePillarEvidenceInput:
+      type: object
+      description: >
+        Partial per-pillar evidence update for the company's latest
+        assessment. Every field is optional; only supplied fields are
+        changed. An empty string or null clears the field. Keys map to
+        assessments.p1_evidence..p8_evidence in PILLARS order (p1 CS Org
+        Design through p8 AI Adoption Maturity).
+      properties:
+        p1:
+          type: [string, "null"]
+        p2:
+          type: [string, "null"]
+        p3:
+          type: [string, "null"]
+        p4:
+          type: [string, "null"]
+        p5:
+          type: [string, "null"]
+        p6:
+          type: [string, "null"]
+        p7:
+          type: [string, "null"]
+        p8:
+          type: [string, "null"]
 
     AdminFirmDetail:
       type: object

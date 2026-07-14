@@ -67,6 +67,7 @@ import type {
   Resource,
   SystemHealthReport,
   UpdateAdminFirmInput,
+  UpdatePillarEvidenceInput,
   UpdateReportMetaInput,
 } from "./api.schemas";
 
@@ -2941,6 +2942,102 @@ export const useUpdateAdminCompanyReportMeta = <
   TContext
 > => {
   return useMutation(getUpdateAdminCompanyReportMetaMutationOptions(options));
+};
+
+/**
+ * Persists admin corrections to the raw per-pillar evidence text on the company's latest assessment (assessments.p1_evidence..p8_evidence) and mirrors each change into the matching findings row. Only supplied fields are changed; an empty string or null clears the field. The effective report rebuilds pillar evidence and gap descriptions from the live assessment on every load, so edits show up immediately in the scorecard pillar notes and gap cards WITHOUT creating a revision, resetting sign-offs, or changing any score, composite, or tier. Returns the fresh workflow state.
+
+ * @summary Update the per-pillar evidence text on a company's latest assessment
+ */
+export const getUpdateAdminCompanyPillarEvidenceUrl = (id: number) => {
+  return `/api/admin/companies/${id}/pillar-evidence`;
+};
+
+export const updateAdminCompanyPillarEvidence = async (
+  id: number,
+  updatePillarEvidenceInput: UpdatePillarEvidenceInput,
+  options?: RequestInit,
+): Promise<AdminReportWorkflow> => {
+  return customFetch<AdminReportWorkflow>(
+    getUpdateAdminCompanyPillarEvidenceUrl(id),
+    {
+      ...options,
+      method: "PATCH",
+      headers: { "Content-Type": "application/json", ...options?.headers },
+      body: JSON.stringify(updatePillarEvidenceInput),
+    },
+  );
+};
+
+export const getUpdateAdminCompanyPillarEvidenceMutationOptions = <
+  TError = ErrorType<ErrorEnvelope>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof updateAdminCompanyPillarEvidence>>,
+    TError,
+    { id: number; data: BodyType<UpdatePillarEvidenceInput> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof updateAdminCompanyPillarEvidence>>,
+  TError,
+  { id: number; data: BodyType<UpdatePillarEvidenceInput> },
+  TContext
+> => {
+  const mutationKey = ["updateAdminCompanyPillarEvidence"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof updateAdminCompanyPillarEvidence>>,
+    { id: number; data: BodyType<UpdatePillarEvidenceInput> }
+  > = (props) => {
+    const { id, data } = props ?? {};
+
+    return updateAdminCompanyPillarEvidence(id, data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type UpdateAdminCompanyPillarEvidenceMutationResult = NonNullable<
+  Awaited<ReturnType<typeof updateAdminCompanyPillarEvidence>>
+>;
+export type UpdateAdminCompanyPillarEvidenceMutationBody =
+  BodyType<UpdatePillarEvidenceInput>;
+export type UpdateAdminCompanyPillarEvidenceMutationError =
+  ErrorType<ErrorEnvelope>;
+
+/**
+ * @summary Update the per-pillar evidence text on a company's latest assessment
+ */
+export const useUpdateAdminCompanyPillarEvidence = <
+  TError = ErrorType<ErrorEnvelope>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof updateAdminCompanyPillarEvidence>>,
+    TError,
+    { id: number; data: BodyType<UpdatePillarEvidenceInput> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof updateAdminCompanyPillarEvidence>>,
+  TError,
+  { id: number; data: BodyType<UpdatePillarEvidenceInput> },
+  TContext
+> => {
+  return useMutation(
+    getUpdateAdminCompanyPillarEvidenceMutationOptions(options),
+  );
 };
 
 /**

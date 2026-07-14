@@ -8,6 +8,7 @@ import {
   CreateManualAdminFirmBody,
   ReorderAdminFirmsBody,
   SaveAdminCompanyReportRevisionBody,
+  UpdateAdminCompanyPillarEvidenceBody,
   UpdateAdminCompanyReportMetaBody,
   UpdateAdminFirmBody,
   ValidateAdminCompanyReportBody,
@@ -40,6 +41,7 @@ import {
   loadEffectiveReport,
   toWorkflow,
   toValidationStamp,
+  savePillarEvidence,
   saveReportRevision,
   updateReportMeta,
   validateReport,
@@ -1052,6 +1054,42 @@ router.patch("/companies/:id/report-meta", async (req, res) => {
     }
     req.log.error({ err, companyId: id }, "Failed to update report cover metadata");
     res.status(500).json({ error: "Failed to update report metadata" });
+  }
+});
+
+// Update the per-pillar evidence text on the company's latest assessment and
+// mirror it into the matching findings rows. Never touches scores, revisions,
+// or sign-offs. The evidence also feeds the tenant portal scorecard via the
+// portfolio bootstrap, so the in-memory portfolio cache is invalidated after
+// a successful save.
+router.patch("/companies/:id/pillar-evidence", async (req, res) => {
+  const id = Number(req.params.id);
+  if (!Number.isInteger(id) || id <= 0) {
+    res.status(400).json({ error: "Invalid company id" });
+    return;
+  }
+
+  const parsed = UpdateAdminCompanyPillarEvidenceBody.safeParse(req.body);
+  if (!parsed.success) {
+    res.status(400).json({ error: "Invalid pillar-evidence payload", details: parsed.error.issues });
+    return;
+  }
+
+  try {
+    const workflow = await savePillarEvidence(id, parsed.data);
+    invalidatePortfolioCache();
+    res.json(workflow);
+  } catch (err) {
+    if (err instanceof CompanyNotFoundError) {
+      res.status(404).json({ error: "Company not found" });
+      return;
+    }
+    if (err instanceof NoAssessmentError) {
+      res.status(404).json({ error: "Company has no assessments yet" });
+      return;
+    }
+    req.log.error({ err, companyId: id }, "Failed to update pillar evidence");
+    res.status(500).json({ error: "Failed to update pillar evidence" });
   }
 });
 

@@ -38,6 +38,7 @@ import {
   getGetAdminCompanyReportDataQueryKey,
   useGenerateAdminCompanyReportExport,
   useSaveAdminCompanyReportRevision,
+  useUpdateAdminCompanyPillarEvidence,
   useUpdateAdminCompanyReportMeta,
   useValidateAdminCompanyReport,
   useShipAdminCompanyReportToDrive,
@@ -47,6 +48,7 @@ import type {
   AdminReportWorkflow,
   ReportRevisionInput,
   ReportValidator,
+  UpdatePillarEvidenceInput,
   UpdateReportMetaInput,
 } from "@workspace/api-client-react";
 
@@ -313,6 +315,105 @@ function PortcoNarrativeEditor({
 }
 
 // ---------------------------------------------------------------------------
+// PillarEvidenceEditor — inline editor for the raw per-pillar evidence text
+// on the company's latest assessment. Saving persists to
+// assessments.p{n}_evidence and mirrors into findings WITHOUT creating a
+// revision or resetting sign-offs (same behavior class as the cover-meta
+// save). Only fields the admin actually changed are sent, so untouched
+// pillars (notably P6, whose display text is name-redacted) keep their
+// stored values byte-for-byte.
+// ---------------------------------------------------------------------------
+const PILLAR_EVIDENCE_FIELDS: readonly { key: `p${1 | 2 | 3 | 4 | 5 | 6 | 7 | 8}`; label: string; hint?: string }[] = [
+  { key: "p1", label: "P1 CS Org Design" },
+  { key: "p2", label: "P2 Onboarding" },
+  { key: "p3", label: "P3 Health Scoring" },
+  { key: "p4", label: "P4 Escalation & Churn Management" },
+  { key: "p5", label: "P5 Revenue Motion" },
+  {
+    key: "p6",
+    label: "P6 CS Leadership",
+    hint: "Shown here with named individuals redacted. Saving an edit permanently replaces the stored raw evidence with this text.",
+  },
+  { key: "p7", label: "P7 Account Planning" },
+  { key: "p8", label: "P8 AI Adoption Maturity" },
+] as const;
+
+type PillarEvidenceKey = (typeof PILLAR_EVIDENCE_FIELDS)[number]["key"];
+
+function PillarEvidenceEditor({
+  report,
+  saving,
+  onCancel,
+  onSave,
+}: {
+  report: AdminCompanyReportData;
+  saving: boolean;
+  onCancel: () => void;
+  onSave: (input: UpdatePillarEvidenceInput) => void;
+}) {
+  const [initial] = useState<Record<PillarEvidenceKey, string>>(() =>
+    Object.fromEntries(
+      PILLAR_EVIDENCE_FIELDS.map(({ key }) => [key, report.reportData.pillarEvidence[key] ?? ""]),
+    ) as Record<PillarEvidenceKey, string>,
+  );
+  const [values, setValues] = useState(initial);
+
+  const setValue = (key: PillarEvidenceKey, value: string) =>
+    setValues((prev) => ({ ...prev, [key]: value }));
+
+  const handleSave = () => {
+    const input: UpdatePillarEvidenceInput = {};
+    for (const { key } of PILLAR_EVIDENCE_FIELDS) {
+      if (values[key].trim() !== initial[key].trim()) {
+        const trimmed = values[key].trim();
+        input[key] = trimmed === "" ? null : trimmed;
+      }
+    }
+    onSave(input);
+  };
+
+  return (
+    <div className="space-y-4">
+      <div className="flex items-center justify-between gap-3">
+        <div>
+          <h3 className="text-sm font-semibold text-gray-900">Edit pillar evidence</h3>
+          <p className="mt-0.5 text-xs text-slate-500">
+            Evidence is the raw diagnostic source text for each pillar. Edits update the scorecard note
+            and gap description. Scores, tiers, and sign-offs are not affected.
+          </p>
+        </div>
+        <Button variant="ghost" size="sm" onClick={onCancel} disabled={saving} className="text-gray-700">
+          <X className="h-3.5 w-3.5" /> Cancel
+        </Button>
+      </div>
+
+      {PILLAR_EVIDENCE_FIELDS.map(({ key, label, hint }) => (
+        <div key={key} className="space-y-1.5">
+          <Label htmlFor={`pc-evidence-${key}`} className="text-gray-800">{label}</Label>
+          {hint && <p className="text-[11px] text-amber-600">{hint}</p>}
+          <Textarea
+            id={`pc-evidence-${key}`}
+            value={values[key]}
+            onChange={(e) => setValue(key, e.target.value)}
+            rows={3}
+            placeholder="No evidence on file"
+            className={TEXTAREA}
+          />
+        </div>
+      ))}
+
+      <div className="flex items-center justify-end gap-2">
+        <Button variant="outline" size="sm" onClick={onCancel} disabled={saving} className="text-gray-700">Cancel</Button>
+        <Button size="sm" onClick={handleSave} disabled={saving}>
+          {saving ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Check className="h-3.5 w-3.5" />}
+          Save evidence
+        </Button>
+      </div>
+    </div>
+  );
+}
+
+// ---------------------------------------------------------------------------
 // ValidatorStatusStrip — shows each validator's sign-off state as a chip.
 // The "override" link appears for the OTHER validator (when they haven't
 // signed) only if the current user HAS signed and onOverride is provided.
@@ -444,6 +545,7 @@ export function PortcoReportWorkflow({
   const [companyId, setCompanyId] = useState<number | null>(null);
   const [resolveError, setResolveError] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
+  const [isEditingEvidence, setIsEditingEvidence] = useState(false);
   const [overrideOpen, setOverrideOpen] = useState(false);
   const [overrideTarget, setOverrideTarget] = useState<string | null>(null);
   const [overrideReason, setOverrideReason] = useState("");
@@ -531,6 +633,18 @@ export function PortcoReportWorkflow({
     },
   });
 
+  const evidenceMutation = useUpdateAdminCompanyPillarEvidence({
+    mutation: {
+      onSuccess: (workflow) => {
+        setWorkflow(workflow);
+        setIsEditingEvidence(false);
+        toast({ title: "Pillar evidence saved", description: "Scorecard notes and gap descriptions now use the edited text." });
+      },
+      onError: () =>
+        toast({ title: "Save failed", description: "Could not save the pillar evidence.", variant: "destructive" }),
+    },
+  });
+
   const validateMutation = useValidateAdminCompanyReport({
     mutation: {
       onSuccess: (workflow) => {
@@ -600,6 +714,15 @@ export function PortcoReportWorkflow({
     if (companyId == null) return Promise.reject(new Error("No company"));
     return metaMutation.mutateAsync({ id: companyId, data: input });
   };
+  const handleSaveEvidence = (input: UpdatePillarEvidenceInput) => {
+    if (companyId == null) return;
+    // Nothing changed: just close the editor without a round-trip.
+    if (Object.keys(input).length === 0) {
+      setIsEditingEvidence(false);
+      return;
+    }
+    evidenceMutation.mutate({ id: companyId, data: input });
+  };
 
   const handleSignOff = () => {
     const revisionId = revision.revisionId;
@@ -658,7 +781,10 @@ export function PortcoReportWorkflow({
     ? `Saved ${new Date(revision.createdAt).toLocaleDateString()} by ${revision.editedByName ?? revision.editedByEmail ?? "unknown"}`
     : null;
 
-  const kebab = hasRevision ? (
+  // Rendered in every workflow state: pillar evidence is editable even before
+  // a narrative revision exists, while the revision-scoped actions (draft PDF,
+  // narrative editing, re-ship) stay gated on hasRevision/isValidated.
+  const kebab = (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
         <Button variant="ghost" size="sm" className="h-7 w-7 p-0 text-slate-400 hover:text-slate-700">
@@ -667,26 +793,46 @@ export function PortcoReportWorkflow({
         </Button>
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end" className="w-48">
-        {revisionMeta && (
+        {hasRevision && revisionMeta && (
           <>
             <div className="px-2 py-1.5 text-[11px] text-slate-400">{revisionMeta}</div>
             <DropdownMenuSeparator />
           </>
         )}
-        <DropdownMenuItem onClick={handleDownloadDraft} disabled={isDownloadingPdf}>
-          <Download className="mr-2 h-3.5 w-3.5" /> Download draft PDF
-        </DropdownMenuItem>
+        {hasRevision && (
+          <DropdownMenuItem onClick={handleDownloadDraft} disabled={isDownloadingPdf}>
+            <Download className="mr-2 h-3.5 w-3.5" /> Download draft PDF
+          </DropdownMenuItem>
+        )}
         {isValidated && (
           <DropdownMenuItem onClick={() => { if (companyId != null) shipMutation.mutate({ id: companyId }); }} disabled={shipMutation.isPending}>
             Re-ship to Drive
           </DropdownMenuItem>
         )}
-        <DropdownMenuItem onClick={() => setIsEditing(true)}>
-          Edit narrative
+        {hasRevision && (
+          <DropdownMenuItem onClick={() => setIsEditing(true)}>
+            Edit narrative
+          </DropdownMenuItem>
+        )}
+        <DropdownMenuItem onClick={() => setIsEditingEvidence(true)}>
+          Edit pillar evidence
         </DropdownMenuItem>
       </DropdownMenuContent>
     </DropdownMenu>
-  ) : null;
+  );
+
+  if (isEditingEvidence) {
+    return (
+      <section className="mt-8 rounded-xl border border-slate-200 bg-white p-5" aria-label="Pillar evidence editor">
+        <PillarEvidenceEditor
+          report={data.report}
+          saving={evidenceMutation.isPending}
+          onCancel={() => setIsEditingEvidence(false)}
+          onSave={handleSaveEvidence}
+        />
+      </section>
+    );
+  }
 
   if (isEditing) {
     return (
@@ -707,7 +853,10 @@ export function PortcoReportWorkflow({
       <section className="mt-8 rounded-xl border border-slate-200 bg-white p-5">
         <div className="mb-3 flex items-center justify-between">
           <h2 className="text-sm font-semibold text-gray-900">Diagnostic Report</h2>
-          <span className="text-[10px] uppercase tracking-wider text-slate-400">Admin only</span>
+          <div className="flex items-center gap-1.5">
+            <span className="text-[10px] uppercase tracking-wider text-slate-400">Admin only</span>
+            {kebab}
+          </div>
         </div>
         <p className="mb-4 text-sm text-slate-600">
           No validated report yet. Generate the AI narrative, edit, then sign off to unlock the client PDF.

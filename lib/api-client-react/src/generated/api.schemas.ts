@@ -483,6 +483,29 @@ export interface UpdateReportMetaInput {
   preparedByDate?: string | null;
 }
 
+/**
+ * Partial per-pillar evidence update for the company's latest assessment. Every field is optional; only supplied fields are changed. An empty string or null clears the field. Keys map to assessments.p1_evidence..p8_evidence in PILLARS order (p1 CS Org Design through p8 AI Adoption Maturity).
+
+ */
+export interface UpdatePillarEvidenceInput {
+  /** @nullable */
+  p1?: string | null;
+  /** @nullable */
+  p2?: string | null;
+  /** @nullable */
+  p3?: string | null;
+  /** @nullable */
+  p4?: string | null;
+  /** @nullable */
+  p5?: string | null;
+  /** @nullable */
+  p6?: string | null;
+  /** @nullable */
+  p7?: string | null;
+  /** @nullable */
+  p8?: string | null;
+}
+
 export interface AdminFirmDetail {
   firm: Firm;
   companies: Company[];

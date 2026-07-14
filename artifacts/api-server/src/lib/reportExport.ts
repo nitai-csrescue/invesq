@@ -3,6 +3,7 @@ import {
   db,
   assessmentsTable,
   companiesTable,
+  findingsTable,
   firmsTable,
   reportExportsTable,
   reportRevisionsTable,
@@ -17,6 +18,7 @@ import type {
   ReportRevisionInput,
   ReportRevisionState,
   ReportValidationState,
+  UpdatePillarEvidenceInput,
   UpdateReportMetaInput,
 } from "@workspace/api-zod";
 import { PILLARS, getTier, textToScore, type FirmMeta } from "@workspace/portfolio-engine";
@@ -975,6 +977,71 @@ export async function updateReportMeta(
 
   if (Object.keys(updates).length > 0) {
     await db.update(companiesTable).set(updates).where(eq(companiesTable.id, companyId));
+  }
+
+  return toWorkflow(await loadEffectiveReport(companyId));
+}
+
+// ---------------------------------------------------------------------------
+// Pillar evidence editing. Persists admin corrections to the raw per-pillar
+// evidence text on the company's LATEST assessment
+// (assessments.p1_evidence..p8_evidence) and mirrors each change into the
+// matching findings row (same assessment, pillarId matched by PILLARS order:
+// p1=org .. p8=ai) inside one transaction. Only supplied fields change; an
+// empty string or null clears the field. Like updateReportMeta this
+// deliberately does NOT create a revision or reset sign-offs: evidence is
+// upstream source data, not narrative, and loadEffectiveReport rebuilds
+// pillarEvidence + gap descriptions from the live assessment on every read,
+// so the edit is visible immediately. Scores/composites/tiers are untouched.
+// ---------------------------------------------------------------------------
+export async function savePillarEvidence(
+  companyId: number,
+  input: UpdatePillarEvidenceInput,
+): Promise<AdminReportWorkflow> {
+  const { assessment } = await loadCompanyContext(companyId);
+
+  const clean = (value: string | null | undefined): string | null => {
+    if (value == null) return null;
+    const trimmed = stripEmDashes(value).trim();
+    return trimmed === "" ? null : trimmed;
+  };
+
+  const entries = [
+    { key: "p1", column: "p1Evidence" },
+    { key: "p2", column: "p2Evidence" },
+    { key: "p3", column: "p3Evidence" },
+    { key: "p4", column: "p4Evidence" },
+    { key: "p5", column: "p5Evidence" },
+    { key: "p6", column: "p6Evidence" },
+    { key: "p7", column: "p7Evidence" },
+    { key: "p8", column: "p8Evidence" },
+  ] as const;
+
+  const updates: Partial<typeof assessmentsTable.$inferInsert> = {};
+  const findingUpdates: Array<{ pillarId: string; evidence: string | null }> = [];
+  entries.forEach(({ key, column }, index) => {
+    if (key in input) {
+      const value = clean(input[key]);
+      updates[column] = value;
+      findingUpdates.push({ pillarId: PILLARS[index].id, evidence: value });
+    }
+  });
+
+  if (findingUpdates.length > 0) {
+    await db.transaction(async (tx) => {
+      await tx.update(assessmentsTable).set(updates).where(eq(assessmentsTable.id, assessment.id));
+      for (const finding of findingUpdates) {
+        await tx
+          .update(findingsTable)
+          .set({ evidence: finding.evidence })
+          .where(
+            and(
+              eq(findingsTable.assessmentId, assessment.id),
+              eq(findingsTable.pillarId, finding.pillarId),
+            ),
+          );
+      }
+    });
   }
 
   return toWorkflow(await loadEffectiveReport(companyId));

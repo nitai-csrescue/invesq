@@ -142,6 +142,7 @@ export * from "./systemHealthReport";
 export * from "./systemHealthReportSummary";
 export * from "./updateAdminFirmInput";
 export * from "./updateAdminFirmInputDataAuthority";
+export * from "./updatePillarEvidenceInput";
 export * from "./updateReportMetaInput";
 export * from "./workstream";
 export * from "./workstreamStatus";
