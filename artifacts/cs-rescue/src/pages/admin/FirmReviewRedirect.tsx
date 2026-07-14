@@ -180,7 +180,7 @@ function FirmRecoveryPage({ firm }: { firm: AdminFirmSummary }) {
               <p className="font-medium text-foreground">Discovery in progress</p>
               <p className="mt-0.5 text-sm text-muted-foreground">
                 Searching for current portfolio companies across multiple sources
-                {latestJob?.progressPct ? ` — ${latestJob.progressPct}%` : "..."}
+                {latestJob?.progressPct ? ` · ${latestJob.progressPct}%` : "..."}
               </p>
             </div>
           </div>
@@ -200,7 +200,7 @@ function FirmRecoveryPage({ firm }: { firm: AdminFirmSummary }) {
                   </p>
                   <p className="mt-1 text-sm text-muted-foreground">
                     The deeper review also found no qualifying companies. Manual entry is the
-                    reliable next step — type the portfolio company names below and start the build.
+                    reliable next step: type the portfolio company names below and start the build.
                   </p>
                 </>
               ) : discoveryFailed ? (
@@ -223,7 +223,7 @@ function FirmRecoveryPage({ firm }: { firm: AdminFirmSummary }) {
                     We could not automatically identify portfolio companies for {firm.name}
                   </p>
                   <p className="mt-1 text-sm text-muted-foreground">
-                    This can happen when a firm lists its portfolio as images or logos — the names
+                    This can happen when a firm lists its portfolio as images or logos, so the names
                     are visible on screen but not readable as text. You can add them manually or run
                     a deeper multi-source review.
                   </p>

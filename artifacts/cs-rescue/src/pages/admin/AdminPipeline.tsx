@@ -83,10 +83,10 @@ function BuildQueue({ firms }: { firms: AdminFirmSummary[] }) {
                   </span>
                 </td>
                 <td className="px-5 py-4 font-mono text-foreground">
-                  {active ? `${job.progressPct}%` : "—"}
+                  {active ? `${job.progressPct}%` : "--"}
                 </td>
                 <td className="px-5 py-4 text-muted-foreground">
-                  {active ? formatJobEta(job.etaSeconds) : "—"}
+                  {active ? formatJobEta(job.etaSeconds) : "--"}
                 </td>
                 <td className="px-5 py-4 text-right">
                   <Link

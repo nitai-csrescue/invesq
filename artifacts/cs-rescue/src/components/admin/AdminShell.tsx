@@ -76,7 +76,7 @@ function HealthBanner() {
       )}
       <span>
         {isBroken
-          ? `${data.summary.broken} broken firm(s) — tenant portal will 404 in production. Resolve before Republish.`
+          ? `${data.summary.broken} broken firm(s): tenant portal will 404 in production. Resolve before Republish.`
           : `${data.summary.needsAction} firm(s) need attention before Republish.`}
       </span>
       <Link

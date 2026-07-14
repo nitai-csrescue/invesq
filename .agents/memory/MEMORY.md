@@ -26,3 +26,4 @@
 - [pg Pool crash loop](pg-pool-crash-loop.md) — a pg Pool with no `pool.on("error")` crash-loops prod on idle-connection termination; a reported client CPU peg was actually this server crash loop.
 - [Connector sandbox vs runtime](connectors-sandbox-vs-runtime.md) — code_execution's listConnections()=0 does not mean a connector is unbound; the server resolves it at runtime, so verify via the server path.
 - [Deployment-pane secrets vs workspace store](deployment-secret-vs-workspace-store.md) — a secret "set" in Publishing settings can be invisible to the running server & viewEnvVars; put it in the shared workspace store + Republish.
+- [Light-canvas inherited color](light-canvas-inherited-color.md) — in a force-dark app, a light scope must re-declare `color`, not just CSS variables, or inherit-color buttons go white-on-white.

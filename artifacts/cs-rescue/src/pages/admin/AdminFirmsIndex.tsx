@@ -104,7 +104,7 @@ const TIER_CHIP: Record<string, string> = {
 
 function TierDistribution({ summary }: { summary: PortfolioSummary }) {
   const chips = summary.tierCounts.filter((t) => t.count > 0);
-  if (chips.length === 0) return <span className="text-muted-foreground">—</span>;
+  if (chips.length === 0) return <span className="text-muted-foreground">--</span>;
   return (
     <div className="flex flex-wrap gap-1">
       {chips.map((t) => (
@@ -237,7 +237,7 @@ function FirmCard({
           <div className="mt-0.5 font-mono text-foreground">
             {summary
               ? `${summary.avgComposite.toFixed(1)} / ${PILLAR_MAX}`
-              : "—"}
+              : "--"}
           </div>
         </div>
         <div>
@@ -245,7 +245,7 @@ function FirmCard({
             Disclosed ARR
           </div>
           <div className="mt-0.5 font-mono text-foreground">
-            {summary ? summary.totalArrDisplay : "—"}
+            {summary ? summary.totalArrDisplay : "--"}
           </div>
           {summary && summary.arrUndisclosedCount > 0 && (
             <div className="mt-0.5 text-[10px] text-muted-foreground">
@@ -261,7 +261,7 @@ function FirmCard({
             {summary ? (
               <TierDistribution summary={summary} />
             ) : (
-              <span className="text-muted-foreground">—</span>
+              <span className="text-muted-foreground">--</span>
             )}
           </div>
         </div>

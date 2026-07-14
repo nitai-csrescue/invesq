@@ -15,7 +15,7 @@ const PLANNED = [
   {
     icon: Layers,
     title: "Tier distribution",
-    body: "Where operational risk concentrates — tier mix rolled up across all tenants.",
+    body: "Where operational risk concentrates: tier mix rolled up across all tenants.",
   },
   {
     icon: ShieldCheck,

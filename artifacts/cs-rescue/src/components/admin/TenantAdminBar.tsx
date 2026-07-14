@@ -537,7 +537,7 @@ export default function TenantAdminBar({ firm }: { firm: Firm }) {
             <div className="flex items-center justify-between gap-3">
               <span className="text-muted-foreground">Firm status</span>
               <Badge variant="outline" className="capitalize">
-                {data?.firm.status ?? "—"}
+                {data?.firm.status ?? "--"}
               </Badge>
             </div>
             <div className="flex items-center justify-between gap-3">

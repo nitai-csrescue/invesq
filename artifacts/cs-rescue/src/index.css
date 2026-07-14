@@ -279,6 +279,11 @@
 .raviga-canvas {
   color-scheme: light;
 
+  /* The app root is force-dark (main.tsx adds .dark to <html>), so inherited
+     text color is white. Components that inherit color (outline/ghost buttons,
+     unstyled text) would render white-on-white here without this. */
+  color: hsl(var(--foreground));
+
   --button-outline: rgba(0, 0, 0, 0.10);
   --badge-outline: rgba(0, 0, 0, 0.05);
   --opaque-button-border-intensity: -8;

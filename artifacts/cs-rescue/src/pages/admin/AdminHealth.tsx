@@ -39,7 +39,7 @@ const ISSUE_DESCRIPTIONS: Record<SystemHealthFirmIssue["issue"], string> = {
   build_failed:
     "Build (Claude scoring) job failed. Open the firm panel to retry.",
   ready_no_active_companies:
-    "Firm is marked ready but has no active companies — the tenant portal 404s.",
+    "Firm is marked ready but has no active companies, so the tenant portal 404s.",
   pending_no_job:
     "Firm is pending with no discovery job. Something went wrong at creation.",
   candidate_review_needed:
@@ -230,7 +230,7 @@ export default function AdminHealth() {
                   }`}
                 >
                   {broken.length > 0
-                    ? `${broken.length} broken firm(s) — do not Republish`
+                    ? `${broken.length} broken firm(s): do not Republish`
                     : `${needsAction.length} firm(s) need attention before Republish`}
                 </p>
                 <p

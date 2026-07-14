@@ -32,9 +32,9 @@ import { FirmFilterControl } from "@/components/admin/FirmFilterControl";
 // portal reads, so both surfaces agree.
 // ---------------------------------------------------------------------------
 function formatDate(iso: string | null): string {
-  if (!iso) return "—";
+  if (!iso) return "--";
   const d = new Date(iso);
-  if (Number.isNaN(d.getTime())) return "—";
+  if (Number.isNaN(d.getTime())) return "--";
   return d.toLocaleDateString("en-US", {
     year: "numeric",
     month: "short",

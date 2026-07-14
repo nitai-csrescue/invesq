@@ -89,7 +89,7 @@ export default function JobStatus() {
               >
                 <p className="flex items-center gap-2 text-sm text-emerald-300">
                   <CheckCircle2 className="h-4 w-4" />
-                  Build complete — firm is ready.
+                  Build complete. Firm is ready.
                 </p>
                 <Link
                   href={`/admin/firms/${job.targetId}`}
