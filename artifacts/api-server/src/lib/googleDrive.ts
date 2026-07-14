@@ -8,14 +8,25 @@ import { logger } from "./logger.js";
 // automatically, so a fresh ReplitConnectors() is created per call and NEVER
 // cached (tokens expire).
 //
-// Delivery layout: "INVESQ Customers/{Firm}/{Company}/{Company} - CS Diagnostic
-// - {date}.pdf". The connector holds the drive.file scope, so it can only see
-// and manage files IT created — which is exactly what the lookup-then-create
-// folder logic relies on (the first ship builds the folder tree, later ships
-// for the same firm/company reuse the app-created folders).
+// Delivery layout: "{SharedRoot}/{Firm}/{Company}/{Company} - CS Diagnostic
+// - {date}.pdf" where {SharedRoot} is the shared-drive folder
+// "INVESQ: Customer Reports Generated via Admin Dash".
+//
+// IMPORTANT: The Google identity the connector authenticates with MUST be a
+// member of the shared drive with "Contributor" or "Content Manager" access.
+// Without that, every upload returns 403 Forbidden even with the correct
+// folder ID. If that happens, the error message below includes the drive ID
+// so the admin can verify membership in the Drive sharing panel.
 
-const ROOT_FOLDER = "INVESQ Customers";
 const FOLDER_MIME = "application/vnd.google-apps.folder";
+
+// The shared-drive folder that serves as the root for all report uploads.
+// Lives in shared drive 0AKg0kCdcXPNiUk9PVA. Never auto-created — it must
+// exist before any upload, and the authenticated identity must have Contributor
+// or Content Manager access to the shared drive.
+const SHARED_ROOT_FOLDER_ID = "1UyiT9Z_MRYPpz3dF1_IYfGAqyoJeB8lf";
+const SHARED_DRIVE_ID = "0AKg0kCdcXPNiUk9PVA";
+const SHARED_ROOT_DISPLAY = "INVESQ: Customer Reports Generated via Admin Dash";
 
 // Drive names can't safely contain path separators; collapse them so a firm or
 // company name never forks the folder tree.
@@ -23,37 +34,53 @@ function sanitizeName(name: string): string {
   return name.replace(/[\\/]+/g, "-").trim() || "Unknown";
 }
 
-// Find a folder with `name` under `parentId` (or My Drive root when null),
-// creating it if absent. Idempotent within app-created files.
+// Find a folder with `name` under `parentId` (which may be in a shared drive),
+// creating it if absent. All calls include supportsAllDrives=true so the Drive
+// API traverses shared drives in addition to My Drive.
 async function findOrCreateFolder(
   client: ReplitConnectors,
   name: string,
-  parentId: string | null,
+  parentId: string,
 ): Promise<string> {
   const escaped = name.replace(/\\/g, "\\\\").replace(/'/g, "\\'");
-  const parentClause = parentId ? ` and '${parentId}' in parents` : ` and 'root' in parents`;
-  const q = `mimeType = '${FOLDER_MIME}' and name = '${escaped}' and trashed = false${parentClause}`;
+  const q = `mimeType = '${FOLDER_MIME}' and name = '${escaped}' and '${parentId}' in parents and trashed = false`;
   const listRes = await client.proxy(
     "google-drive",
-    `/drive/v3/files?q=${encodeURIComponent(q)}&fields=files(id,name)&spaces=drive`,
+    `/drive/v3/files?q=${encodeURIComponent(q)}&fields=files(id,name)&supportsAllDrives=true&includeItemsFromAllDrives=true`,
     { method: "GET" },
   );
   if (!listRes.ok) {
-    throw new Error(`Drive folder lookup failed (${listRes.status}): ${await listRes.text()}`);
+    const body = await listRes.text();
+    if (listRes.status === 403) {
+      throw new Error(
+        `Drive folder lookup failed (403 Forbidden): ensure the Google identity has "Contributor" or "Content Manager" access to shared drive ${SHARED_DRIVE_ID}. Response: ${body}`,
+      );
+    }
+    throw new Error(`Drive folder lookup failed (${listRes.status}): ${body}`);
   }
   const listed = (await listRes.json()) as { files?: Array<{ id: string; name: string }> };
   if (listed.files && listed.files.length > 0) return listed.files[0].id;
 
-  const createRes = await client.proxy("google-drive", "/drive/v3/files?fields=id", {
-    method: "POST",
-    body: {
-      name,
-      mimeType: FOLDER_MIME,
-      ...(parentId ? { parents: [parentId] } : {}),
+  const createRes = await client.proxy(
+    "google-drive",
+    "/drive/v3/files?fields=id&supportsAllDrives=true",
+    {
+      method: "POST",
+      body: {
+        name,
+        mimeType: FOLDER_MIME,
+        parents: [parentId],
+      },
     },
-  });
+  );
   if (!createRes.ok) {
-    throw new Error(`Drive folder create failed (${createRes.status}): ${await createRes.text()}`);
+    const body = await createRes.text();
+    if (createRes.status === 403) {
+      throw new Error(
+        `Drive folder create failed (403 Forbidden): ensure the Google identity has "Contributor" or "Content Manager" access to shared drive ${SHARED_DRIVE_ID}. Response: ${body}`,
+      );
+    }
+    throw new Error(`Drive folder create failed (${createRes.status}): ${body}`);
   }
   const created = (await createRes.json()) as { id: string };
   return created.id;
@@ -78,7 +105,7 @@ async function uploadPdf(
 
   const res = await client.proxy(
     "google-drive",
-    "/upload/drive/v3/files?uploadType=multipart&fields=id,webViewLink",
+    "/upload/drive/v3/files?uploadType=multipart&fields=id,webViewLink&supportsAllDrives=true",
     {
       method: "POST",
       headers: { "Content-Type": `multipart/related; boundary=${boundary}` },
@@ -86,7 +113,13 @@ async function uploadPdf(
     },
   );
   if (!res.ok) {
-    throw new Error(`Drive upload failed (${res.status}): ${await res.text()}`);
+    const responseText = await res.text();
+    if (res.status === 403) {
+      throw new Error(
+        `Drive upload failed (403 Forbidden): ensure the Google identity has "Contributor" or "Content Manager" access to shared drive ${SHARED_DRIVE_ID}. Response: ${responseText}`,
+      );
+    }
+    throw new Error(`Drive upload failed (${res.status}): ${responseText}`);
   }
   const uploaded = (await res.json()) as { id: string; webViewLink?: string | null };
   return { id: uploaded.id, webViewLink: uploaded.webViewLink ?? null };
@@ -98,9 +131,12 @@ export interface DriveUploadResult {
   folderPath: string;
 }
 
-// Upload a validated report PDF into "INVESQ Customers/{Firm}/{Company}/",
-// creating any missing folders. `dateIso` is the YYYY-MM-DD stamp used in the
-// filename. Throws on any Drive API failure (the caller turns this into a 502).
+// Upload a validated report PDF into the shared-drive folder
+// "{SharedRoot}/{Firm}/{Company}/", creating any missing subfolders.
+// `dateIso` is the YYYY-MM-DD stamp used in the filename.
+// Throws on any Drive API failure (the caller turns this into a 502).
+// If the Google identity lacks shared-drive access the thrown message
+// includes SHARED_DRIVE_ID to help the admin locate the correct drive.
 export async function uploadReportToDrive(params: {
   firmName: string;
   companyName: string;
@@ -111,14 +147,18 @@ export async function uploadReportToDrive(params: {
   const firm = sanitizeName(params.firmName);
   const company = sanitizeName(params.companyName);
 
-  const rootId = await findOrCreateFolder(client, ROOT_FOLDER, null);
-  const firmFolderId = await findOrCreateFolder(client, firm, rootId);
+  // Use the fixed shared-drive folder as root -- never search for it by name,
+  // which would fail against a shared drive without supportsAllDrives flags.
+  const firmFolderId = await findOrCreateFolder(client, firm, SHARED_ROOT_FOLDER_ID);
   const companyFolderId = await findOrCreateFolder(client, company, firmFolderId);
 
   const filename = `${company} - CS Diagnostic - ${params.dateIso}.pdf`;
   const uploaded = await uploadPdf(client, companyFolderId, filename, params.pdf);
 
-  const folderPath = `${ROOT_FOLDER}/${firm}/${company}/`;
-  logger.info({ fileId: uploaded.id, folderPath, filename }, "Shipped validated report to Google Drive");
+  const folderPath = `${SHARED_ROOT_DISPLAY}/${firm}/${company}/`;
+  logger.info(
+    { fileId: uploaded.id, folderPath, filename, sharedDriveId: SHARED_DRIVE_ID },
+    "Shipped validated report to shared Google Drive folder",
+  );
   return { fileId: uploaded.id, webViewLink: uploaded.webViewLink, folderPath };
 }

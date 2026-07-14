@@ -66,19 +66,20 @@ export async function renderHtmlToPdf(html: string): Promise<Buffer> {
     // typecheck; Puppeteer evaluates the string in the browser context.
     await page.evaluateHandle("document.fonts.ready");
 
-    // baseStyles.ts pins every `.page` to a fixed letter height with
-    // `overflow:hidden`, which keeps footers flush but would *silently* clip an
-    // unusually long narrative (exec summary, gaps, pillar evidence). Surface it
-    // in the logs instead of shipping a truncated page unnoticed. Log-only: a
-    // warning must never fail an on-demand PDF request. Evaluated as a string so
-    // this DOM-lib-free file needn't have `document` in scope to typecheck.
-    const overflow = (await page.evaluate(
-      `Array.from(document.querySelectorAll('.page')).map((el, i) => ({ index: i, scrollHeight: el.scrollHeight, clientHeight: el.clientHeight })).filter((p) => p.scrollHeight > p.clientHeight + 2)`,
-    )) as Array<{ index: number; scrollHeight: number; clientHeight: number }>;
-    if (overflow.length > 0) {
-      logger.warn(
-        { overflow },
-        "PDF render: one or more .page elements overflow the fixed letter height and will be clipped",
+    // baseStyles.ts uses min-height: 11in (no fixed height) so long content
+    // flows to the next physical PDF page rather than being clipped. Log when
+    // any .page section extends beyond a single letter page so long reports
+    // are visible in the logs. 1in = 96 CSS px; 11in = 1056px. Log-only:
+    // overflow onto extra physical pages is intentional, not an error.
+    // Evaluated as a string so this DOM-lib-free file needn't have `document`
+    // in scope to typecheck.
+    const multiPage = (await page.evaluate(
+      `Array.from(document.querySelectorAll('.page')).map((el, i) => ({ index: i, heightPx: Math.round(el.getBoundingClientRect().height) })).filter(p => p.heightPx > 1060)`,
+    )) as Array<{ index: number; heightPx: number }>;
+    if (multiPage.length > 0) {
+      logger.info(
+        { multiPage },
+        "PDF render: one or more .page sections span multiple physical pages (content paginated, not clipped)",
       );
     }
 

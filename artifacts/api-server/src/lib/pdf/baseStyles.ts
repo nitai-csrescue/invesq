@@ -11,14 +11,14 @@ export const GOOGLE_FONTS_LINK = `
 <link href="https://fonts.googleapis.com/css2?family=Source+Serif+4:wght@700;900&family=Public+Sans:ital,wght@0,400;0,500;0,600;0,700;1,400&family=IBM+Plex+Mono:wght@500;600&display=swap" rel="stylesheet">
 `;
 
-// `@page { size: 8.5in 11in; margin: 0 }` + fixed-height `.page` divs (with
-// `break-after: page` on all but the last) pins every page to a physical US
-// Letter box so the running header and the position:absolute footer sit flush
-// against the true top/bottom page edges on EVERY page, not floating below
-// short content. `.page { height: 11in; overflow: hidden }` clips anything that
-// would exceed the box. Chromium still emits exactly 7 physical PDF pages
-// because each `.page` is one paginated unit. Combined with
-// `preferCSSPageSize: true` in renderPdf.ts.
+// Layout strategy: each .page div is a flex column with min-height 11in and
+// NO fixed height constraint. Content that would overflow one letter page
+// flows naturally to the next physical PDF page (Chromium handles pagination
+// via the @page size rule). The footer lives at the bottom of the flex
+// column via `margin-top: auto`, so it is always *after* all body content
+// and can never overlap it -- even on pages where content spills to page 2.
+// `break-after: page` on each .page ensures the next section always starts
+// on a new physical page regardless of how tall the previous section grew.
 export const BASE_STYLES = `
   @page {
     size: 8.5in 11in;
@@ -44,14 +44,19 @@ export const BASE_STYLES = `
   .page {
     position: relative;
     width: 8.5in;
-    height: 11in;
-    padding: 0.5in 0.55in 0.75in 0.55in;
-    overflow: hidden;
+    min-height: 11in;
+    padding: 0.5in 0.55in 0 0.55in;
     break-after: page;
+    display: flex;
+    flex-direction: column;
   }
 
   .page:last-child {
     break-after: auto;
+  }
+
+  .page-body {
+    flex: 1;
   }
 
   .eyebrow {
@@ -125,6 +130,7 @@ export const BASE_STYLES = `
   }
 
   .header-row {
+    flex-shrink: 0;
     display: flex;
     align-items: flex-start;
     justify-content: space-between;
@@ -158,11 +164,10 @@ export const BASE_STYLES = `
   }
 
   .footer {
-    position: absolute;
-    left: 0.55in;
-    right: 0.55in;
-    bottom: 0.35in;
+    flex-shrink: 0;
+    margin-top: auto;
     padding-top: 8px;
+    padding-bottom: 0.35in;
     border-top: 1px solid ${COLORS.slate200};
     display: flex;
     align-items: center;

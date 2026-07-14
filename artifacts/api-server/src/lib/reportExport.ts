@@ -55,6 +55,7 @@ interface BaseReportData {
   reportData: DiagnosticReportData;
   composite: number;
   compositeMax: number;
+  tierId: number;
   tier: string;
   pillarScores: Record<string, number | null>;
   pillarEvidence: Record<string, string | null>;
@@ -192,6 +193,7 @@ function buildBaseReportData(company: Company, firm: Firm, assessment: Assessmen
     reportData,
     composite,
     compositeMax,
+    tierId: tier.id,
     tier: `Tier ${tier.id} · ${tier.label}`,
     pillarScores,
     pillarEvidence: pillarEvidenceById,
@@ -234,6 +236,8 @@ function buildNarrativeSystemPrompt(rubricText: string): string {
     "- NEVER include a named individual's name anywhere in your output, even if a name appears in the evidence given to you. Refer to roles only (e.g. \"the CS leader\", \"the current Director-level CS role\"), never a person's name, prior employer, or personal career background.",
     "- Written for a PE/VC investment committee audience: precise, evidence-grounded, no hype, no filler adjectives.",
     "- Every claim must trace back to the provided scores/evidence — do not fabricate specifics (numbers, tools) that were not given to you, beyond stripping personal names as instructed above.",
+    "",
+    "SCORE ACCURACY (strict, non-negotiable): The composite score and tier given to you in the user message are COMPUTED CONSTANTS derived from the raw pillar data -- they are ground truth. You MUST use them EXACTLY as given. Do NOT recalculate, round, estimate, or paraphrase them. If you reference the composite score anywhere in execSummary or compositeContext, write it as the exact fraction given (e.g. \"12/16\") and use the exact tier label given (e.g. \"Tier 3\"). Any composite number or tier you invent that differs from the given values is an error.",
     "",
     "FORMATTING RULE (strict, non-negotiable): NO EM-DASHES. Ever. Do not use the em-dash character (—) or the en-dash (–) as punctuation anywhere in any field, no matter how natural it feels. Use a period, a comma, or a middot (\u00b7) instead.",
     "",
@@ -341,7 +345,8 @@ async function generateNarrative(base: BaseReportData): Promise<NarrativeResult>
     throw new Error(`Claude narrative response was malformed. Raw text: ${text.slice(0, 800)}`);
   }
 
-  return sanitizeNarrativeEmDashes(parsed);
+  const emSanitized = sanitizeNarrativeEmDashes(parsed);
+  return enforceNarrativeScores(emSanitized, base.composite, base.compositeMax, base.tierId);
 }
 
 // The prompt's "NO EM-DASHES" formatting rule (see buildNarrativeSystemPrompt)
@@ -372,6 +377,50 @@ function sanitizeNarrativeEmDashes(narrative: NarrativeResult): NarrativeResult 
     })),
     nextSteps: narrative.nextSteps.map(stripEmDashes),
     p6RecommendationRationale: stripEmDashes(narrative.p6RecommendationRationale),
+  };
+}
+
+// Deterministic backstop that ensures composite-score fractions and tier
+// numbers in execSummary and compositeContext always match the computed
+// values, regardless of what the model generated. This prevents hallucinated
+// scores (e.g. "13/16 -- Tier 4") from contradicting the score box (12/16 --
+// Tier 3) that is derived from the same raw pillar data.
+//
+// Strategy:
+//   - Any "N/compositeMax" fraction where N != composite is replaced with
+//     the correct "composite/compositeMax". The denominator match is exact
+//     so unrelated fractions (percentages, ratios) are never touched.
+//   - Any "Tier N" where N != tierId is replaced with "Tier {tierId}".
+//
+// Only execSummary and compositeContext are corrected here because those are
+// the only narrative fields where score/tier references are expected. The
+// other fields (pathForward, gapDetails, etc.) describe qualitative gaps and
+// should not contain composite fractions.
+function enforceNarrativeScores(
+  narrative: NarrativeResult,
+  composite: number,
+  compositeMax: number,
+  tierId: number,
+): NarrativeResult {
+  const denomStr = String(compositeMax);
+  const correctFraction = `${composite}/${compositeMax}`;
+  // Match "N / compositeMax" with optional whitespace around the slash.
+  const fractionRe = new RegExp(`\\b\\d+\\s*/\\s*${denomStr}\\b`, "g");
+
+  const fixText = (text: string): string => {
+    // Fix composite fractions that share the correct denominator.
+    text = text.replace(fractionRe, correctFraction);
+    // Fix "Tier N" where N is wrong.
+    text = text.replace(/\bTier\s+(\d+)\b/g, (match, n) =>
+      parseInt(n, 10) !== tierId ? `Tier ${tierId}` : match,
+    );
+    return text;
+  };
+
+  return {
+    ...narrative,
+    execSummary: narrative.execSummary.map(fixText),
+    compositeContext: fixText(narrative.compositeContext),
   };
 }
 

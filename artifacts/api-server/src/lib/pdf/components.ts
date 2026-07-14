@@ -68,7 +68,7 @@ export function pageShell(pageNumber: number, ctx: ReportContext, bodyHtml: stri
     <div class="page">
       ${pageHeader(pageNumber, ctx)}
       ${ctx.validation.validated ? "" : draftWatermark()}
-      ${bodyHtml}
+      <div class="page-body">${bodyHtml}</div>
       ${pageFooter(pageNumber, ctx)}
     </div>
   `;
