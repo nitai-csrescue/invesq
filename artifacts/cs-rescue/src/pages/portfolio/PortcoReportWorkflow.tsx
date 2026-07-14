@@ -9,8 +9,10 @@ import {
   Check,
   X,
   ExternalLink,
+  Pencil,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import {
@@ -36,6 +38,7 @@ import {
   getGetAdminCompanyReportDataQueryKey,
   useGenerateAdminCompanyReportExport,
   useSaveAdminCompanyReportRevision,
+  useUpdateAdminCompanyReportMeta,
   useValidateAdminCompanyReport,
   useShipAdminCompanyReportToDrive,
 } from "@workspace/api-client-react";
@@ -44,9 +47,154 @@ import type {
   AdminReportWorkflow,
   ReportRevisionInput,
   ReportValidator,
+  UpdateReportMetaInput,
 } from "@workspace/api-client-react";
 
 const TEXTAREA = "bg-white text-gray-900 border-slate-200 placeholder:text-slate-400 focus-visible:ring-slate-300";
+
+// ---------------------------------------------------------------------------
+// CoverMetaCard — inline display + edit of the report cover's Prepared For /
+// Prepared By fields. Saving persists per-company (companies row) WITHOUT
+// creating a revision or resetting sign-offs, so it renders in every
+// non-editing workflow state. onSave must reject on failure so the editor
+// stays open with the user's input intact.
+// ---------------------------------------------------------------------------
+function CoverMetaCard({
+  report,
+  saving,
+  onSave,
+}: {
+  report: AdminCompanyReportData;
+  saving: boolean;
+  onSave: (input: UpdateReportMetaInput) => Promise<unknown>;
+}) {
+  const [isEditing, setIsEditing] = useState(false);
+  const [forName, setForName] = useState("");
+  const [forTitle, setForTitle] = useState("");
+  const [forCompany, setForCompany] = useState("");
+  const [byName, setByName] = useState("");
+  const [byOrg, setByOrg] = useState("");
+  const [byDate, setByDate] = useState("");
+
+  const startEditing = () => {
+    setForName(report.reportData.preparedForName);
+    setForTitle(report.reportData.preparedForTitle);
+    setForCompany(report.meta.preparedForCompanyOverride ?? "");
+    setByName(report.meta.preparedByName);
+    setByOrg(report.meta.preparedByOrg);
+    setByDate(report.reportData.reportDate);
+    setIsEditing(true);
+  };
+
+  const handleSave = async () => {
+    try {
+      await onSave({
+        preparedForName: forName,
+        preparedForTitle: forTitle,
+        preparedForCompany: forCompany,
+        preparedByName: byName,
+        preparedByOrg: byOrg,
+        // Empty date must go as null: the API's YYYY-MM-DD pattern rejects "".
+        preparedByDate: byDate.trim() === "" ? null : byDate,
+      });
+      setIsEditing(false);
+    } catch {
+      // Error toast comes from the mutation config; keep the editor open.
+    }
+  };
+
+  const INPUT = "h-8 text-sm bg-white text-gray-900 border-slate-200 placeholder:text-slate-400 focus-visible:ring-slate-300";
+
+  if (isEditing) {
+    return (
+      <div className="rounded-lg border border-slate-200 bg-slate-50/60 p-3">
+        <p className="mb-2 text-[10px] font-semibold uppercase tracking-wider text-slate-500">Report cover</p>
+        <div className="grid gap-3 sm:grid-cols-2">
+          <div className="space-y-2">
+            <p className="text-[11px] font-medium text-slate-500">Prepared For</p>
+            <div className="space-y-1">
+              <Label htmlFor="pc-meta-for-name" className="text-[11px] text-slate-600">Name</Label>
+              <Input id="pc-meta-for-name" value={forName} onChange={(e) => setForName(e.target.value)} placeholder="Recipient name" className={INPUT} />
+            </div>
+            <div className="space-y-1">
+              <Label htmlFor="pc-meta-for-title" className="text-[11px] text-slate-600">Title</Label>
+              <Input id="pc-meta-for-title" value={forTitle} onChange={(e) => setForTitle(e.target.value)} placeholder="Recipient title" className={INPUT} />
+            </div>
+            <div className="space-y-1">
+              <Label htmlFor="pc-meta-for-company" className="text-[11px] text-slate-600">Company</Label>
+              <Input id="pc-meta-for-company" value={forCompany} onChange={(e) => setForCompany(e.target.value)} placeholder={report.reportData.companyName} className={INPUT} />
+            </div>
+          </div>
+          <div className="space-y-2">
+            <p className="text-[11px] font-medium text-slate-500">Prepared By</p>
+            <div className="space-y-1">
+              <Label htmlFor="pc-meta-by-name" className="text-[11px] text-slate-600">Name</Label>
+              <Input id="pc-meta-by-name" value={byName} onChange={(e) => setByName(e.target.value)} placeholder="Preparer name" className={INPUT} />
+            </div>
+            <div className="space-y-1">
+              <Label htmlFor="pc-meta-by-org" className="text-[11px] text-slate-600">Organization</Label>
+              <Input id="pc-meta-by-org" value={byOrg} onChange={(e) => setByOrg(e.target.value)} placeholder="Organization" className={INPUT} />
+            </div>
+            <div className="space-y-1">
+              <Label htmlFor="pc-meta-by-date" className="text-[11px] text-slate-600">Date</Label>
+              <Input id="pc-meta-by-date" type="date" value={byDate} onChange={(e) => setByDate(e.target.value)} className={INPUT} />
+            </div>
+          </div>
+        </div>
+        <div className="mt-3 flex items-center gap-2">
+          <Button size="sm" onClick={handleSave} disabled={saving}>
+            {saving ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Check className="h-3.5 w-3.5" />}
+            Save cover details
+          </Button>
+          <Button size="sm" variant="ghost" onClick={() => setIsEditing(false)} disabled={saving} className="text-slate-500">
+            <X className="h-3.5 w-3.5" /> Cancel
+          </Button>
+        </div>
+      </div>
+    );
+  }
+
+  const line = (label: string, value: string) => (
+    <div className="flex items-baseline gap-1.5 text-xs">
+      <span className="text-slate-400">{label}:</span>
+      {value ? (
+        <span className="text-slate-700">{value}</span>
+      ) : (
+        <span className="italic text-slate-300">Not set</span>
+      )}
+    </div>
+  );
+
+  return (
+    <div className="rounded-lg border border-slate-200 bg-slate-50/60 p-3">
+      <div className="mb-2 flex items-center justify-between">
+        <p className="text-[10px] font-semibold uppercase tracking-wider text-slate-500">Report cover</p>
+        <Button
+          size="sm"
+          variant="ghost"
+          onClick={startEditing}
+          className="h-6 px-2 text-[11px] text-slate-500 hover:text-slate-700"
+        >
+          <Pencil className="h-3 w-3" /> Edit
+        </Button>
+      </div>
+      <div className="grid gap-3 sm:grid-cols-2">
+        <div className="space-y-1">
+          <p className="text-[11px] font-medium text-slate-500">Prepared For</p>
+          {line("Name", report.reportData.preparedForName)}
+          {line("Title", report.reportData.preparedForTitle)}
+          {line("Company", report.meta.preparedForCompany)}
+        </div>
+        <div className="space-y-1">
+          <p className="text-[11px] font-medium text-slate-500">Prepared By</p>
+          {line("Name", report.meta.preparedByName)}
+          {line("Organization", report.meta.preparedByOrg)}
+          {line("Date", report.reportData.reportDate)}
+        </div>
+      </div>
+    </div>
+  );
+}
 
 // ---------------------------------------------------------------------------
 // PortcoNarrativeEditor — inline editor with explicit dark text so it reads
@@ -372,6 +520,17 @@ export function PortcoReportWorkflow({
     },
   });
 
+  const metaMutation = useUpdateAdminCompanyReportMeta({
+    mutation: {
+      onSuccess: (workflow) => {
+        setWorkflow(workflow);
+        toast({ title: "Cover details saved", description: "The report cover will use these on the next PDF export." });
+      },
+      onError: () =>
+        toast({ title: "Save failed", description: "Could not save the cover details.", variant: "destructive" }),
+    },
+  });
+
   const validateMutation = useValidateAdminCompanyReport({
     mutation: {
       onSuccess: (workflow) => {
@@ -437,6 +596,10 @@ export function PortcoReportWorkflow({
 
   const handleGenerate = () => { if (companyId != null) generateMutation.mutate({ id: companyId }); };
   const handleSave = (input: ReportRevisionInput) => { if (companyId != null) saveMutation.mutate({ id: companyId, data: input }); };
+  const handleSaveMeta = (input: UpdateReportMetaInput) => {
+    if (companyId == null) return Promise.reject(new Error("No company"));
+    return metaMutation.mutateAsync({ id: companyId, data: input });
+  };
 
   const handleSignOff = () => {
     const revisionId = revision.revisionId;
@@ -549,6 +712,9 @@ export function PortcoReportWorkflow({
         <p className="mb-4 text-sm text-slate-600">
           No validated report yet. Generate the AI narrative, edit, then sign off to unlock the client PDF.
         </p>
+        <div className="mb-4">
+          <CoverMetaCard report={data.report} saving={metaMutation.isPending} onSave={handleSaveMeta} />
+        </div>
         <Button size="sm" onClick={handleGenerate} disabled={generateMutation.isPending}>
           {generateMutation.isPending ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <FileText className="h-3.5 w-3.5" />}
           {generateMutation.isPending ? "Generating..." : "Export editable report"}
@@ -571,6 +737,8 @@ export function PortcoReportWorkflow({
         <p className="text-xs text-slate-500">
           Draft PDF available for internal review via the menu above. The client PDF is locked until all reviewers sign off -- use the override control on a pending signer's chip to bypass.
         </p>
+
+        <CoverMetaCard report={data.report} saving={metaMutation.isPending} onSave={handleSaveMeta} />
 
         <ValidatorStatusStrip
           validators={validation.validators}
@@ -620,6 +788,8 @@ export function PortcoReportWorkflow({
           {kebab}
         </div>
       </div>
+
+      <CoverMetaCard report={data.report} saving={metaMutation.isPending} onSave={handleSaveMeta} />
 
       <ValidatorStatusStrip validators={validation.validators} currentUserEmail={userEmail} />
 

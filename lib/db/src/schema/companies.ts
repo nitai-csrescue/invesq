@@ -1,5 +1,5 @@
 import { sql } from "drizzle-orm";
-import { index, integer, jsonb, pgTable, serial, text, timestamp, uniqueIndex } from "drizzle-orm/pg-core";
+import { date, index, integer, jsonb, pgTable, serial, text, timestamp, uniqueIndex } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod/v4";
 import { firmsTable } from "./firms";
@@ -39,6 +39,21 @@ export const companiesTable = pgTable(
     // ARR display/rollup, summaries, gap notes, actions log, ...). Shape is
     // CompanyMeta in @workspace/portfolio-engine.
     meta: jsonb("meta"),
+    // Diagnostic-report cover metadata (admin-editable, per-company). All
+    // nullable: null = "use the default" (blank Prepared For fields, the
+    // static INVESQ Prepared By constants, company name, today's date).
+    // These are read fresh from this row on every report load, so they are
+    // never captured into report_exports / report_revisions caches.
+    preparedForName: text("prepared_for_name"),
+    preparedForTitle: text("prepared_for_title"),
+    // Overrides the "Company" line of the Prepared For card ONLY (the report
+    // H1 / narrative always uses `name`).
+    preparedForCompanyOverride: text("prepared_for_company_override"),
+    preparedByName: text("prepared_by_name"),
+    preparedByOrg: text("prepared_by_org"),
+    // Overrides reportData.reportDate (the Prepared By card's Date line).
+    // Calendar day, stored as YYYY-MM-DD.
+    preparedByDate: date("prepared_by_date", { mode: "string" }),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   },
   (table) => [

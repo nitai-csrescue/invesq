@@ -731,6 +731,52 @@ paths:
               schema:
                 $ref: "#/components/schemas/ErrorEnvelope"
 
+  /admin/companies/{id}/report-meta:
+    patch:
+      operationId: updateAdminCompanyReportMeta
+      tags: [admin]
+      summary: Update the report cover metadata (Prepared For / Prepared By) for a company
+      description: >
+        Persists the per-company cover-page metadata directly on the companies
+        row: Prepared For (name, title, company-line override) and Prepared By
+        (name, organization, report date). Only supplied fields are changed; an
+        empty string or null clears a field back to its default (blank Prepared
+        For lines, the static INVESQ Prepared By constants, the company name,
+        today's date). These values are read fresh on every report load, so
+        they apply to drafts and validated reports alike WITHOUT creating a
+        revision or resetting sign-offs. Returns the fresh workflow state.
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateReportMetaInput"
+      responses:
+        "200":
+          description: Cover metadata saved; fresh workflow state
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AdminReportWorkflow"
+        "400":
+          description: Invalid company id or malformed body (e.g. a non-YYYY-MM-DD date)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+        "404":
+          description: Company not found, or has no assessments yet
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+
   /admin/companies/{id}/validate:
     post:
       operationId: validateAdminCompanyReport
@@ -1329,7 +1375,20 @@ components:
           $ref: "#/components/schemas/DiagnosticReportData"
         meta:
           type: object
-          required: [companyId, assessmentDate, composite, compositeMax, tier, generatedAt, model]
+          required:
+            [
+              companyId,
+              assessmentDate,
+              composite,
+              compositeMax,
+              tier,
+              generatedAt,
+              model,
+              preparedByName,
+              preparedByOrg,
+              preparedForCompany,
+              preparedForCompanyOverride,
+            ]
           properties:
             companyId:
               type: integer
@@ -1353,6 +1412,24 @@ components:
             model:
               type: [string, "null"]
               description: Claude model used to generate the narrative, or null if not yet generated.
+            preparedByName:
+              type: string
+              description: >
+                Effective "Prepared By - Name" cover line (per-company override
+                from the companies row, else the static INVESQ default). Cover
+                display metadata only, kept OUT of the exported report-data.json.
+            preparedByOrg:
+              type: string
+              description: Effective "Prepared By - Organization" cover line (override else "INVESQ").
+            preparedForCompany:
+              type: string
+              description: >
+                Effective "Prepared For - Company" cover line (override else the
+                company's name). Only affects the cover card, never the report
+                H1 or narrative.
+            preparedForCompanyOverride:
+              type: [string, "null"]
+              description: The raw stored override for the Prepared For company line, or null when unset.
 
     DiagnosticReportData:
       type: object
@@ -1686,6 +1763,30 @@ components:
           description: >
             Mandatory justification text when overrideFor is set. Stored verbatim and
             shown in the PDF validation stamp as "override: {other} - {reason}".
+
+    UpdateReportMetaInput:
+      type: object
+      description: >
+        Partial cover-metadata update. Every field is optional; only supplied
+        fields are changed. An empty string or null clears the field back to
+        its default (blank Prepared For lines, static INVESQ Prepared By
+        constants, the company name, today's date).
+      properties:
+        preparedForName:
+          type: [string, "null"]
+        preparedForTitle:
+          type: [string, "null"]
+        preparedForCompany:
+          type: [string, "null"]
+          description: Override for the Prepared For card's Company line only; never changes the report H1 or narrative.
+        preparedByName:
+          type: [string, "null"]
+        preparedByOrg:
+          type: [string, "null"]
+        preparedByDate:
+          type: [string, "null"]
+          pattern: "^\\d{4}-\\d{2}-\\d{2}$"
+          description: Report date shown on the Prepared By card (YYYY-MM-DD); becomes reportData.reportDate.
 
     AdminFirmDetail:
       type: object

@@ -6,6 +6,7 @@ import {
   ConfirmAdminFirmBody,
   CreateAdminFirmBody,
   SaveAdminCompanyReportRevisionBody,
+  UpdateAdminCompanyReportMetaBody,
   UpdateAdminFirmBody,
   ValidateAdminCompanyReportBody,
 } from "@workspace/api-zod";
@@ -36,6 +37,7 @@ import {
   toWorkflow,
   toValidationStamp,
   saveReportRevision,
+  updateReportMeta,
   validateReport,
   recordDriveShipment,
   CompanyNotFoundError,
@@ -788,6 +790,41 @@ router.post("/companies/:id/report-revision", async (req, res) => {
     }
     req.log.error({ err, companyId: id }, "Failed to save report revision");
     res.status(500).json({ error: "Failed to save report revision" });
+  }
+});
+
+// Persist per-company cover metadata (Prepared For name/title/company line,
+// Prepared By name/org/date) onto the companies row. Partial update: only
+// supplied fields change; empty string / null clears back to the default.
+// Deliberately does NOT create a revision or reset validations -- cover
+// metadata is display-only and is read fresh on every report load.
+router.patch("/companies/:id/report-meta", async (req, res) => {
+  const id = Number(req.params.id);
+  if (!Number.isInteger(id) || id <= 0) {
+    res.status(400).json({ error: "Invalid company id" });
+    return;
+  }
+
+  const parsed = UpdateAdminCompanyReportMetaBody.safeParse(req.body);
+  if (!parsed.success) {
+    res.status(400).json({ error: "Invalid report-meta payload", details: parsed.error.issues });
+    return;
+  }
+
+  try {
+    const workflow = await updateReportMeta(id, parsed.data);
+    res.json(workflow);
+  } catch (err) {
+    if (err instanceof CompanyNotFoundError) {
+      res.status(404).json({ error: "Company not found" });
+      return;
+    }
+    if (err instanceof NoAssessmentError) {
+      res.status(404).json({ error: "Company has no assessments yet" });
+      return;
+    }
+    req.log.error({ err, companyId: id }, "Failed to update report cover metadata");
+    res.status(500).json({ error: "Failed to update report metadata" });
   }
 });
 

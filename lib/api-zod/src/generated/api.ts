@@ -1334,6 +1334,27 @@ export const GetAdminCompanyReportDataResponse = zod
             .describe(
               "Claude model used to generate the narrative, or null if not yet generated.",
             ),
+          preparedByName: zod
+            .string()
+            .describe(
+              'Effective \"Prepared By - Name\" cover line (per-company override from the companies row, else the static INVESQ default). Cover display metadata only, kept OUT of the exported report-data.json.\n',
+            ),
+          preparedByOrg: zod
+            .string()
+            .describe(
+              'Effective \"Prepared By - Organization\" cover line (override else \"INVESQ\").',
+            ),
+          preparedForCompany: zod
+            .string()
+            .describe(
+              'Effective \"Prepared For - Company\" cover line (override else the company\'s name). Only affects the cover card, never the report H1 or narrative.\n',
+            ),
+          preparedForCompanyOverride: zod
+            .string()
+            .nullable()
+            .describe(
+              "The raw stored override for the Prepared For company line, or null when unset.",
+            ),
         }),
       })
       .describe(
@@ -1572,6 +1593,291 @@ export const SaveAdminCompanyReportRevisionResponse = zod
             .describe(
               "Claude model used to generate the narrative, or null if not yet generated.",
             ),
+          preparedByName: zod
+            .string()
+            .describe(
+              'Effective \"Prepared By - Name\" cover line (per-company override from the companies row, else the static INVESQ default). Cover display metadata only, kept OUT of the exported report-data.json.\n',
+            ),
+          preparedByOrg: zod
+            .string()
+            .describe(
+              'Effective \"Prepared By - Organization\" cover line (override else \"INVESQ\").',
+            ),
+          preparedForCompany: zod
+            .string()
+            .describe(
+              'Effective \"Prepared For - Company\" cover line (override else the company\'s name). Only affects the cover card, never the report H1 or narrative.\n',
+            ),
+          preparedForCompanyOverride: zod
+            .string()
+            .nullable()
+            .describe(
+              "The raw stored override for the Prepared For company line, or null when unset.",
+            ),
+        }),
+      })
+      .describe(
+        'Assembled report-data.json export payload for the Diagnostic Report pattern. `reportData` matches the external report-data.json schema (Notion: \"External CS Diagnostic — Scoring Rubric & Cowork Instructions\", Step 7) field-for-field, so it is safe to copy verbatim into the Claude design-file prompt. `meta` carries admin-only context (assessment provenance, derived composite\/tier) that must NOT be included in the exported JSON.\n',
+      ),
+    revision: zod
+      .object({
+        hasRevision: zod.boolean(),
+        revisionId: zod.number().nullable(),
+        rubricVersion: zod.string().nullable(),
+        isStale: zod
+          .boolean()
+          .describe(
+            "True when the revision's rubricVersion differs from the server's current RUBRIC_VERSION.",
+          ),
+        editedByEmail: zod.string().nullable(),
+        editedByName: zod.string().nullable(),
+        createdAt: zod.string().nullable(),
+      })
+      .describe(
+        "The company's current (latest, matching-rubric-version) saved narrative revision, or a hasRevision:false placeholder when none has been saved.\n",
+      ),
+    validation: zod
+      .object({
+        configured: zod.boolean(),
+        requiredCount: zod
+          .number()
+          .describe(
+            "Number of configured validators required to unlock the client PDF.",
+          ),
+        validatedCount: zod
+          .number()
+          .describe(
+            "How many required validators have signed the current revision.",
+          ),
+        isValidated: zod
+          .boolean()
+          .describe(
+            "True when a current revision exists and either every configured validator has signed it, or one validator has submitted an override for the other's missing sign-off (override_for IS NOT NULL on any validation row for the revision).\n",
+          ),
+        validators: zod.array(
+          zod.object({
+            email: zod.string(),
+            name: zod.string(),
+            hasValidated: zod
+              .boolean()
+              .describe(
+                "Whether this validator has signed off on the CURRENT revision.",
+              ),
+            validatedAt: zod.string().nullable(),
+            overrideFor: zod
+              .string()
+              .nullish()
+              .describe(
+                "If this validator submitted an override, the email of the validator they overrode. Null on a normal sign-off.",
+              ),
+            overrideReason: zod
+              .string()
+              .nullish()
+              .describe(
+                "The typed override justification, or null if no override was submitted.",
+              ),
+          }),
+        ),
+        validatorNames: zod
+          .array(zod.string())
+          .describe(
+            "Display names of the validators who have signed the current revision (used for the PDF stamp).",
+          ),
+        validatedAt: zod
+          .string()
+          .nullable()
+          .describe(
+            "Timestamp of the most recent signature on the current revision, or null.",
+          ),
+      })
+      .describe(
+        "Dual-validation state for the company's current report revision. `configured` is false when VALIDATOR_EMAILS is unset (fail-closed: validation is impossible and the client PDF stays locked).\n",
+      ),
+    shipment: zod
+      .object({
+        shipped: zod.boolean(),
+        isCurrent: zod
+          .boolean()
+          .describe(
+            "True when the shipped revision is the company's current revision.",
+          ),
+        revisionId: zod.number().nullable(),
+        fileId: zod.string().nullable(),
+        webViewLink: zod.string().nullable(),
+        folderPath: zod.string().nullable(),
+        shippedByName: zod.string().nullable(),
+        shippedAt: zod.string().nullable(),
+      })
+      .describe(
+        "The latest Google Drive shipment recorded for this company, if any.",
+      ),
+  })
+  .describe(
+    "Full editor\/validation\/delivery state for a company's current report: the effective report data (computed scores\/tier\/gap-titles + the current edited-or-generated narrative), plus revision, dual-validation, and Google Drive shipment state.\n",
+  );
+
+/**
+ * Persists the per-company cover-page metadata directly on the companies row: Prepared For (name, title, company-line override) and Prepared By (name, organization, report date). Only supplied fields are changed; an empty string or null clears a field back to its default (blank Prepared For lines, the static INVESQ Prepared By constants, the company name, today's date). These values are read fresh on every report load, so they apply to drafts and validated reports alike WITHOUT creating a revision or resetting sign-offs. Returns the fresh workflow state.
+
+ * @summary Update the report cover metadata (Prepared For / Prepared By) for a company
+ */
+export const UpdateAdminCompanyReportMetaParams = zod.object({
+  id: zod.coerce.number(),
+});
+
+export const updateAdminCompanyReportMetaBodyPreparedByDateRegExp = new RegExp(
+  "^\\d{4}-\\d{2}-\\d{2}$",
+);
+
+export const UpdateAdminCompanyReportMetaBody = zod
+  .object({
+    preparedForName: zod.string().nullish(),
+    preparedForTitle: zod.string().nullish(),
+    preparedForCompany: zod
+      .string()
+      .nullish()
+      .describe(
+        "Override for the Prepared For card's Company line only; never changes the report H1 or narrative.",
+      ),
+    preparedByName: zod.string().nullish(),
+    preparedByOrg: zod.string().nullish(),
+    preparedByDate: zod
+      .string()
+      .regex(updateAdminCompanyReportMetaBodyPreparedByDateRegExp)
+      .nullish()
+      .describe(
+        "Report date shown on the Prepared By card (YYYY-MM-DD); becomes reportData.reportDate.",
+      ),
+  })
+  .describe(
+    "Partial cover-metadata update. Every field is optional; only supplied fields are changed. An empty string or null clears the field back to its default (blank Prepared For lines, static INVESQ Prepared By constants, the company name, today's date).\n",
+  );
+
+export const UpdateAdminCompanyReportMetaResponse = zod
+  .object({
+    report: zod
+      .object({
+        reportData: zod
+          .object({
+            companyName: zod.string(),
+            parentFund: zod.string(),
+            preparedForName: zod.string(),
+            preparedForTitle: zod.string(),
+            reportDate: zod
+              .string()
+              .describe("Date this report-data.json was assembled (ISO date)."),
+            csHeadcount: zod.string(),
+            execSummary: zod
+              .array(zod.string())
+              .describe("One string per paragraph."),
+            compositeContext: zod.string(),
+            existingSystems: zod.string(),
+            pathForward: zod.string(),
+            scores: zod
+              .object({
+                p1: zod.union([zod.number(), zod.string()]),
+                p2: zod.union([zod.number(), zod.string()]),
+                p3: zod.union([zod.number(), zod.string()]),
+                p4: zod.union([zod.number(), zod.string()]),
+                p5: zod.union([zod.number(), zod.string()]),
+                p6: zod.union([zod.number(), zod.string()]),
+                p7: zod.union([zod.number(), zod.string()]),
+                p8: zod.union([zod.number(), zod.string()]),
+              })
+              .describe(
+                'Raw pillar scores 0\/1\/2, or \"NA\" for Insufficient Data.',
+              ),
+            pillarSignals: zod
+              .object({
+                p1: zod.string(),
+                p2: zod.string(),
+                p3: zod.string(),
+                p4: zod.string(),
+                p5: zod.string(),
+                p6: zod.string(),
+                p7: zod.string(),
+                p8: zod.string(),
+              })
+              .describe(
+                'One-line \"what the signals show\" per pillar (scorecard column). Left \"\" when no data beyond the raw score is on file.\n',
+              ),
+            pillarEvidence: zod
+              .object({
+                p1: zod.string(),
+                p2: zod.string(),
+                p3: zod.string(),
+                p4: zod.string(),
+                p5: zod.string(),
+                p6: zod.string(),
+                p7: zod.string(),
+                p8: zod.string(),
+              })
+              .describe(
+                'Longer pillar-by-pillar narrative Claude produced during scoring (assessments.p{n}Evidence). Left \"\" when no evidence is on file.\n',
+              ),
+            p6Recommendation: zod
+              .string()
+              .describe(
+                'Derived from the p6 (CS Leadership) score: 2 = \"Retain and Develop\", 1 = \"Augment\", 0 = \"Replace\". Empty if p6 is \"NA\".\n',
+              ),
+            gaps: zod
+              .array(
+                zod.object({
+                  title: zod.string(),
+                  description: zod.string(),
+                  impact: zod.string(),
+                  recommendation: zod.string(),
+                }),
+              )
+              .describe(
+                "Top 3 identified gaps (the three lowest-scoring pillars).",
+              ),
+            nextSteps: zod.array(zod.string()),
+          })
+          .describe(
+            'Exact shape of report-data.json per the Notion scoring rubric\'s Step 7 (\"Producing the Branded Client PDF\"). Fields with no real data yet are left as \"\" \/ [] — the branded report template treats a blank field as an accepted, designed fallback (a neutral placeholder), not an error.\n',
+          ),
+        meta: zod.object({
+          companyId: zod.number(),
+          assessmentDate: zod
+            .string()
+            .describe("Date of the source assessment used (ISO date)."),
+          composite: zod.number(),
+          compositeMax: zod.number(),
+          tier: zod.string(),
+          generatedAt: zod
+            .string()
+            .nullable()
+            .describe(
+              "When the AI-generated narrative sections (execSummary, compositeContext, existingSystems, pathForward, pillarSignals, gap impact\/recommendation, nextSteps) were produced, or null if this response still carries the blank-placeholder fallback (no report_exports row yet for this assessment).\n",
+            ),
+          model: zod
+            .string()
+            .nullable()
+            .describe(
+              "Claude model used to generate the narrative, or null if not yet generated.",
+            ),
+          preparedByName: zod
+            .string()
+            .describe(
+              'Effective \"Prepared By - Name\" cover line (per-company override from the companies row, else the static INVESQ default). Cover display metadata only, kept OUT of the exported report-data.json.\n',
+            ),
+          preparedByOrg: zod
+            .string()
+            .describe(
+              'Effective \"Prepared By - Organization\" cover line (override else \"INVESQ\").',
+            ),
+          preparedForCompany: zod
+            .string()
+            .describe(
+              'Effective \"Prepared For - Company\" cover line (override else the company\'s name). Only affects the cover card, never the report H1 or narrative.\n',
+            ),
+          preparedForCompanyOverride: zod
+            .string()
+            .nullable()
+            .describe(
+              "The raw stored override for the Prepared For company line, or null when unset.",
+            ),
         }),
       })
       .describe(
@@ -1807,6 +2113,27 @@ export const ValidateAdminCompanyReportResponse = zod
             .describe(
               "Claude model used to generate the narrative, or null if not yet generated.",
             ),
+          preparedByName: zod
+            .string()
+            .describe(
+              'Effective \"Prepared By - Name\" cover line (per-company override from the companies row, else the static INVESQ default). Cover display metadata only, kept OUT of the exported report-data.json.\n',
+            ),
+          preparedByOrg: zod
+            .string()
+            .describe(
+              'Effective \"Prepared By - Organization\" cover line (override else \"INVESQ\").',
+            ),
+          preparedForCompany: zod
+            .string()
+            .describe(
+              'Effective \"Prepared For - Company\" cover line (override else the company\'s name). Only affects the cover card, never the report H1 or narrative.\n',
+            ),
+          preparedForCompanyOverride: zod
+            .string()
+            .nullable()
+            .describe(
+              "The raw stored override for the Prepared For company line, or null when unset.",
+            ),
         }),
       })
       .describe(
@@ -2022,6 +2349,27 @@ export const ShipAdminCompanyReportToDriveResponse = zod
             .describe(
               "Claude model used to generate the narrative, or null if not yet generated.",
             ),
+          preparedByName: zod
+            .string()
+            .describe(
+              'Effective \"Prepared By - Name\" cover line (per-company override from the companies row, else the static INVESQ default). Cover display metadata only, kept OUT of the exported report-data.json.\n',
+            ),
+          preparedByOrg: zod
+            .string()
+            .describe(
+              'Effective \"Prepared By - Organization\" cover line (override else \"INVESQ\").',
+            ),
+          preparedForCompany: zod
+            .string()
+            .describe(
+              'Effective \"Prepared For - Company\" cover line (override else the company\'s name). Only affects the cover card, never the report H1 or narrative.\n',
+            ),
+          preparedForCompanyOverride: zod
+            .string()
+            .nullable()
+            .describe(
+              "The raw stored override for the Prepared For company line, or null when unset.",
+            ),
         }),
       })
       .describe(
@@ -2234,6 +2582,27 @@ export const GenerateAdminCompanyReportExportResponse = zod
         .nullable()
         .describe(
           "Claude model used to generate the narrative, or null if not yet generated.",
+        ),
+      preparedByName: zod
+        .string()
+        .describe(
+          'Effective \"Prepared By - Name\" cover line (per-company override from the companies row, else the static INVESQ default). Cover display metadata only, kept OUT of the exported report-data.json.\n',
+        ),
+      preparedByOrg: zod
+        .string()
+        .describe(
+          'Effective \"Prepared By - Organization\" cover line (override else \"INVESQ\").',
+        ),
+      preparedForCompany: zod
+        .string()
+        .describe(
+          'Effective \"Prepared For - Company\" cover line (override else the company\'s name). Only affects the cover card, never the report H1 or narrative.\n',
+        ),
+      preparedForCompanyOverride: zod
+        .string()
+        .nullable()
+        .describe(
+          "The raw stored override for the Prepared For company line, or null when unset.",
         ),
     }),
   })

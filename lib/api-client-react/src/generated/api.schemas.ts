@@ -178,6 +178,19 @@ export type AdminCompanyReportDataMeta = {
    * @nullable
    */
   model: string | null;
+  /** Effective "Prepared By - Name" cover line (per-company override from the companies row, else the static INVESQ default). Cover display metadata only, kept OUT of the exported report-data.json.
+   */
+  preparedByName: string;
+  /** Effective "Prepared By - Organization" cover line (override else "INVESQ"). */
+  preparedByOrg: string;
+  /** Effective "Prepared For - Company" cover line (override else the company's name). Only affects the cover card, never the report H1 or narrative.
+   */
+  preparedForCompany: string;
+  /**
+   * The raw stored override for the Prepared For company line, or null when unset.
+   * @nullable
+   */
+  preparedForCompanyOverride: string | null;
 };
 
 /**
@@ -402,6 +415,32 @@ export interface ReportValidateInput {
    * @nullable
    */
   overrideReason?: string | null;
+}
+
+/**
+ * Partial cover-metadata update. Every field is optional; only supplied fields are changed. An empty string or null clears the field back to its default (blank Prepared For lines, static INVESQ Prepared By constants, the company name, today's date).
+
+ */
+export interface UpdateReportMetaInput {
+  /** @nullable */
+  preparedForName?: string | null;
+  /** @nullable */
+  preparedForTitle?: string | null;
+  /**
+   * Override for the Prepared For card's Company line only; never changes the report H1 or narrative.
+   * @nullable
+   */
+  preparedForCompany?: string | null;
+  /** @nullable */
+  preparedByName?: string | null;
+  /** @nullable */
+  preparedByOrg?: string | null;
+  /**
+   * Report date shown on the Prepared By card (YYYY-MM-DD); becomes reportData.reportDate.
+   * @nullable
+   * @pattern ^\d{4}-\d{2}-\d{2}$
+   */
+  preparedByDate?: string | null;
 }
 
 export interface AdminFirmDetail {

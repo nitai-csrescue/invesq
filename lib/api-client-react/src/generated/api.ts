@@ -63,6 +63,7 @@ import type {
   Resource,
   SystemHealthReport,
   UpdateAdminFirmInput,
+  UpdateReportMetaInput,
 } from "./api.schemas";
 
 import { customFetch } from "../custom-fetch";
@@ -2579,6 +2580,100 @@ export const useSaveAdminCompanyReportRevision = <
   TContext
 > => {
   return useMutation(getSaveAdminCompanyReportRevisionMutationOptions(options));
+};
+
+/**
+ * Persists the per-company cover-page metadata directly on the companies row: Prepared For (name, title, company-line override) and Prepared By (name, organization, report date). Only supplied fields are changed; an empty string or null clears a field back to its default (blank Prepared For lines, the static INVESQ Prepared By constants, the company name, today's date). These values are read fresh on every report load, so they apply to drafts and validated reports alike WITHOUT creating a revision or resetting sign-offs. Returns the fresh workflow state.
+
+ * @summary Update the report cover metadata (Prepared For / Prepared By) for a company
+ */
+export const getUpdateAdminCompanyReportMetaUrl = (id: number) => {
+  return `/api/admin/companies/${id}/report-meta`;
+};
+
+export const updateAdminCompanyReportMeta = async (
+  id: number,
+  updateReportMetaInput: UpdateReportMetaInput,
+  options?: RequestInit,
+): Promise<AdminReportWorkflow> => {
+  return customFetch<AdminReportWorkflow>(
+    getUpdateAdminCompanyReportMetaUrl(id),
+    {
+      ...options,
+      method: "PATCH",
+      headers: { "Content-Type": "application/json", ...options?.headers },
+      body: JSON.stringify(updateReportMetaInput),
+    },
+  );
+};
+
+export const getUpdateAdminCompanyReportMetaMutationOptions = <
+  TError = ErrorType<ErrorEnvelope>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof updateAdminCompanyReportMeta>>,
+    TError,
+    { id: number; data: BodyType<UpdateReportMetaInput> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof updateAdminCompanyReportMeta>>,
+  TError,
+  { id: number; data: BodyType<UpdateReportMetaInput> },
+  TContext
+> => {
+  const mutationKey = ["updateAdminCompanyReportMeta"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof updateAdminCompanyReportMeta>>,
+    { id: number; data: BodyType<UpdateReportMetaInput> }
+  > = (props) => {
+    const { id, data } = props ?? {};
+
+    return updateAdminCompanyReportMeta(id, data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type UpdateAdminCompanyReportMetaMutationResult = NonNullable<
+  Awaited<ReturnType<typeof updateAdminCompanyReportMeta>>
+>;
+export type UpdateAdminCompanyReportMetaMutationBody =
+  BodyType<UpdateReportMetaInput>;
+export type UpdateAdminCompanyReportMetaMutationError =
+  ErrorType<ErrorEnvelope>;
+
+/**
+ * @summary Update the report cover metadata (Prepared For / Prepared By) for a company
+ */
+export const useUpdateAdminCompanyReportMeta = <
+  TError = ErrorType<ErrorEnvelope>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof updateAdminCompanyReportMeta>>,
+    TError,
+    { id: number; data: BodyType<UpdateReportMetaInput> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof updateAdminCompanyReportMeta>>,
+  TError,
+  { id: number; data: BodyType<UpdateReportMetaInput> },
+  TContext
+> => {
+  return useMutation(getUpdateAdminCompanyReportMetaMutationOptions(options));
 };
 
 /**

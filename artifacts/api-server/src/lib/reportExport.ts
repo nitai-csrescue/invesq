@@ -17,6 +17,7 @@ import type {
   ReportRevisionInput,
   ReportRevisionState,
   ReportValidationState,
+  UpdateReportMetaInput,
 } from "@workspace/api-zod";
 import { PILLARS, getTier, textToScore, type FirmMeta } from "@workspace/portfolio-engine";
 import { getAnthropicClient, extractText, extractJsonFence } from "./anthropic.js";
@@ -24,6 +25,7 @@ import { fetchScoringRubricText } from "./notion.js";
 import { redactNamedIndividuals } from "./nameRedaction.js";
 import { getConfiguredValidators } from "./validators.js";
 import type { ReportValidationStamp } from "./pdf/types.js";
+import { PREPARED_BY } from "./pdf/staticCopy.js";
 import { logger } from "./logger.js";
 
 // Bump whenever the generation prompt or the shape of what it's asked to
@@ -173,9 +175,12 @@ function buildBaseReportData(company: Company, firm: Firm, assessment: Assessmen
   const reportData: DiagnosticReportData = {
     companyName: company.name,
     parentFund: firm.name,
-    preparedForName: "",
-    preparedForTitle: "",
-    reportDate: new Date().toISOString().slice(0, 10),
+    // Admin-editable cover metadata, read fresh from the companies row on
+    // every load (overlayNarrative preserves these from the base, so values
+    // baked into cached report_exports / revision rows never win).
+    preparedForName: company.preparedForName ?? "",
+    preparedForTitle: company.preparedForTitle ?? "",
+    reportDate: company.preparedByDate ?? new Date().toISOString().slice(0, 10),
     csHeadcount: "",
     execSummary: [],
     compositeContext: "",
@@ -489,7 +494,7 @@ function sanitizeReportData(reportData: DiagnosticReportData): DiagnosticReportD
 }
 
 function toResponse(
-  companyId: number,
+  company: Company,
   assessmentDate: string,
   base: Pick<BaseReportData, "composite" | "compositeMax" | "tier">,
   reportData: DiagnosticReportData,
@@ -499,13 +504,20 @@ function toResponse(
   return {
     reportData: sanitizeReportData(reportData),
     meta: {
-      companyId,
+      companyId: company.id,
       assessmentDate,
       composite: base.composite,
       compositeMax: base.compositeMax,
       tier: base.tier,
       generatedAt,
       model,
+      // Effective cover metadata (per-company override else the static
+      // default). Display-only: kept OUT of the exported report-data.json
+      // (reportData) so that contract stays spec-exact.
+      preparedByName: company.preparedByName ?? PREPARED_BY.name,
+      preparedByOrg: company.preparedByOrg ?? PREPARED_BY.org,
+      preparedForCompany: company.preparedForCompanyOverride ?? company.name,
+      preparedForCompanyOverride: company.preparedForCompanyOverride,
     },
   };
 }
@@ -595,7 +607,7 @@ export async function getReportData(companyId: number): Promise<AdminCompanyRepo
 
   if (cached) {
     return toResponse(
-      companyId,
+      company,
       assessment.date,
       base,
       cached.reportData as DiagnosticReportData,
@@ -604,7 +616,7 @@ export async function getReportData(companyId: number): Promise<AdminCompanyRepo
     );
   }
 
-  return toResponse(companyId, assessment.date, base, base.reportData, null, null);
+  return toResponse(company, assessment.date, base, base.reportData, null, null);
 }
 
 // Generates (via Claude) and persists the narrative sections of the report,
@@ -626,7 +638,7 @@ export async function getOrGenerateReportExport(companyId: number): Promise<Admi
   if (cached) {
     logger.info({ companyId, assessmentId: assessment.id }, "Serving cached report export (no Claude call)");
     return toResponse(
-      companyId,
+      company,
       assessment.date,
       base,
       cached.reportData as DiagnosticReportData,
@@ -650,7 +662,7 @@ export async function getOrGenerateReportExport(companyId: number): Promise<Admi
     })
     .returning();
 
-  return toResponse(companyId, assessment.date, base, reportData, inserted.createdAt.toISOString(), inserted.model);
+  return toResponse(company, assessment.date, base, reportData, inserted.createdAt.toISOString(), inserted.model);
 }
 
 // ---------------------------------------------------------------------------
@@ -760,7 +772,7 @@ export async function loadEffectiveReport(companyId: number): Promise<EffectiveR
     });
   }
 
-  const response = toResponse(companyId, assessment.date, base, effective, generatedAt, model);
+  const response = toResponse(company, assessment.date, base, effective, generatedAt, model);
 
   // Validation state, mapped onto the CONFIGURED validators (source of truth).
   const validators = getConfiguredValidators();
@@ -927,6 +939,43 @@ export async function saveReportRevision(
     editedByEmail,
     editedByName,
   });
+
+  return toWorkflow(await loadEffectiveReport(companyId));
+}
+
+// Persist admin edits to the report's cover metadata (Prepared For / Prepared
+// By cards) directly on the companies row. Only fields PRESENT in the input
+// are changed; an empty/whitespace-only string or null clears the column back
+// to null (= "use the default"). Deliberately does NOT create a revision or
+// touch validations: these are display metadata, not narrative, and are read
+// fresh from the companies row on every report load (cached report_exports /
+// revision rows never carry them forward — see overlayNarrative). Values are
+// em-dash-stripped per the copy policy. Returns the fresh workflow.
+export async function updateReportMeta(
+  companyId: number,
+  input: UpdateReportMetaInput,
+): Promise<AdminReportWorkflow> {
+  // Validates the company exists and has an assessment (same 404 semantics
+  // as every other report route) before writing anything.
+  await loadCompanyContext(companyId);
+
+  const clean = (value: string | null | undefined): string | null => {
+    if (value == null) return null;
+    const trimmed = stripEmDashes(value).trim();
+    return trimmed === "" ? null : trimmed;
+  };
+
+  const updates: Partial<typeof companiesTable.$inferInsert> = {};
+  if ("preparedForName" in input) updates.preparedForName = clean(input.preparedForName);
+  if ("preparedForTitle" in input) updates.preparedForTitle = clean(input.preparedForTitle);
+  if ("preparedForCompany" in input) updates.preparedForCompanyOverride = clean(input.preparedForCompany);
+  if ("preparedByName" in input) updates.preparedByName = clean(input.preparedByName);
+  if ("preparedByOrg" in input) updates.preparedByOrg = clean(input.preparedByOrg);
+  if ("preparedByDate" in input) updates.preparedByDate = clean(input.preparedByDate);
+
+  if (Object.keys(updates).length > 0) {
+    await db.update(companiesTable).set(updates).where(eq(companiesTable.id, companyId));
+  }
 
   return toWorkflow(await loadEffectiveReport(companyId));
 }

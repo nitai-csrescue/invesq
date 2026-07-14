@@ -1,6 +1,5 @@
 import { COLORS, FONTS } from "../theme.js";
 import { esc, pageShell, eyebrow } from "../components.js";
-import { PREPARED_BY } from "../staticCopy.js";
 import type { ReportContext } from "../types.js";
 
 function preparedCard(title: string, lines: Array<{ label: string; value: string }>): string {
@@ -125,11 +124,11 @@ export function renderPage1(ctx: ReportContext): string {
       ${preparedCard("Prepared For", [
         { label: "Name", value: reportData.preparedForName },
         { label: "Title", value: reportData.preparedForTitle },
-        { label: "Company", value: reportData.companyName },
+        { label: "Company", value: ctx.meta.preparedForCompany },
       ])}
       ${preparedCard("Prepared By", [
-        { label: "Name", value: PREPARED_BY.name },
-        { label: "Organization", value: PREPARED_BY.org },
+        { label: "Name", value: ctx.meta.preparedByName },
+        { label: "Organization", value: ctx.meta.preparedByOrg },
         { label: "Date", value: reportData.reportDate },
       ])}
     </div>

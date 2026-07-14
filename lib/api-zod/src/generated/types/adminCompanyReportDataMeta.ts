@@ -24,4 +24,17 @@ export type AdminCompanyReportDataMeta = {
    * @nullable
    */
   model: string | null;
+  /** Effective "Prepared By - Name" cover line (per-company override from the companies row, else the static INVESQ default). Cover display metadata only, kept OUT of the exported report-data.json.
+   */
+  preparedByName: string;
+  /** Effective "Prepared By - Organization" cover line (override else "INVESQ"). */
+  preparedByOrg: string;
+  /** Effective "Prepared For - Company" cover line (override else the company's name). Only affects the cover card, never the report H1 or narrative.
+   */
+  preparedForCompany: string;
+  /**
+   * The raw stored override for the Prepared For company line, or null when unset.
+   * @nullable
+   */
+  preparedForCompanyOverride: string | null;
 };
