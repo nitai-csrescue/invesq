@@ -71,15 +71,22 @@ export default function PortfolioDashboard() {
             {summary.suggestedIcpFit !== "Unknown" && (
               <span
                 title="Suggested fit based on portfolio mix, not an authoritative rating"
-                className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-[11px] font-medium ${
-                  summary.suggestedIcpFit === "Strong"
-                    ? "bg-green-100 text-green-800"
-                    : summary.suggestedIcpFit === "Moderate"
-                      ? "bg-blue-100 text-blue-800"
-                      : "bg-muted text-muted-foreground"
-                }`}
+                className="inline-flex items-center gap-1.5"
               >
-                Suggested ICP fit: {summary.suggestedIcpFit}
+                <span className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
+                  ICP Fit
+                </span>
+                <span
+                  className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-[11px] font-medium ${
+                    summary.suggestedIcpFit === "Strong"
+                      ? "bg-green-100 text-green-800"
+                      : summary.suggestedIcpFit === "Moderate"
+                        ? "bg-blue-100 text-blue-800"
+                        : "bg-muted text-muted-foreground"
+                  }`}
+                >
+                  {summary.suggestedIcpFit}
+                </span>
               </span>
             )}
           </div>
