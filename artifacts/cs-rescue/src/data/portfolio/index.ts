@@ -18,6 +18,9 @@ export type {
   PortfolioSummary,
   TierCount,
   ActionLogEntry,
+  PortfolioStatus,
+  SectorCategory,
+  IcpFitLabel,
 } from "./types";
 
 // Pillar / tier definitions + helpers
@@ -43,6 +46,10 @@ export {
 
 // Engine — query API (pre-computed, validated at startup)
 export {
+  computeIcpFit,
+  monthsSince,
+  ICP_PRIORITY_SECTORS,
+  type IcpFit,
   getFirmCompanies,
   getFirmCompany,
   getFirmSummary,

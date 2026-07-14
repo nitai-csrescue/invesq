@@ -29,6 +29,7 @@ import { ConfidenceBadge } from "@/components/portfolio/ConfidenceBadge";
 import { TenantShell } from "@/components/portfolio/TenantShell";
 import { TenantExportButton } from "@/components/portfolio/TenantExportButton";
 import { PortcoReportWorkflow } from "./PortcoReportWorkflow";
+import { IcpEligibilityChip } from "./RavigaCompanyList";
 import {
   getFirm,
   getFirmCompany,
@@ -1049,6 +1050,7 @@ export default function PortfolioCompany() {
                   Tier {tier.id} · {tier.label}
                 </span>
                 <ConfidenceBadge confidence={company.confidence} />
+                <IcpEligibilityChip company={company} />
               </div>
               {isRaviga && company.weightedMax > 0 && (
                 <div className="mt-3 inline-flex items-center gap-2 rounded-lg border border-emerald-500/30 bg-emerald-500/10 px-3 py-1.5">

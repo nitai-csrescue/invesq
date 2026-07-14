@@ -117,6 +117,8 @@ export * from "./portfolioCompany";
 export * from "./portfolioCompanyConfidence";
 export * from "./portfolioCompanyGapNotes";
 export * from "./portfolioCompanyLeadershipFraming";
+export * from "./portfolioCompanyPortfolioStatus";
+export * from "./portfolioCompanySectorCategory";
 export * from "./reportRevisionGapInput";
 export * from "./reportRevisionInput";
 export * from "./reportRevisionState";

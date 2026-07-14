@@ -16,8 +16,50 @@ import {
   type GapItem,
   gapTitle,
   formatDate,
+  monthsSince,
   PILLAR_MAX,
 } from "@/data/portfolio";
+
+// ---------------------------------------------------------------------------
+// ICP eligibility chip — hidden entirely when the company has no ICP inputs
+// (fitLabel "Unknown"), so legacy tenants render exactly as before.
+// ---------------------------------------------------------------------------
+export function IcpEligibilityChip({
+  company,
+  className = "inline-flex",
+}: {
+  company: Company;
+  className?: string;
+}) {
+  if (company.fitLabel === "Unknown") return null;
+
+  let colorClass: string;
+  let text: string;
+  if (!company.eligible) {
+    colorClass = "bg-red-100 text-red-800";
+    text = `Ineligible · ${company.portfolioStatus}`;
+  } else if (company.fitLabel === "Weak") {
+    colorClass = "bg-amber-100 text-amber-800";
+    text = `Review · ${company.sectorCategory}`;
+  } else {
+    const months = company.investmentDate
+      ? Math.max(0, monthsSince(company.investmentDate))
+      : null;
+    colorClass = "bg-green-100 text-green-800";
+    text = `Eligible · ${company.sectorCategory}${
+      months !== null ? ` · Invested ${months}mo ago` : ""
+    }`;
+  }
+
+  return (
+    <span
+      title={company.eligibilityReasons.join(" · ")}
+      className={`${className} flex-none items-center rounded-full px-2 py-0.5 text-[11px] font-medium ${colorClass}`}
+    >
+      {text}
+    </span>
+  );
+}
 
 // ---------------------------------------------------------------------------
 // Inline SVG sparkline — no Recharts dependency
@@ -225,6 +267,9 @@ function CompanyRow({
         >
           Tier {tier.id} · {tier.label}
         </span>
+
+        {/* ICP eligibility chip (renders nothing without ICP data) */}
+        <IcpEligibilityChip company={company} className="hidden sm:inline-flex" />
 
         {/* ARR */}
         <span className="hidden w-24 flex-none text-right font-mono text-xs text-muted-foreground md:block">

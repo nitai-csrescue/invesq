@@ -85,6 +85,22 @@ export interface FirmMeta {
 }
 
 // ---------------------------------------------------------------------------
+// ICP eligibility inputs — optional raw fields. Guardrails only activate for
+// firms that carry them (see validateFirmData); legacy/DB tenants without any
+// ICP fields are entirely unaffected. Derived fit values live on Company.
+// ---------------------------------------------------------------------------
+export type PortfolioStatus = "Active" | "Exited" | "Pre-investment";
+export type SectorCategory =
+  | "Fintech"
+  | "Healthtech"
+  | "Martech"
+  | "HRtech"
+  | "Security"
+  | "Other B2B SaaS"
+  | "Non-SaaS";
+export type IcpFitLabel = "Strong" | "Moderate" | "Weak" | "Unknown";
+
+// ---------------------------------------------------------------------------
 // Raw company record — ONLY raw inputs, never derived values.
 // scores, lastDiagnostic, and trend are now DERIVED from assessments.
 // ---------------------------------------------------------------------------
@@ -116,6 +132,11 @@ export interface RawCompany {
   gapNotes?: Record<string, string>;
   // Dated events annotated as markers on the trend / forecast chart.
   actionsLog?: ActionLogEntry[];
+  // ICP eligibility inputs. A firm opts into ICP guardrails by carrying ANY
+  // of these on ANY company; all three are then required on every company.
+  portfolioStatus?: PortfolioStatus; // only "Active" holdings are eligible
+  sectorCategory?: SectorCategory;   // normalized sub-sector bucket
+  investmentDate?: string;           // ISO date the firm invested
 }
 
 // Rich descriptive fields stored in the companies.meta jsonb column —
@@ -156,6 +177,12 @@ export interface Company extends RawCompany {
   // ARR range × tier risk midpoint. null when ARR is undisclosed.
   arrAtRiskRange: [number, number] | null;
   arrAtRiskDisplay: string;  // formatted range, or "N/A" when ARR is undisclosed
+
+  // ICP eligibility — derived via computeIcpFit; never stored.
+  eligible: boolean;            // portfolioStatus === "Active" (true when status is absent)
+  fitScore: number;             // 0-4: sector points + recency points
+  fitLabel: IcpFitLabel;        // Strong (4) / Moderate (2-3) / Weak (0-1) / Unknown (missing inputs)
+  eligibilityReasons: string[]; // human-readable inputs behind the label (chip tooltip)
 }
 
 // ---------------------------------------------------------------------------
@@ -175,6 +202,9 @@ export interface PortfolioSummary {
   arrUndisclosedNames: string[];
   avgComposite: number;      // normalized to PILLAR_MAX scale
   tierCounts: TierCount[];
+  // Firm-level suggested ICP fit across eligible companies. "Unknown" when
+  // any company lacks ICP inputs; the UI hides the badge in that case.
+  suggestedIcpFit: IcpFitLabel;
 }
 
 // Portfolio-level trend — average normalized composite across companies,

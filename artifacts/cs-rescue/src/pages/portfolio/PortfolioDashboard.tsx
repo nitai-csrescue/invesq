@@ -66,7 +66,23 @@ export default function PortfolioDashboard() {
           {isRaviga ? " · FUND III" : ""}
         </p>
         <div className="flex flex-wrap items-start justify-between gap-4">
-          <h1 className="text-2xl font-bold text-foreground">Portfolio Overview</h1>
+          <div className="flex flex-wrap items-center gap-2.5">
+            <h1 className="text-2xl font-bold text-foreground">Portfolio Overview</h1>
+            {summary.suggestedIcpFit !== "Unknown" && (
+              <span
+                title="Suggested fit based on portfolio mix, not an authoritative rating"
+                className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-[11px] font-medium ${
+                  summary.suggestedIcpFit === "Strong"
+                    ? "bg-green-100 text-green-800"
+                    : summary.suggestedIcpFit === "Moderate"
+                      ? "bg-blue-100 text-blue-800"
+                      : "bg-muted text-muted-foreground"
+                }`}
+              >
+                Suggested ICP fit: {summary.suggestedIcpFit}
+              </span>
+            )}
+          </div>
           <div className="flex items-center gap-2">
             <Link
               href={`/${firmSlug}/benchmarks`}

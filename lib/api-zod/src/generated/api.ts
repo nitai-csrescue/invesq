@@ -879,6 +879,21 @@ export const GetPortfolioBootstrapResponse = zod.object({
                   ),
               )
               .optional(),
+            portfolioStatus: zod
+              .enum(["Active", "Exited", "Pre-investment"])
+              .optional(),
+            sectorCategory: zod
+              .enum([
+                "Fintech",
+                "Healthtech",
+                "Martech",
+                "HRtech",
+                "Security",
+                "Other B2B SaaS",
+                "Non-SaaS",
+              ])
+              .optional(),
+            investmentDate: zod.string().optional(),
           })
           .describe(
             "Raw company record — only raw inputs, never derived values (RawCompany in @workspace\/portfolio-engine).",

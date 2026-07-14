@@ -9,6 +9,9 @@ const STG_COMPANIES: RawCompany[] = [
   {
     id: "nomis-solutions",
     name: "Nomis Solutions",
+    portfolioStatus: "Active",
+    sectorCategory: "Fintech",
+    investmentDate: "2024-01-01",
     sector: "AI-native pricing optimization, Financial Services SaaS",
     hq: "San Bruno, CA",
     employeesDisplay: "77",
@@ -53,6 +56,9 @@ const STG_COMPANIES: RawCompany[] = [
   {
     id: "cadmium",
     name: "Cadmium",
+    portfolioStatus: "Active",
+    sectorCategory: "Other B2B SaaS",
+    investmentDate: "2024-01-01",
     sector: "Events / LMS / Content Management SaaS",
     hq: "Hunt Valley, MD",
     employeesDisplay: "Unconfirmed",
@@ -98,6 +104,9 @@ const STG_COMPANIES: RawCompany[] = [
   {
     id: "confience",
     name: "Confience",
+    portfolioStatus: "Active",
+    sectorCategory: "Other B2B SaaS",
+    investmentDate: "2024-06-01",
     sector: "Laboratory Information Management (LIMS) SaaS",
     hq: "Austin, TX",
     employeesDisplay: "Unconfirmed",
@@ -143,6 +152,9 @@ const STG_COMPANIES: RawCompany[] = [
   {
     id: "mediavalet",
     name: "MediaValet",
+    portfolioStatus: "Active",
+    sectorCategory: "Other B2B SaaS",
+    investmentDate: "2023-01-01",
     sector: "Digital Asset Management SaaS",
     hq: "Vancouver, BC",
     employeesDisplay: "102",
@@ -188,6 +200,9 @@ const STG_COMPANIES: RawCompany[] = [
   {
     id: "taxcalc",
     name: "TaxCalc",
+    portfolioStatus: "Active",
+    sectorCategory: "Fintech",
+    investmentDate: "2023-06-01",
     sector: "Tax Compliance / Practice Management SaaS (UK)",
     hq: "Aylesbury, UK",
     employeesDisplay: "100",

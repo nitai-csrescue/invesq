@@ -17,6 +17,7 @@ import type {
   PillarScore,
   AssessmentPoint,
   PortfolioTrendPoint,
+  IcpFitLabel,
 } from "./types";
 import { PILLARS, PILLAR_MAX, TIERS, getTier } from "./pillars";
 import { getFirm as _getFirm } from "./firms";
@@ -86,6 +87,90 @@ function buildAssessmentPoints(
   });
 }
 
+// ---------------------------------------------------------------------------
+// ICP eligibility fit — additive derivation; never touches scoring, composite,
+// or tier math. Companies without complete ICP inputs derive label "Unknown",
+// which the UI treats as "no chip" so legacy tenants render unchanged.
+// NOTE: mirror of lib/portfolio-engine — keep both copies in lockstep.
+// ---------------------------------------------------------------------------
+export const ICP_PRIORITY_SECTORS: ReadonlySet<string> = new Set([
+  "Fintech",
+  "Healthtech",
+  "Martech",
+  "HRtech",
+  "Security",
+]);
+
+export interface IcpFit {
+  eligible: boolean;
+  fitScore: number;
+  fitLabel: IcpFitLabel;
+  eligibilityReasons: string[];
+}
+
+// Whole calendar months between an ISO date and "today", rounded down.
+export function monthsSince(iso: string, today: Date = new Date()): number {
+  const d = new Date(iso + "T00:00:00");
+  let months =
+    (today.getFullYear() - d.getFullYear()) * 12 +
+    (today.getMonth() - d.getMonth());
+  if (today.getDate() < d.getDate()) months -= 1;
+  return months;
+}
+
+export function computeIcpFit(
+  raw: Pick<RawCompany, "portfolioStatus" | "sectorCategory" | "investmentDate">,
+  today: Date = new Date(),
+): IcpFit {
+  const { portfolioStatus, sectorCategory, investmentDate } = raw;
+
+  if (
+    !portfolioStatus ||
+    !sectorCategory ||
+    !investmentDate ||
+    isNaN(Date.parse(investmentDate))
+  ) {
+    return {
+      eligible: portfolioStatus ? portfolioStatus === "Active" : true,
+      fitScore: 0,
+      fitLabel: "Unknown",
+      eligibilityReasons: ["ICP eligibility inputs not captured for this company"],
+    };
+  }
+
+  const eligible = portfolioStatus === "Active";
+  const reasons: string[] = [
+    eligible ? "Active holding" : `Not an active holding (${portfolioStatus})`,
+  ];
+
+  const sectorPoints = ICP_PRIORITY_SECTORS.has(sectorCategory)
+    ? 2
+    : sectorCategory === "Other B2B SaaS"
+      ? 1
+      : 0;
+  reasons.push(
+    sectorPoints === 2
+      ? `Priority sub-sector: ${sectorCategory}`
+      : sectorPoints === 1
+        ? "Eligible B2B SaaS sector"
+        : "Non-priority sector: Non-SaaS",
+  );
+
+  const months = monthsSince(investmentDate, today);
+  const recencyPoints = months <= 6 ? 2 : months <= 12 ? 1 : 0;
+  reasons.push(
+    months > 12
+      ? "Investment older than 12 months"
+      : `Invested ${Math.max(0, months)} month${months === 1 ? "" : "s"} ago`,
+  );
+
+  const fitScore = sectorPoints + recencyPoints;
+  const fitLabel: IcpFitLabel =
+    fitScore === 4 ? "Strong" : fitScore >= 2 ? "Moderate" : "Weak";
+
+  return { eligible, fitScore, fitLabel, eligibilityReasons: reasons };
+}
+
 function buildCompany(raw: RawCompany): Company {
   const latest = raw.assessments[raw.assessments.length - 1];
   const scores = latest.pillarScores;
@@ -127,6 +212,8 @@ function buildCompany(raw: RawCompany): Company {
     topGap: gaps[0] ?? null,
     arrAtRiskRange,
     arrAtRiskDisplay: arrAtRiskRange ? formatCurrencyRange(arrAtRiskRange) : "N/A",
+    // ICP eligibility (additive; the UI hides the chip when label is "Unknown"):
+    ...computeIcpFit(raw),
   };
 }
 
@@ -172,6 +259,25 @@ function computeSummary(companies: Company[]): PortfolioSummary {
         ) / 10
       : 0;
 
+  // Suggested ICP fit across eligible companies. Any company missing ICP
+  // inputs (label "Unknown") makes the firm-level suggestion "Unknown",
+  // which the UI hides, so legacy tenants without ICP data are unaffected.
+  const eligibleLabels = companies
+    .filter((c) => c.eligible)
+    .map((c) => c.fitLabel);
+  let suggestedIcpFit: IcpFitLabel;
+  if (eligibleLabels.length === 0 || eligibleLabels.includes("Unknown")) {
+    suggestedIcpFit = "Unknown";
+  } else {
+    const strong = eligibleLabels.filter((l) => l === "Strong").length;
+    const strongOrModerate = eligibleLabels.filter(
+      (l) => l === "Strong" || l === "Moderate",
+    ).length;
+    if (strong * 2 > eligibleLabels.length) suggestedIcpFit = "Strong";
+    else if (strongOrModerate * 2 > eligibleLabels.length) suggestedIcpFit = "Moderate";
+    else suggestedIcpFit = "Weak";
+  }
+
   return {
     companyCount: companies.length,
     totalArrDisplay:
@@ -186,6 +292,7 @@ function computeSummary(companies: Company[]): PortfolioSummary {
       tier: t,
       count: companies.filter((c) => c.tier.id === t.id).length,
     })),
+    suggestedIcpFit,
   };
 }
 
@@ -248,6 +355,45 @@ function validateFirmData(
       }
       if (lo < 0 || hi < 0) {
         errs.push(`${ctx} arrForRollup contains negative values`);
+      }
+    }
+  }
+
+  // 4b. ICP eligibility inputs — enforced only for firms that carry them.
+  // A firm opts in by having ANY ICP field on ANY company; partial data is
+  // then a hard failure. Firms with no ICP data anywhere (legacy DB tenants,
+  // AI-onboarded firms) skip these checks entirely. Non-Active holdings and
+  // low-fit sectors are surfaced as warnings plus a visible chip, not a
+  // portal-breaking failure.
+  const icpEnabled = rawList.some(
+    (r) =>
+      r.portfolioStatus != null ||
+      r.sectorCategory != null ||
+      r.investmentDate != null,
+  );
+  if (icpEnabled) {
+    for (const raw of rawList) {
+      const ctx = `[${firmSlug}/${raw.id}]`;
+      if (!raw.portfolioStatus) {
+        errs.push(`${ctx} portfolioStatus is missing (firm has ICP guardrails enabled)`);
+      } else if (raw.portfolioStatus !== "Active") {
+        console.warn(
+          `${ctx} portfolioStatus is "${raw.portfolioStatus}" (not an active holding; marked ineligible)`,
+        );
+      }
+      if (!raw.sectorCategory) {
+        errs.push(`${ctx} sectorCategory is missing (firm has ICP guardrails enabled)`);
+      } else if (raw.sectorCategory === "Non-SaaS") {
+        console.warn(`${ctx} sectorCategory is Non-SaaS (ICP fit will be low)`);
+      } else if (raw.sectorCategory === "Other B2B SaaS") {
+        console.warn(`${ctx} sectorCategory is Other B2B SaaS (not a priority vertical)`);
+      }
+      if (!raw.investmentDate) {
+        errs.push(`${ctx} investmentDate is missing (firm has ICP guardrails enabled)`);
+      } else if (isNaN(Date.parse(raw.investmentDate))) {
+        errs.push(`${ctx} investmentDate "${raw.investmentDate}" is not a valid ISO date`);
+      } else if (monthsSince(raw.investmentDate) > 6) {
+        console.warn(`${ctx} investmentDate ${raw.investmentDate} is older than 6 months`);
       }
     }
   }

@@ -23,6 +23,9 @@ export type {
   ActionLogEntry,
   PortfolioBootstrap,
   PortfolioBootstrapFirm,
+  PortfolioStatus,
+  SectorCategory,
+  IcpFitLabel,
 } from "./types";
 
 export {
@@ -40,6 +43,10 @@ export { PILLAR_IDS, scoreToText, textToScore, normalizeCompanyName } from "./ma
 export {
   AS_OF_DATE,
   buildCompany,
+  computeIcpFit,
+  monthsSince,
+  ICP_PRIORITY_SECTORS,
+  type IcpFit,
   computeSummary,
   validateFirmData,
   buildFirmPortfolio,

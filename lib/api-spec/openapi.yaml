@@ -2693,6 +2693,14 @@ components:
           type: array
           items:
             $ref: "#/components/schemas/PortfolioActionLogEntry"
+        portfolioStatus:
+          type: string
+          enum: [Active, Exited, Pre-investment]
+        sectorCategory:
+          type: string
+          enum: [Fintech, Healthtech, Martech, HRtech, Security, Other B2B SaaS, Non-SaaS]
+        investmentDate:
+          type: string
       required:
         - id
         - name

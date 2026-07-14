@@ -1238,6 +1238,28 @@ export const PortfolioCompanyLeadershipFraming = {
 
 export type PortfolioCompanyGapNotes = { [key: string]: string };
 
+export type PortfolioCompanyPortfolioStatus =
+  (typeof PortfolioCompanyPortfolioStatus)[keyof typeof PortfolioCompanyPortfolioStatus];
+
+export const PortfolioCompanyPortfolioStatus = {
+  Active: "Active",
+  Exited: "Exited",
+  "Pre-investment": "Pre-investment",
+} as const;
+
+export type PortfolioCompanySectorCategory =
+  (typeof PortfolioCompanySectorCategory)[keyof typeof PortfolioCompanySectorCategory];
+
+export const PortfolioCompanySectorCategory = {
+  Fintech: "Fintech",
+  Healthtech: "Healthtech",
+  Martech: "Martech",
+  HRtech: "HRtech",
+  Security: "Security",
+  Other_B2B_SaaS: "Other B2B SaaS",
+  "Non-SaaS": "Non-SaaS",
+} as const;
+
 /**
  * Raw company record — only raw inputs, never derived values (RawCompany in @workspace/portfolio-engine).
  */
@@ -1263,6 +1285,9 @@ export interface PortfolioCompany {
   assessments: PortfolioAssessment[];
   gapNotes?: PortfolioCompanyGapNotes;
   actionsLog?: PortfolioActionLogEntry[];
+  portfolioStatus?: PortfolioCompanyPortfolioStatus;
+  sectorCategory?: PortfolioCompanySectorCategory;
+  investmentDate?: string;
 }
 
 export interface PortfolioBootstrapFirm {

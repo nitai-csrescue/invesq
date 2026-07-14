@@ -9,6 +9,9 @@ const PAMLICO_COMPANIES: RawCompany[] = [
   {
     id: "profisee",
     name: "Profisee",
+    portfolioStatus: "Active",
+    sectorCategory: "Other B2B SaaS",
+    investmentDate: "2022-01-01",
     sector: "Master Data Management SaaS",
     hq: "Alpharetta, GA",
     employeesDisplay: "175",
@@ -44,6 +47,9 @@ const PAMLICO_COMPANIES: RawCompany[] = [
   {
     id: "ehs-insight",
     name: "EHS Insight",
+    portfolioStatus: "Active",
+    sectorCategory: "Other B2B SaaS",
+    investmentDate: "2025-12-01",
     sector: "Environmental Health & Safety SaaS",
     hq: "Houston, TX",
     employeesDisplay: "75",
@@ -91,6 +97,9 @@ const PAMLICO_COMPANIES: RawCompany[] = [
   {
     id: "ceati",
     name: "CEATI International",
+    portfolioStatus: "Active",
+    sectorCategory: "Non-SaaS",
+    investmentDate: "2025-12-01",
     sector: "B2B Membership / Information Services (Electric Utilities)",
     hq: "—",
     employeesDisplay: "35",

@@ -10,6 +10,8 @@ import type { PortfolioAssessment } from "./portfolioAssessment";
 import type { PortfolioCompanyConfidence } from "./portfolioCompanyConfidence";
 import type { PortfolioCompanyGapNotes } from "./portfolioCompanyGapNotes";
 import type { PortfolioCompanyLeadershipFraming } from "./portfolioCompanyLeadershipFraming";
+import type { PortfolioCompanyPortfolioStatus } from "./portfolioCompanyPortfolioStatus";
+import type { PortfolioCompanySectorCategory } from "./portfolioCompanySectorCategory";
 
 /**
  * Raw company record — only raw inputs, never derived values (RawCompany in @workspace/portfolio-engine).
@@ -36,4 +38,7 @@ export interface PortfolioCompany {
   assessments: PortfolioAssessment[];
   gapNotes?: PortfolioCompanyGapNotes;
   actionsLog?: PortfolioActionLogEntry[];
+  portfolioStatus?: PortfolioCompanyPortfolioStatus;
+  sectorCategory?: PortfolioCompanySectorCategory;
+  investmentDate?: string;
 }
