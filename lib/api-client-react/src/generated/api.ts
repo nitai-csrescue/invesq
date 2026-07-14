@@ -38,6 +38,8 @@ import type {
   ConnectorHealthSummary,
   CreateAdminFirmInput,
   CreateAdminFirmResponse,
+  CreateManualAdminFirmInput,
+  DeleteAdminFirmResult,
   Deployment,
   ErrorEnvelope,
   Firm,
@@ -55,9 +57,11 @@ import type {
   NewConnectorInput,
   NewResourceInput,
   NodeMetricSeries,
+  OkResult,
   PatchConnectorInput,
   PatchResourceInput,
   PortfolioBootstrap,
+  ReorderAdminFirmsInput,
   ReportRevisionInput,
   ReportValidateInput,
   Resource,
@@ -1956,6 +1960,183 @@ export const useCreateAdminFirm = <
 };
 
 /**
+ * Admin-only. Accepts the full ordered list of firm ids and writes each firm's sort_order to its index in the array (transactional). Firms not included keep a null sort_order and list after ordered firms. The order applies to every admin firm listing (GET /admin/firms sorts by sort_order NULLS LAST, then id).
+
+ * @summary Persist a custom display order for firms
+ */
+export const getReorderAdminFirmsUrl = () => {
+  return `/api/admin/firms/order`;
+};
+
+export const reorderAdminFirms = async (
+  reorderAdminFirmsInput: ReorderAdminFirmsInput,
+  options?: RequestInit,
+): Promise<OkResult> => {
+  return customFetch<OkResult>(getReorderAdminFirmsUrl(), {
+    ...options,
+    method: "PUT",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(reorderAdminFirmsInput),
+  });
+};
+
+export const getReorderAdminFirmsMutationOptions = <
+  TError = ErrorType<ErrorEnvelope>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof reorderAdminFirms>>,
+    TError,
+    { data: BodyType<ReorderAdminFirmsInput> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof reorderAdminFirms>>,
+  TError,
+  { data: BodyType<ReorderAdminFirmsInput> },
+  TContext
+> => {
+  const mutationKey = ["reorderAdminFirms"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof reorderAdminFirms>>,
+    { data: BodyType<ReorderAdminFirmsInput> }
+  > = (props) => {
+    const { data } = props ?? {};
+
+    return reorderAdminFirms(data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type ReorderAdminFirmsMutationResult = NonNullable<
+  Awaited<ReturnType<typeof reorderAdminFirms>>
+>;
+export type ReorderAdminFirmsMutationBody = BodyType<ReorderAdminFirmsInput>;
+export type ReorderAdminFirmsMutationError = ErrorType<ErrorEnvelope>;
+
+/**
+ * @summary Persist a custom display order for firms
+ */
+export const useReorderAdminFirms = <
+  TError = ErrorType<ErrorEnvelope>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof reorderAdminFirms>>,
+    TError,
+    { data: BodyType<ReorderAdminFirmsInput> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof reorderAdminFirms>>,
+  TError,
+  { data: BodyType<ReorderAdminFirmsInput> },
+  TContext
+> => {
+  return useMutation(getReorderAdminFirmsMutationOptions(options));
+};
+
+/**
+ * Admin-only. Creates a firm row in "pending" status with portal meta (statusLabel, internalOnly) and NO discovery job. Companies and diagnostics can be added later via the firm review screen's guided company entry or by running discovery from there. Slug must be lowercase kebab-case, unique, and not a reserved route word.
+
+ * @summary Create a firm record directly, without the AI discovery pipeline
+ */
+export const getCreateManualAdminFirmUrl = () => {
+  return `/api/admin/firms/manual`;
+};
+
+export const createManualAdminFirm = async (
+  createManualAdminFirmInput: CreateManualAdminFirmInput,
+  options?: RequestInit,
+): Promise<Firm> => {
+  return customFetch<Firm>(getCreateManualAdminFirmUrl(), {
+    ...options,
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(createManualAdminFirmInput),
+  });
+};
+
+export const getCreateManualAdminFirmMutationOptions = <
+  TError = ErrorType<ErrorEnvelope>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof createManualAdminFirm>>,
+    TError,
+    { data: BodyType<CreateManualAdminFirmInput> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof createManualAdminFirm>>,
+  TError,
+  { data: BodyType<CreateManualAdminFirmInput> },
+  TContext
+> => {
+  const mutationKey = ["createManualAdminFirm"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof createManualAdminFirm>>,
+    { data: BodyType<CreateManualAdminFirmInput> }
+  > = (props) => {
+    const { data } = props ?? {};
+
+    return createManualAdminFirm(data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type CreateManualAdminFirmMutationResult = NonNullable<
+  Awaited<ReturnType<typeof createManualAdminFirm>>
+>;
+export type CreateManualAdminFirmMutationBody =
+  BodyType<CreateManualAdminFirmInput>;
+export type CreateManualAdminFirmMutationError = ErrorType<ErrorEnvelope>;
+
+/**
+ * @summary Create a firm record directly, without the AI discovery pipeline
+ */
+export const useCreateManualAdminFirm = <
+  TError = ErrorType<ErrorEnvelope>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof createManualAdminFirm>>,
+    TError,
+    { data: BodyType<CreateManualAdminFirmInput> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof createManualAdminFirm>>,
+  TError,
+  { data: BodyType<CreateManualAdminFirmInput> },
+  TContext
+> => {
+  return useMutation(getCreateManualAdminFirmMutationOptions(options));
+};
+
+/**
  * @summary Get a firm and its companies, for the review screen
  */
 export const getGetAdminFirmUrl = (id: number) => {
@@ -2129,6 +2310,92 @@ export const useUpdateAdminFirm = <
   TContext
 > => {
   return useMutation(getUpdateAdminFirmMutationOptions(options));
+};
+
+/**
+ * Admin-only, irreversible. Cascades in FK-safe order through report validations, drive shipments, report revisions, Notion sync state, report exports, findings, assessments, companies, jobs, and ingestion sources before removing the firm row, all in one transaction. Rejected (409) for the 5 hand-authored legacy tenants (their identity lives in the static frontend registry) and for firms with a queued or running job. Invalidates the portfolio bootstrap cache so the tenant portal disappears immediately.
+
+ * @summary Permanently delete a firm and all of its data
+ */
+export const getDeleteAdminFirmUrl = (id: number) => {
+  return `/api/admin/firms/${id}`;
+};
+
+export const deleteAdminFirm = async (
+  id: number,
+  options?: RequestInit,
+): Promise<DeleteAdminFirmResult> => {
+  return customFetch<DeleteAdminFirmResult>(getDeleteAdminFirmUrl(id), {
+    ...options,
+    method: "DELETE",
+  });
+};
+
+export const getDeleteAdminFirmMutationOptions = <
+  TError = ErrorType<ErrorEnvelope>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof deleteAdminFirm>>,
+    TError,
+    { id: number },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof deleteAdminFirm>>,
+  TError,
+  { id: number },
+  TContext
+> => {
+  const mutationKey = ["deleteAdminFirm"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof deleteAdminFirm>>,
+    { id: number }
+  > = (props) => {
+    const { id } = props ?? {};
+
+    return deleteAdminFirm(id, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type DeleteAdminFirmMutationResult = NonNullable<
+  Awaited<ReturnType<typeof deleteAdminFirm>>
+>;
+
+export type DeleteAdminFirmMutationError = ErrorType<ErrorEnvelope>;
+
+/**
+ * @summary Permanently delete a firm and all of its data
+ */
+export const useDeleteAdminFirm = <
+  TError = ErrorType<ErrorEnvelope>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof deleteAdminFirm>>,
+    TError,
+    { id: number },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof deleteAdminFirm>>,
+  TError,
+  { id: number },
+  TContext
+> => {
+  return useMutation(getDeleteAdminFirmMutationOptions(options));
 };
 
 /**

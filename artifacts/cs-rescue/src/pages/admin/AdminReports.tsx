@@ -1,3 +1,4 @@
+import { useMemo } from "react";
 import { useLocation } from "wouter";
 import { FileText, ChevronRight, Loader2 } from "lucide-react";
 import {
@@ -19,6 +20,8 @@ import {
   type Company,
 } from "@workspace/api-client-react";
 import { deriveReportStatus } from "@/lib/reportStatus";
+import { useHiddenFirms } from "@/hooks/use-hidden-firms";
+import { FirmFilterControl } from "@/components/admin/FirmFilterControl";
 
 // ---------------------------------------------------------------------------
 // AdminReports — a read-only index of every assessed company's diagnostic
@@ -125,20 +128,37 @@ export default function AdminReports() {
     query: { queryKey: getListAdminFirmsQueryKey() },
   });
 
+  // Per-page firm filter — independent from the firms dashboard's filter
+  // ("reports" pageKey), so each admin view keeps its own visibility set.
+  const { hidden, toggleFirm, showAll } = useHiddenFirms("reports");
+
+  const visibleFirms = useMemo(
+    () => (firms ?? []).filter((f) => !hidden.has(f.slug)),
+    [firms, hidden],
+  );
+
   return (
     <div className="space-y-6">
-      <div>
-        <div className="flex items-center gap-2 text-[11px] uppercase tracking-wider text-primary">
-          <FileText className="h-3.5 w-3.5" /> Reports
+      <div className="flex flex-wrap items-start justify-between gap-4">
+        <div>
+          <div className="flex items-center gap-2 text-[11px] uppercase tracking-wider text-primary">
+            <FileText className="h-3.5 w-3.5" /> Reports
+          </div>
+          <h1 className="mt-1 text-2xl font-semibold tracking-tight text-foreground">
+            Report status
+          </h1>
+          <p className="mt-1 text-sm text-muted-foreground">
+            Every assessed company and where its diagnostic report stands. Open a
+            row to jump to that company's report in its portal, where you edit the
+            narrative, collect sign-offs, and deliver the client PDF.
+          </p>
         </div>
-        <h1 className="mt-1 text-2xl font-semibold tracking-tight text-foreground">
-          Report status
-        </h1>
-        <p className="mt-1 text-sm text-muted-foreground">
-          Every assessed company and where its diagnostic report stands. Open a
-          row to jump to that company's report in its portal, where you edit the
-          narrative, collect sign-offs, and deliver the client PDF.
-        </p>
+        <FirmFilterControl
+          firms={(firms ?? []).map((f) => ({ slug: f.slug, name: f.name }))}
+          hidden={hidden}
+          onToggle={toggleFirm}
+          onShowAll={showAll}
+        />
       </div>
 
       {isLoading && (
@@ -160,7 +180,21 @@ export default function AdminReports() {
         <p className="text-sm text-muted-foreground">No firms yet.</p>
       )}
 
-      {firms && firms.length > 0 && (
+      {firms && firms.length > 0 && visibleFirms.length === 0 && (
+        <p className="text-sm text-muted-foreground" data-testid="text-all-reports-hidden">
+          All {firms.length} firms are hidden by your filter.{" "}
+          <button
+            type="button"
+            onClick={showAll}
+            className="text-primary hover:underline"
+            data-testid="button-show-all-reports-inline"
+          >
+            Show all
+          </button>
+        </p>
+      )}
+
+      {visibleFirms.length > 0 && (
         <div className="rounded-xl border border-border">
           <Table data-testid="table-admin-reports">
             <TableHeader>
@@ -173,7 +207,7 @@ export default function AdminReports() {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {firms.map((firm) => (
+              {visibleFirms.map((firm) => (
                 <FirmReportRows key={firm.id} firm={firm} />
               ))}
             </TableBody>

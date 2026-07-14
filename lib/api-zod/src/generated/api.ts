@@ -947,6 +947,12 @@ export const ListAdminFirmsResponseItem = zod.object({
     .describe(
       "The most recently created job (any status) targeting this firm, or null if none exists.",
     ),
+  sortOrder: zod
+    .number()
+    .nullable()
+    .describe(
+      "Admin-controlled display position (lower = first); null = unordered, listed after ordered firms. The list is already sorted by this server-side.\n",
+    ),
   createdAt: zod.coerce.date(),
 });
 export const ListAdminFirmsResponse = zod.array(ListAdminFirmsResponseItem);
@@ -960,6 +966,49 @@ export const ListAdminFirmsResponse = zod.array(ListAdminFirmsResponseItem);
 export const CreateAdminFirmBody = zod.object({
   name: zod.string().min(1),
   website: zod.string().min(1),
+});
+
+/**
+ * Admin-only. Accepts the full ordered list of firm ids and writes each firm's sort_order to its index in the array (transactional). Firms not included keep a null sort_order and list after ordered firms. The order applies to every admin firm listing (GET /admin/firms sorts by sort_order NULLS LAST, then id).
+
+ * @summary Persist a custom display order for firms
+ */
+
+export const ReorderAdminFirmsBody = zod.object({
+  firmIds: zod
+    .array(zod.number())
+    .min(1)
+    .describe(
+      "Firm ids in the desired display order. Each firm's sort_order is set to its index. Ids must be unique and must all exist.\n",
+    ),
+});
+
+export const ReorderAdminFirmsResponse = zod.object({
+  ok: zod.boolean(),
+});
+
+/**
+ * Admin-only. Creates a firm row in "pending" status with portal meta (statusLabel, internalOnly) and NO discovery job. Companies and diagnostics can be added later via the firm review screen's guided company entry or by running discovery from there. Slug must be lowercase kebab-case, unique, and not a reserved route word.
+
+ * @summary Create a firm record directly, without the AI discovery pipeline
+ */
+
+export const CreateManualAdminFirmBody = zod.object({
+  name: zod.string().min(1),
+  slug: zod
+    .string()
+    .min(1)
+    .describe(
+      "Lowercase kebab-case URL slug (letters, digits, hyphens). Must be unique and not a reserved route word (e.g. admin, portfolio, api).\n",
+    ),
+  statusLabel: zod
+    .string()
+    .optional()
+    .describe("Optional portal status pill text (stored in meta)."),
+  internalOnly: zod
+    .boolean()
+    .optional()
+    .describe("Marks the firm internal-only in portal meta. Default false."),
 });
 
 /**
@@ -1104,6 +1153,21 @@ export const UpdateAdminFirmResponse = zod.object({
       "Email of the admin who created this firm, captured from their session at creation time. Used to notify them when the build job finishes. Null for firms created before this field existed or outside an authenticated session.\n",
     ),
   createdAt: zod.coerce.date(),
+});
+
+/**
+ * Admin-only, irreversible. Cascades in FK-safe order through report validations, drive shipments, report revisions, Notion sync state, report exports, findings, assessments, companies, jobs, and ingestion sources before removing the firm row, all in one transaction. Rejected (409) for the 5 hand-authored legacy tenants (their identity lives in the static frontend registry) and for firms with a queued or running job. Invalidates the portfolio bootstrap cache so the tenant portal disappears immediately.
+
+ * @summary Permanently delete a firm and all of its data
+ */
+export const DeleteAdminFirmParams = zod.object({
+  id: zod.coerce.number(),
+});
+
+export const DeleteAdminFirmResponse = zod.object({
+  deletedFirmId: zod.number(),
+  removedCompanies: zod.number(),
+  removedAssessments: zod.number(),
 });
 
 /**

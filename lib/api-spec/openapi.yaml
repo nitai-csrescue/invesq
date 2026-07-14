@@ -458,6 +458,74 @@ paths:
               schema:
                 $ref: "#/components/schemas/ErrorEnvelope"
 
+  /admin/firms/order:
+    put:
+      operationId: reorderAdminFirms
+      tags: [admin]
+      summary: Persist a custom display order for firms
+      description: >
+        Admin-only. Accepts the full ordered list of firm ids and writes each
+        firm's sort_order to its index in the array (transactional). Firms not
+        included keep a null sort_order and list after ordered firms. The
+        order applies to every admin firm listing (GET /admin/firms sorts by
+        sort_order NULLS LAST, then id).
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ReorderAdminFirmsInput"
+      responses:
+        "200":
+          description: Order persisted
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/OkResult"
+        "400":
+          description: Invalid input (unknown or duplicate firm ids)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+
+  /admin/firms/manual:
+    post:
+      operationId: createManualAdminFirm
+      tags: [admin]
+      summary: Create a firm record directly, without the AI discovery pipeline
+      description: >
+        Admin-only. Creates a firm row in "pending" status with portal meta
+        (statusLabel, internalOnly) and NO discovery job. Companies and
+        diagnostics can be added later via the firm review screen's guided
+        company entry or by running discovery from there. Slug must be
+        lowercase kebab-case, unique, and not a reserved route word.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateManualAdminFirmInput"
+      responses:
+        "201":
+          description: Created firm
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Firm"
+        "400":
+          description: Invalid input (bad slug format or reserved slug)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+        "409":
+          description: A firm with this slug already exists
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+
   /admin/firms/{id}:
     get:
       operationId: getAdminFirm
@@ -518,6 +586,50 @@ paths:
                 $ref: "#/components/schemas/ErrorEnvelope"
         "404":
           description: Firm not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+    delete:
+      operationId: deleteAdminFirm
+      tags: [admin]
+      summary: Permanently delete a firm and all of its data
+      description: >
+        Admin-only, irreversible. Cascades in FK-safe order through
+        report validations, drive shipments, report revisions, Notion sync
+        state, report exports, findings, assessments, companies, jobs, and
+        ingestion sources before removing the firm row, all in one
+        transaction. Rejected (409) for the 5 hand-authored legacy tenants
+        (their identity lives in the static frontend registry) and for firms
+        with a queued or running job. Invalidates the portfolio bootstrap
+        cache so the tenant portal disappears immediately.
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Firm deleted
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DeleteAdminFirmResult"
+        "400":
+          description: Invalid firm id
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+        "404":
+          description: Firm not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+        "409":
+          description: Firm is a protected legacy tenant or has an active job
           content:
             application/json:
               schema:
@@ -1303,9 +1415,60 @@ components:
         job:
           $ref: "#/components/schemas/Job"
 
+    OkResult:
+      type: object
+      required: [ok]
+      properties:
+        ok:
+          type: boolean
+
+    ReorderAdminFirmsInput:
+      type: object
+      required: [firmIds]
+      properties:
+        firmIds:
+          type: array
+          description: >
+            Firm ids in the desired display order. Each firm's sort_order is
+            set to its index. Ids must be unique and must all exist.
+          items:
+            type: integer
+          minItems: 1
+
+    CreateManualAdminFirmInput:
+      type: object
+      required: [name, slug]
+      properties:
+        name:
+          type: string
+          minLength: 1
+        slug:
+          type: string
+          minLength: 1
+          description: >
+            Lowercase kebab-case URL slug (letters, digits, hyphens). Must be
+            unique and not a reserved route word (e.g. admin, portfolio, api).
+        statusLabel:
+          type: string
+          description: Optional portal status pill text (stored in meta).
+        internalOnly:
+          type: boolean
+          description: Marks the firm internal-only in portal meta. Default false.
+
+    DeleteAdminFirmResult:
+      type: object
+      required: [deletedFirmId, removedCompanies, removedAssessments]
+      properties:
+        deletedFirmId:
+          type: integer
+        removedCompanies:
+          type: integer
+        removedAssessments:
+          type: integer
+
     AdminFirmSummary:
       type: object
-      required: [id, name, website, slug, status, dataAuthority, meta, companyCount, createdAt, latestJob]
+      required: [id, name, website, slug, status, dataAuthority, meta, companyCount, createdAt, latestJob, sortOrder]
       properties:
         id:
           type: integer
@@ -1332,6 +1495,12 @@ components:
           oneOf:
             - $ref: "#/components/schemas/Job"
             - type: "null"
+        sortOrder:
+          type: [integer, "null"]
+          description: >
+            Admin-controlled display position (lower = first); null =
+            unordered, listed after ordered firms. The list is already sorted
+            by this server-side.
         createdAt:
           type: string
           format: date-time

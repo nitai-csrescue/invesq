@@ -64,7 +64,9 @@ Tenant portal note: `/:firmSlug/portfolio/:companyId` matches on `companies.slug
 | GET | `/api/auth/user` | Current auth state (`{ user \| null }`) |
 | GET | `/api/login` · `/api/callback` · `/api/logout` | Replit OIDC login / callback / end-session |
 | POST | `/api/mobile-auth/token-exchange` · `/api/mobile-auth/logout` | Mobile auth |
-| * | `/api/admin/*` | Firm onboarding, report-data/export, report cover metadata (all `requireAdminAuth`) |
+| * | `/api/admin/*` | Firm onboarding, report-data/export, report cover metadata, firm management (all `requireAdminAuth`) |
+
+**Firm management (`/admin` toolbar):** GET `/api/admin/firms` orders by `firms.sortOrder` (NULLS LAST, then id) and returns it; PUT `/api/admin/firms/order` persists a full-list reorder (400 on dup/unknown ids); POST `/api/admin/firms/manual` creates a firm with no AI pipeline (kebab-case slug, `RESERVED_FIRM_SLUGS` route-word denylist, 409 dup slug); DELETE `/api/admin/firms/:id` cascade-deletes via `lib/deleteFirmCascade.ts` (409 for legacy hand-authored tenants and firms with queued/running jobs). Concrete `/firms/order` + `/firms/manual` routes are registered before `/firms/:id`. The show/hide firm filter on `/admin` + `/admin/reports` is localStorage-only (`cs-rescue:admin-firm-filter:<pageKey>`, stores hidden slugs). `sort_order` reaches prod via the idempotent boot guard `ensureFirmsSortOrderColumn()` (nothing runs drizzle push at deploy).
 
 ## Admin auth (`/admin`)
 

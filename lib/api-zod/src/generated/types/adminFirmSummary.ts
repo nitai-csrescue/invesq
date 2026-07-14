@@ -22,5 +22,11 @@ export interface AdminFirmSummary {
   companyCount: number;
   /** The most recently created job (any status) targeting this firm, or null if none exists. */
   latestJob: Job | null;
+  /**
+   * Admin-controlled display position (lower = first); null = unordered, listed after ordered firms. The list is already sorted by this server-side.
+
+   * @nullable
+   */
+  sortOrder: number | null;
   createdAt: Date;
 }

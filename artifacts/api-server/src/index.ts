@@ -2,8 +2,10 @@ import app from "./app";
 import { logger } from "./lib/logger";
 import { resumeQueuedDiscoveryJobs } from "./lib/jobs/discovery";
 import { resumeQueuedBuildJobs } from "./lib/jobs/build";
+import { ensureFirmsSortOrderColumn } from "./lib/ensureFirmsSortOrder";
 import { backfillCompanyNormalizedNames } from "./lib/backfillNormalizedNames";
 import { backfillIcpMeta } from "./lib/backfillIcpMeta";
+import { removePamlicoCapitalDuplicate } from "./lib/removePamlicoCapitalDuplicate";
 import { seedStuckFirms } from "./lib/seedStuckFirms";
 import { logSystemHealthOnStartup } from "./lib/systemHealth";
 
@@ -41,8 +43,10 @@ app.listen(port, (err) => {
 
   logger.info({ port }, "Server listening");
 
+  void ensureFirmsSortOrderColumn();
   void backfillCompanyNormalizedNames();
   void backfillIcpMeta();
+  void removePamlicoCapitalDuplicate();
   void seedStuckFirms();
   void resumeQueuedDiscoveryJobs();
   void resumeQueuedBuildJobs();

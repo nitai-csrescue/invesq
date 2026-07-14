@@ -122,6 +122,40 @@ export interface CreateAdminFirmResponse {
   job: Job;
 }
 
+export interface OkResult {
+  ok: boolean;
+}
+
+export interface ReorderAdminFirmsInput {
+  /**
+   * Firm ids in the desired display order. Each firm's sort_order is set to its index. Ids must be unique and must all exist.
+
+   * @minItems 1
+   */
+  firmIds: number[];
+}
+
+export interface CreateManualAdminFirmInput {
+  /** @minLength 1 */
+  name: string;
+  /**
+   * Lowercase kebab-case URL slug (letters, digits, hyphens). Must be unique and not a reserved route word (e.g. admin, portfolio, api).
+
+   * @minLength 1
+   */
+  slug: string;
+  /** Optional portal status pill text (stored in meta). */
+  statusLabel?: string;
+  /** Marks the firm internal-only in portal meta. Default false. */
+  internalOnly?: boolean;
+}
+
+export interface DeleteAdminFirmResult {
+  deletedFirmId: number;
+  removedCompanies: number;
+  removedAssessments: number;
+}
+
 export type AdminFirmSummaryDataAuthority =
   (typeof AdminFirmSummaryDataAuthority)[keyof typeof AdminFirmSummaryDataAuthority];
 
@@ -143,6 +177,12 @@ export interface AdminFirmSummary {
   companyCount: number;
   /** The most recently created job (any status) targeting this firm, or null if none exists. */
   latestJob: Job | null;
+  /**
+   * Admin-controlled display position (lower = first); null = unordered, listed after ordered firms. The list is already sorted by this server-side.
+
+   * @nullable
+   */
+  sortOrder: number | null;
   createdAt: string;
 }
 

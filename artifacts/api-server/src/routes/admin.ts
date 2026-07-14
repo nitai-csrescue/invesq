@@ -1,10 +1,12 @@
 import { Router, type IRouter } from "express";
-import { and, count, desc, eq, inArray, like, notInArray } from "drizzle-orm";
+import { and, asc, count, desc, eq, inArray, like, notInArray } from "drizzle-orm";
 import { db, assessmentsTable, companiesTable, firmsTable, jobsTable } from "@workspace/db";
 import {
   AddAdminFirmCompanyBody,
   ConfirmAdminFirmBody,
   CreateAdminFirmBody,
+  CreateManualAdminFirmBody,
+  ReorderAdminFirmsBody,
   SaveAdminCompanyReportRevisionBody,
   UpdateAdminCompanyReportMetaBody,
   UpdateAdminFirmBody,
@@ -18,12 +20,14 @@ import type {
   BackfillPipelineMetaResult,
   Company,
   CreateAdminFirmResponse,
+  DeleteAdminFirmResult,
   Firm,
   Job,
 } from "@workspace/api-zod";
 import { LEGACY_FIRMS_META } from "@workspace/portfolio-engine/data";
 import type { FirmMeta } from "@workspace/portfolio-engine";
 import { normalizeCompanyName } from "@workspace/portfolio-engine";
+import { deleteFirmCascade } from "../lib/deleteFirmCascade.js";
 import { runDiscoveryJob } from "../lib/jobs/discovery.js";
 import { runBuildJob } from "../lib/jobs/build.js";
 import { checkSystemHealth } from "../lib/systemHealth.js";
@@ -182,13 +186,16 @@ router.get("/firms", async (_req, res) => {
         status: firmsTable.status,
         dataAuthority: firmsTable.dataAuthority,
         meta: firmsTable.meta,
+        sortOrder: firmsTable.sortOrder,
         createdAt: firmsTable.createdAt,
         companyCount: count(companiesTable.id),
       })
       .from(firmsTable)
       .leftJoin(companiesTable, eq(companiesTable.firmId, firmsTable.id))
       .groupBy(firmsTable.id)
-      .orderBy(firmsTable.createdAt);
+      // Admin-controlled order first (Postgres ASC defaults to NULLS LAST,
+      // so unordered firms trail the ordered ones), then stable id order.
+      .orderBy(asc(firmsTable.sortOrder), asc(firmsTable.id));
 
     const latestJobs = await getLatestJobsByFirmId(rows.map((row) => row.id));
 
@@ -202,6 +209,7 @@ router.get("/firms", async (_req, res) => {
       meta: (row.meta as FirmMeta | null) ?? null,
       companyCount: Number(row.companyCount),
       latestJob: latestJobs.get(row.id) ?? null,
+      sortOrder: row.sortOrder,
       createdAt: row.createdAt,
     }));
 
@@ -265,6 +273,225 @@ router.post("/firms", async (req, res) => {
   } catch (err) {
     req.log.error({ err }, "Failed to create admin firm");
     res.status(500).json({ error: "Failed to create firm" });
+  }
+});
+
+// ---------------------------------------------------------------------------
+// Firm management (order / manual create / delete). Concrete paths
+// ("/firms/order", "/firms/manual") are registered before the "/firms/:id"
+// params routes so Express never swallows them as an :id.
+// ---------------------------------------------------------------------------
+
+// Top-level route words that can never be a firm slug: /:firmSlug/* is a
+// wildcard, so a firm slugged like a real route would shadow (or be shadowed
+// by) that page.
+const RESERVED_FIRM_SLUGS = new Set<string>([
+  "admin",
+  "api",
+  "portfolio",
+  "firms",
+  "overview",
+  "launch-demo",
+  "ceati",
+  "cs-health-scorecard",
+  "dashboard",
+  "accounts",
+  "signals",
+  "playbooks",
+  "actions",
+  "reports",
+  "lifecycle-funnel",
+  "integrations",
+  "settings",
+  "platform",
+  "prenax",
+  "resources",
+  "deployments",
+  "connectors",
+  "ai-copilot",
+  "login",
+  "callback",
+  "logout",
+]);
+
+const SLUG_FORMAT = /^[a-z0-9]+(-[a-z0-9]+)*$/;
+
+// No em-dashes anywhere in stored user-visible copy (site-wide policy).
+function stripEmDashes(value: string): string {
+  return value.replace(/\u2014/g, "-");
+}
+
+// Persist a custom display order: each firm's sort_order becomes its index
+// in the submitted array. Transactional; unknown ids reject the whole batch.
+router.put("/firms/order", async (req, res) => {
+  const parsed = ReorderAdminFirmsBody.safeParse(req.body);
+  if (!parsed.success) {
+    res.status(400).json({ error: parsed.error.message });
+    return;
+  }
+  const { firmIds } = parsed.data;
+
+  if (new Set(firmIds).size !== firmIds.length) {
+    res.status(400).json({ error: "Duplicate firm ids in order list" });
+    return;
+  }
+
+  try {
+    const existing = await db
+      .select({ id: firmsTable.id })
+      .from(firmsTable)
+      .where(inArray(firmsTable.id, firmIds));
+    if (existing.length !== firmIds.length) {
+      const known = new Set(existing.map((row) => row.id));
+      const missing = firmIds.filter((id) => !known.has(id));
+      res.status(400).json({ error: `Unknown firm ids: ${missing.join(", ")}` });
+      return;
+    }
+
+    await db.transaction(async (tx) => {
+      for (let i = 0; i < firmIds.length; i++) {
+        await tx.update(firmsTable).set({ sortOrder: i }).where(eq(firmsTable.id, firmIds[i]));
+      }
+    });
+
+    res.json({ ok: true });
+  } catch (err) {
+    req.log.error({ err }, "Failed to reorder admin firms");
+    res.status(500).json({ error: "Failed to save firm order" });
+  }
+});
+
+// Manual firm creation: a bare firm record ("pending", no discovery job).
+// Companies and diagnostics are added later through the firm review screen
+// (guided company entry or run-discovery), same as any pending firm.
+router.post("/firms/manual", async (req, res) => {
+  const parsed = CreateManualAdminFirmBody.safeParse(req.body);
+  if (!parsed.success) {
+    res.status(400).json({ error: parsed.error.message });
+    return;
+  }
+
+  const name = stripEmDashes(parsed.data.name.trim());
+  const slug = parsed.data.slug.trim().toLowerCase();
+  const statusLabel = parsed.data.statusLabel ? stripEmDashes(parsed.data.statusLabel.trim()) : "";
+  const internalOnly = parsed.data.internalOnly ?? false;
+
+  if (name.length === 0) {
+    res.status(400).json({ error: "Firm name is required" });
+    return;
+  }
+  if (!SLUG_FORMAT.test(slug)) {
+    res.status(400).json({
+      error: "Slug must be lowercase kebab-case (letters, digits, hyphens)",
+    });
+    return;
+  }
+  if (RESERVED_FIRM_SLUGS.has(slug)) {
+    res.status(400).json({ error: `"${slug}" is a reserved route word and cannot be a firm slug` });
+    return;
+  }
+
+  try {
+    const [existing] = await db
+      .select({ id: firmsTable.id })
+      .from(firmsTable)
+      .where(eq(firmsTable.slug, slug))
+      .limit(1);
+    if (existing) {
+      res.status(409).json({ error: `A firm with slug "${slug}" already exists` });
+      return;
+    }
+
+    const meta: FirmMeta | null =
+      statusLabel.length > 0 || internalOnly ? { statusLabel, internalOnly } : null;
+
+    const [firm] = await db
+      .insert(firmsTable)
+      .values({
+        name,
+        website: null,
+        slug,
+        status: "pending",
+        meta,
+        createdByEmail: req.user?.email ?? null,
+      })
+      .returning();
+
+    if (!firm) {
+      throw new Error("Firm insert returned no row");
+    }
+
+    res.status(201).json(toFirmResponse(firm));
+  } catch (err) {
+    req.log.error({ err }, "Failed to create manual admin firm");
+    res.status(500).json({ error: "Failed to create firm" });
+  }
+});
+
+// Permanently delete a firm and everything under it. Refuses legacy tenants
+// (their identity lives in the static frontend registry; deleting the DB row
+// would leave a dead portal and break the parity gates) and firms with an
+// active job (the job would resurrect rows mid-delete or crash on missing
+// FKs).
+router.delete("/firms/:id", async (req, res) => {
+  const id = Number(req.params.id);
+  if (!Number.isInteger(id) || id <= 0) {
+    res.status(400).json({ error: "Invalid firm id" });
+    return;
+  }
+
+  try {
+    const [firm] = await db
+      .select({ id: firmsTable.id, slug: firmsTable.slug, name: firmsTable.name })
+      .from(firmsTable)
+      .where(eq(firmsTable.id, id))
+      .limit(1);
+    if (!firm) {
+      res.status(404).json({ error: "Firm not found" });
+      return;
+    }
+
+    if (LEGACY_SLUGS.has(firm.slug)) {
+      res.status(409).json({
+        error: `"${firm.name}" is a hand-authored legacy tenant and cannot be deleted from the admin UI`,
+      });
+      return;
+    }
+
+    const [activeJob] = await db
+      .select({ id: jobsTable.id, type: jobsTable.type, status: jobsTable.status })
+      .from(jobsTable)
+      .where(
+        and(eq(jobsTable.targetId, String(firm.id)), inArray(jobsTable.status, ["queued", "running"])),
+      )
+      .limit(1);
+    if (activeJob) {
+      res.status(409).json({
+        error: `A ${activeJob.type} job (#${activeJob.id}) is ${activeJob.status} for this firm; wait for it to finish before deleting`,
+      });
+      return;
+    }
+
+    const { removedCompanies, removedAssessments } = await deleteFirmCascade(firm.id);
+
+    // The deleted firm may have been serving a tenant portal out of the
+    // bootstrap cache; drop it so the portal disappears immediately.
+    invalidatePortfolioCache();
+
+    req.log.info(
+      { firmId: firm.id, slug: firm.slug, removedCompanies, removedAssessments },
+      "Admin deleted firm",
+    );
+
+    const response: DeleteAdminFirmResult = {
+      deletedFirmId: firm.id,
+      removedCompanies,
+      removedAssessments,
+    };
+    res.json(response);
+  } catch (err) {
+    req.log.error({ err }, "Failed to delete admin firm");
+    res.status(500).json({ error: "Failed to delete firm" });
   }
 });
 

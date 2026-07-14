@@ -1,16 +1,23 @@
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { Link } from "wouter";
 import {
   Building2,
   Loader2,
   PlusCircle,
   ArrowRight,
+  ArrowUp,
+  ArrowDown,
+  ListOrdered,
   ShieldAlert,
   Lock,
+  Trash2,
+  FilePlus2,
 } from "lucide-react";
+import { useQueryClient } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Switch } from "@/components/ui/switch";
 import {
   Card,
   CardContent,
@@ -18,16 +25,32 @@ import {
   CardTitle,
   CardDescription,
 } from "@/components/ui/card";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { useToast } from "@/hooks/use-toast";
 import {
   useCreateAdminFirm,
+  useCreateManualAdminFirm,
+  useDeleteAdminFirm,
+  useReorderAdminFirms,
   useListAdminFirms,
   getListAdminFirmsQueryKey,
   useGetAdminFirm,
   getGetAdminFirmQueryKey,
   type AdminFirmSummary,
 } from "@workspace/api-client-react";
+import { LEGACY_FIRMS_META } from "@workspace/portfolio-engine/firms-meta";
 import { isJobActive } from "@/lib/adminJobs";
+import { useHiddenFirms } from "@/hooks/use-hidden-firms";
+import { FirmFilterControl } from "@/components/admin/FirmFilterControl";
 import {
   usePortfolioData,
 } from "@/data/portfolio/PortfolioDataProvider";
@@ -39,6 +62,10 @@ import {
   type PortfolioSummary,
   type Company,
 } from "@/data/portfolio";
+
+// Hand-authored legacy tenants can never be deleted from the admin UI (the
+// server also refuses with a 409); hide the delete affordance entirely.
+const LEGACY_SLUGS = new Set<string>(LEGACY_FIRMS_META.map((f) => f.slug));
 
 // ---------------------------------------------------------------------------
 // Status pill styling (firm lifecycle status: pending/reviewed/active/ready)
@@ -104,10 +131,12 @@ function FirmCard({
   firm,
   summary,
   companies,
+  onDelete,
 }: {
   firm: AdminFirmSummary;
   summary: PortfolioSummary | undefined;
   companies: Company[] | undefined;
+  onDelete?: () => void;
 }) {
   // Prefer DB meta; fall back to the static/dynamic identity registry (legacy
   // firms carry their statusLabel/internalOnly there, not in firms.meta).
@@ -289,7 +318,20 @@ function FirmCard({
       <div className="flex-1" />
 
       {/* Footer link → tenant portal for ready firms, recovery panel for others */}
-      <div className="mt-4 flex items-center justify-end border-t border-border pt-3">
+      <div className="mt-4 flex items-center justify-between gap-2 border-t border-border pt-3">
+        {onDelete ? (
+          <button
+            type="button"
+            onClick={onDelete}
+            className="inline-flex items-center gap-1 rounded-md px-2 py-1.5 text-xs text-muted-foreground transition-colors hover:bg-destructive/10 hover:text-destructive"
+            title="Delete firm"
+            data-testid={`button-delete-firm-${firm.slug}`}
+          >
+            <Trash2 className="h-3.5 w-3.5" />
+          </button>
+        ) : (
+          <span />
+        )}
         <Link
           href={firm.status === "ready" ? `/${firm.slug}/portfolio` : `/admin/firms/${firm.id}`}
           className="inline-flex items-center gap-1 rounded-md border border-border bg-card px-3 py-1.5 text-xs text-foreground transition-colors hover:border-primary/40 hover:text-primary"
@@ -394,8 +436,276 @@ function CreateFirmCard({ onDone }: { onDone: () => void }) {
   );
 }
 
+// ---------------------------------------------------------------------------
+// Manual firm creation — a bare firm record with portal meta, NO discovery
+// job. Companies and diagnostics are added later from the firm review screen.
+// ---------------------------------------------------------------------------
+function slugifyName(name: string): string {
+  return name
+    .toLowerCase()
+    .trim()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "");
+}
+
+function ManualFirmCard({ onDone }: { onDone: () => void }) {
+  const { toast } = useToast();
+  const queryClient = useQueryClient();
+  const [name, setName] = useState("");
+  const [slug, setSlug] = useState("");
+  const [slugTouched, setSlugTouched] = useState(false);
+  const [statusLabel, setStatusLabel] = useState("");
+  const [internalOnly, setInternalOnly] = useState(false);
+
+  const createManual = useCreateManualAdminFirm({
+    mutation: {
+      onSuccess: (firm) => {
+        void queryClient.invalidateQueries({ queryKey: getListAdminFirmsQueryKey() });
+        toast({
+          title: "Firm created",
+          description: `"${firm.name}" was created without a discovery run. Open it to add companies.`,
+        });
+        onDone();
+      },
+      onError: (err) => {
+        const message =
+          (err as { response?: { data?: { error?: string } } })?.response?.data?.error ??
+          (err instanceof Error ? err.message : "Unexpected error");
+        toast({
+          title: "Failed to create firm",
+          description: message,
+          variant: "destructive",
+        });
+      },
+    },
+  });
+
+  const effectiveSlug = slugTouched ? slug : slugifyName(name);
+  const canSubmit =
+    name.trim().length > 0 && effectiveSlug.length > 0 && !createManual.isPending;
+
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!canSubmit) return;
+    createManual.mutate({
+      data: {
+        name: name.trim(),
+        slug: effectiveSlug,
+        ...(statusLabel.trim().length > 0 ? { statusLabel: statusLabel.trim() } : {}),
+        ...(internalOnly ? { internalOnly } : {}),
+      },
+    });
+  };
+
+  return (
+    <Card className="mb-6" data-testid="card-manual-firm">
+      <CardHeader>
+        <CardTitle className="flex items-center gap-2 text-base">
+          <FilePlus2 className="h-4 w-4 text-primary" />
+          Add firm manually
+        </CardTitle>
+        <CardDescription>
+          Creates the firm record only -- no AI discovery run. Add companies
+          and run diagnostics later from the firm's review screen.
+        </CardDescription>
+      </CardHeader>
+      <CardContent>
+        <form onSubmit={handleSubmit} className="grid gap-4" data-testid="form-manual-firm">
+          <div className="grid gap-4 sm:grid-cols-2">
+            <div className="space-y-1.5">
+              <Label htmlFor="manual-firm-name">Firm name</Label>
+              <Input
+                id="manual-firm-name"
+                data-testid="input-manual-firm-name"
+                placeholder="e.g. Bain Capital"
+                value={name}
+                onChange={(e) => setName(e.target.value)}
+                required
+              />
+            </div>
+            <div className="space-y-1.5">
+              <Label htmlFor="manual-firm-slug">URL slug</Label>
+              <Input
+                id="manual-firm-slug"
+                data-testid="input-manual-firm-slug"
+                placeholder="e.g. bain-capital"
+                value={effectiveSlug}
+                onChange={(e) => {
+                  setSlugTouched(true);
+                  setSlug(e.target.value.toLowerCase());
+                }}
+                required
+              />
+              <p className="text-[11px] text-muted-foreground">
+                Lowercase letters, digits, and hyphens. Becomes /{effectiveSlug || "slug"}/portfolio.
+              </p>
+            </div>
+          </div>
+          <div className="grid gap-4 sm:grid-cols-2">
+            <div className="space-y-1.5">
+              <Label htmlFor="manual-firm-status-label">Portal status label (optional)</Label>
+              <Input
+                id="manual-firm-status-label"
+                data-testid="input-manual-firm-status-label"
+                placeholder="e.g. Internal preview"
+                value={statusLabel}
+                onChange={(e) => setStatusLabel(e.target.value)}
+              />
+            </div>
+            <div className="flex items-center gap-3 pt-6">
+              <Switch
+                id="manual-firm-internal-only"
+                checked={internalOnly}
+                onCheckedChange={setInternalOnly}
+                data-testid="switch-manual-firm-internal-only"
+              />
+              <Label htmlFor="manual-firm-internal-only" className="cursor-pointer">
+                Internal only
+              </Label>
+            </div>
+          </div>
+          <div>
+            <Button type="submit" disabled={!canSubmit} data-testid="button-submit-manual-firm">
+              {createManual.isPending && <Loader2 className="h-4 w-4 animate-spin" />}
+              Create firm
+            </Button>
+          </div>
+        </form>
+      </CardContent>
+    </Card>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Reorder panel — replaces the card grid while active. Operates on the FULL
+// firm list (the hide filter is ignored here so a hidden firm can't silently
+// pin itself to a stale position), saves the complete order transactionally.
+// ---------------------------------------------------------------------------
+function ReorderPanel({
+  firms,
+  onDone,
+}: {
+  firms: AdminFirmSummary[];
+  onDone: () => void;
+}) {
+  const { toast } = useToast();
+  const queryClient = useQueryClient();
+  const [order, setOrder] = useState<AdminFirmSummary[]>(firms);
+
+  const reorder = useReorderAdminFirms({
+    mutation: {
+      onSuccess: () => {
+        void queryClient.invalidateQueries({ queryKey: getListAdminFirmsQueryKey() });
+        toast({ title: "Order saved", description: "Firm order updated for all admins." });
+        onDone();
+      },
+      onError: (err) => {
+        toast({
+          title: "Failed to save order",
+          description: err instanceof Error ? err.message : "Unexpected error",
+          variant: "destructive",
+        });
+      },
+    },
+  });
+
+  const move = (index: number, delta: -1 | 1) => {
+    setOrder((prev) => {
+      const next = [...prev];
+      const target = index + delta;
+      if (target < 0 || target >= next.length) return prev;
+      const a = next[index];
+      const b = next[target];
+      if (!a || !b) return prev;
+      next[index] = b;
+      next[target] = a;
+      return next;
+    });
+  };
+
+  return (
+    <Card data-testid="card-reorder-firms">
+      <CardHeader>
+        <CardTitle className="flex items-center gap-2 text-base">
+          <ListOrdered className="h-4 w-4 text-primary" />
+          Reorder firms
+        </CardTitle>
+        <CardDescription>
+          This order is saved to the database and applies for every admin.
+          Hidden firms are shown here too so the full order stays consistent.
+        </CardDescription>
+      </CardHeader>
+      <CardContent>
+        <ul className="divide-y divide-border rounded-lg border border-border">
+          {order.map((firm, i) => (
+            <li
+              key={firm.id}
+              className="flex items-center gap-3 px-3 py-2"
+              data-testid={`reorder-row-${firm.slug}`}
+            >
+              <span className="w-6 text-right font-mono text-xs text-muted-foreground">
+                {i + 1}
+              </span>
+              <span className="min-w-0 flex-1 truncate text-sm text-foreground">
+                {firm.name}
+                <code className="ml-2 rounded bg-muted px-1 py-0.5 font-mono text-[10px] text-muted-foreground">
+                  {firm.slug}
+                </code>
+              </span>
+              <Button
+                size="icon"
+                variant="ghost"
+                className="h-7 w-7"
+                disabled={i === 0}
+                onClick={() => move(i, -1)}
+                data-testid={`button-move-up-${firm.slug}`}
+              >
+                <ArrowUp className="h-3.5 w-3.5" />
+              </Button>
+              <Button
+                size="icon"
+                variant="ghost"
+                className="h-7 w-7"
+                disabled={i === order.length - 1}
+                onClick={() => move(i, 1)}
+                data-testid={`button-move-down-${firm.slug}`}
+              >
+                <ArrowDown className="h-3.5 w-3.5" />
+              </Button>
+            </li>
+          ))}
+        </ul>
+        <div className="mt-4 flex items-center gap-2">
+          <Button
+            size="sm"
+            onClick={() => reorder.mutate({ data: { firmIds: order.map((f) => f.id) } })}
+            disabled={reorder.isPending}
+            data-testid="button-save-order"
+          >
+            {reorder.isPending && <Loader2 className="h-4 w-4 animate-spin" />}
+            Save order
+          </Button>
+          <Button size="sm" variant="outline" onClick={onDone} data-testid="button-cancel-order">
+            Cancel
+          </Button>
+        </div>
+      </CardContent>
+    </Card>
+  );
+}
+
 export default function AdminFirmsIndex() {
+  const { toast } = useToast();
+  const queryClient = useQueryClient();
   const [showCreate, setShowCreate] = useState(false);
+  const [showManual, setShowManual] = useState(false);
+  const [reordering, setReordering] = useState(false);
+  const [deleteTarget, setDeleteTarget] = useState<AdminFirmSummary | null>(null);
+
+  // Personal, per-browser show/hide filter (never affects other admins or
+  // any tenant page).
+  const { hidden, toggleFirm, showAll } = useHiddenFirms("firms");
+
   // Subscribe to hydration status so cards re-render once the (public)
   // portfolio bootstrap lands and getFirmSummary() can resolve.
   const { status } = usePortfolioData();
@@ -409,9 +719,34 @@ export default function AdminFirmsIndex() {
     },
   });
 
+  const deleteFirm = useDeleteAdminFirm({
+    mutation: {
+      onSuccess: (result) => {
+        void queryClient.invalidateQueries({ queryKey: getListAdminFirmsQueryKey() });
+        toast({
+          title: "Firm deleted",
+          description: `Removed ${result.removedCompanies} companies and ${result.removedAssessments} assessments.`,
+        });
+        setDeleteTarget(null);
+      },
+      onError: (err) => {
+        const message =
+          (err as { response?: { data?: { error?: string } } })?.response?.data?.error ??
+          (err instanceof Error ? err.message : "Unexpected error");
+        toast({ title: "Failed to delete firm", description: message, variant: "destructive" });
+        setDeleteTarget(null);
+      },
+    },
+  });
+
+  const visibleFirms = useMemo(
+    () => (firms ?? []).filter((f) => !hidden.has(f.slug)),
+    [firms, hidden],
+  );
+
   return (
     <div data-testid="admin-firms-index">
-      <div className="flex items-start justify-between gap-4">
+      <div className="flex flex-wrap items-start justify-between gap-4">
         <div>
           <div className="text-[11px] font-semibold uppercase tracking-widest text-primary/80">
             Internal
@@ -424,18 +759,52 @@ export default function AdminFirmsIndex() {
             work its admin lens.
           </p>
         </div>
-        <Button
-          size="sm"
-          onClick={() => setShowCreate((v) => !v)}
-          data-testid="button-toggle-new-firm"
-        >
-          <PlusCircle className="h-4 w-4" />
-          {showCreate ? "Close" : "New assessment"}
-        </Button>
+        <div className="flex flex-wrap items-center gap-2">
+          <FirmFilterControl
+            firms={(firms ?? []).map((f) => ({ slug: f.slug, name: f.name }))}
+            hidden={hidden}
+            onToggle={toggleFirm}
+            onShowAll={showAll}
+          />
+          <Button
+            size="sm"
+            variant="outline"
+            onClick={() => setReordering((v) => !v)}
+            disabled={!firms || firms.length < 2}
+            data-testid="button-toggle-reorder"
+          >
+            <ListOrdered className="h-4 w-4" />
+            {reordering ? "Close reorder" : "Reorder"}
+          </Button>
+          <Button
+            size="sm"
+            variant="outline"
+            onClick={() => {
+              setShowManual((v) => !v);
+              setShowCreate(false);
+            }}
+            data-testid="button-toggle-manual-firm"
+          >
+            <FilePlus2 className="h-4 w-4" />
+            {showManual ? "Close" : "Add manually"}
+          </Button>
+          <Button
+            size="sm"
+            onClick={() => {
+              setShowCreate((v) => !v);
+              setShowManual(false);
+            }}
+            data-testid="button-toggle-new-firm"
+          >
+            <PlusCircle className="h-4 w-4" />
+            {showCreate ? "Close" : "New assessment"}
+          </Button>
+        </div>
       </div>
 
       <div className="mt-6">
         {showCreate && <CreateFirmCard onDone={() => setShowCreate(false)} />}
+        {showManual && <ManualFirmCard onDone={() => setShowManual(false)} />}
 
         {isLoading && (
           <div
@@ -458,22 +827,80 @@ export default function AdminFirmsIndex() {
           </p>
         )}
 
-        {firms && firms.length > 0 && (
-          <div
-            className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3"
-            data-testid="admin-firms-grid"
-          >
-            {firms.map((firm) => (
-              <FirmCard
-                key={firm.id}
-                firm={firm}
-                summary={ready ? getFirmSummary(firm.slug) : undefined}
-                companies={ready ? getFirmCompanies(firm.slug) : undefined}
-              />
-            ))}
-          </div>
+        {firms && firms.length > 0 && reordering && (
+          <ReorderPanel firms={firms} onDone={() => setReordering(false)} />
+        )}
+
+        {firms && firms.length > 0 && !reordering && (
+          <>
+            {visibleFirms.length === 0 ? (
+              <p className="text-sm text-muted-foreground" data-testid="text-all-firms-hidden">
+                All {firms.length} firms are hidden by your filter.{" "}
+                <button
+                  type="button"
+                  onClick={showAll}
+                  className="text-primary hover:underline"
+                  data-testid="button-show-all-inline"
+                >
+                  Show all
+                </button>
+              </p>
+            ) : (
+              <div
+                className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3"
+                data-testid="admin-firms-grid"
+              >
+                {visibleFirms.map((firm) => (
+                  <FirmCard
+                    key={firm.id}
+                    firm={firm}
+                    summary={ready ? getFirmSummary(firm.slug) : undefined}
+                    companies={ready ? getFirmCompanies(firm.slug) : undefined}
+                    onDelete={
+                      LEGACY_SLUGS.has(firm.slug) ? undefined : () => setDeleteTarget(firm)
+                    }
+                  />
+                ))}
+              </div>
+            )}
+          </>
         )}
       </div>
+
+      {/* Delete confirmation — spells out exactly what goes with the firm. */}
+      <AlertDialog
+        open={deleteTarget !== null}
+        onOpenChange={(open) => {
+          if (!open) setDeleteTarget(null);
+        }}
+      >
+        <AlertDialogContent data-testid="dialog-delete-firm">
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete {deleteTarget?.name}?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This permanently removes the firm, its companies, every
+              assessment and diagnostic report, and its job history. The
+              tenant portal at /{deleteTarget?.slug}/portfolio stops resolving
+              immediately. This cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel data-testid="button-cancel-delete">Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              disabled={deleteFirm.isPending}
+              onClick={(e) => {
+                e.preventDefault();
+                if (deleteTarget) deleteFirm.mutate({ id: deleteTarget.id });
+              }}
+              data-testid="button-confirm-delete"
+            >
+              {deleteFirm.isPending && <Loader2 className="h-4 w-4 animate-spin" />}
+              Delete firm
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }
