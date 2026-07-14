@@ -21,6 +21,7 @@
 - [Dual-source audits: check behavior, not just storage](dual-source-vs-behavioral-fork.md) — "two sources of truth" can mean one storage layer with a hardcoded-list behavioral fork; verify which before proposing a fix.
 - [Parity-gate migration pattern](parity-gate-migration-pattern.md) — recompute independently from the DB and diff against the source; exit nonzero on any mismatch, never silently reconcile.
 - [Production data repair via two-Publish](prod-data-repair-two-publish.md) — agent can't write prod DB directly; only path is a temporary admin endpoint plus the two-Publish index dance.
+- [Prod schema via Publish diff](prod-schema-via-publish-diff.md) — Publish auto-applies the dev-vs-prod schema diff; never add startup DDL or deploy-hook pushes, just ensure dev DB has the change and republish.
 - [PDF fixed-height overflow tradeoff](pdf-fixed-height-overflow.md) — pinning .page to fixed letter height for flush footers trades auto-growth; long narratives clip silently, so guard scrollHeight vs clientHeight in the render path.
 - [pg Pool crash loop](pg-pool-crash-loop.md) — a pg Pool with no `pool.on("error")` crash-loops prod on idle-connection termination; a reported client CPU peg was actually this server crash loop.
 - [Connector sandbox vs runtime](connectors-sandbox-vs-runtime.md) — code_execution's listConnections()=0 does not mean a connector is unbound; the server resolves it at runtime, so verify via the server path.
