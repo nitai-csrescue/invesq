@@ -8,6 +8,7 @@ import {
   CreateManualAdminFirmBody,
   ReorderAdminFirmsBody,
   SaveAdminCompanyReportRevisionBody,
+  SetAdminFirmClearanceBody,
   UpdateAdminCompanyPillarEvidenceBody,
   UpdateAdminCompanyReportMetaBody,
   UpdateAdminFirmBody,
@@ -583,6 +584,67 @@ router.patch("/firms/:id", async (req, res) => {
   } catch (err) {
     req.log.error({ err }, "Failed to update admin firm");
     res.status(500).json({ error: "Failed to update firm" });
+  }
+});
+
+// Password-gated clearance toggle: flips firm.meta.internalOnly.
+// The password is verified server-side against CLEARANCE_ADMIN_PASSWORD.
+// Returns 503 if the env var is not configured, 401 on wrong password.
+router.post("/firms/:id/clearance", async (req, res) => {
+  const id = Number(req.params.id);
+  if (!Number.isInteger(id) || id <= 0) {
+    res.status(400).json({ error: "Invalid firm id" });
+    return;
+  }
+
+  const parsed = SetAdminFirmClearanceBody.safeParse(req.body);
+  if (!parsed.success) {
+    res.status(400).json({ error: parsed.error.message });
+    return;
+  }
+
+  const configuredPassword = process.env.CLEARANCE_ADMIN_PASSWORD;
+  if (!configuredPassword) {
+    res.status(503).json({ error: "CLEARANCE_ADMIN_PASSWORD is not configured on this server" });
+    return;
+  }
+  if (parsed.data.password !== configuredPassword) {
+    res.status(401).json({ error: "Incorrect clearance password" });
+    return;
+  }
+
+  try {
+    const [firm] = await db.select().from(firmsTable).where(eq(firmsTable.id, id)).limit(1);
+    if (!firm) {
+      res.status(404).json({ error: "Firm not found" });
+      return;
+    }
+
+    // Merge internalOnly into existing meta, preserving all other fields.
+    // Pipeline firms that have never had meta get a minimal meta object created.
+    const existingMeta = (firm.meta as FirmMeta | null) ?? {
+      statusLabel: "Internal preview -- not cleared for external distribution",
+      internalOnly: true,
+    };
+    const newMeta: FirmMeta = { ...existingMeta, internalOnly: parsed.data.internalOnly };
+
+    const [updated] = await db
+      .update(firmsTable)
+      .set({ meta: newMeta })
+      .where(eq(firmsTable.id, id))
+      .returning();
+
+    if (!updated) {
+      res.status(404).json({ error: "Firm not found" });
+      return;
+    }
+
+    invalidatePortfolioCache();
+    req.log.info({ firmId: id, internalOnly: parsed.data.internalOnly }, "Firm clearance updated");
+    res.json(toFirmResponse(updated));
+  } catch (err) {
+    req.log.error({ err }, "Failed to update firm clearance");
+    res.status(500).json({ error: "Failed to update clearance" });
   }
 });
 

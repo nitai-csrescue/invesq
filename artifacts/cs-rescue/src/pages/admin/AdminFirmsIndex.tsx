@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useMemo, useRef, useState } from "react";
 import { Link } from "wouter";
 import {
   Building2,
@@ -17,6 +17,14 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+  DialogFooter,
+} from "@/components/ui/dialog";
 import {
   Card,
   CardContent,
@@ -44,6 +52,7 @@ import {
   getListAdminFirmsQueryKey,
   useGetAdminFirm,
   getGetAdminFirmQueryKey,
+  useSetAdminFirmClearance,
   type AdminFirmSummary,
 } from "@workspace/api-client-react";
 import { LEGACY_FIRMS_META } from "@workspace/portfolio-engine/firms-meta";
@@ -93,6 +102,117 @@ function TierDistribution({ summary }: { summary: PortfolioSummary }) {
         </span>
       ))}
     </div>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Clearance toggle — password-gated switch to flip internalOnly on a firm.
+// The password is verified server-side; wrong/missing passwords return 401/503.
+// ---------------------------------------------------------------------------
+function ClearanceToggle({
+  firmId,
+  firmName,
+  currentInternalOnly,
+}: {
+  firmId: number;
+  firmName: string;
+  currentInternalOnly: boolean;
+}) {
+  const [open, setOpen] = useState(false);
+  const [password, setPassword] = useState("");
+  const [errorMsg, setErrorMsg] = useState<string | null>(null);
+  const inputRef = useRef<HTMLInputElement>(null);
+  const queryClient = useQueryClient();
+  const { toast } = useToast();
+
+  const mutation = useSetAdminFirmClearance({
+    mutation: {
+      onSuccess: () => {
+        queryClient.invalidateQueries({ queryKey: getListAdminFirmsQueryKey() });
+        setOpen(false);
+        setPassword("");
+        setErrorMsg(null);
+        toast({
+          title: "Clearance updated",
+          description: `${firmName} is now ${currentInternalOnly ? "client-ready" : "internal only"}.`,
+        });
+      },
+      onError: (err: unknown) => {
+        const msg =
+          err instanceof Error ? err.message : "Incorrect password -- please try again.";
+        setErrorMsg(msg.includes("503") ? "CLEARANCE_ADMIN_PASSWORD is not configured on this server." : "Incorrect password -- please try again.");
+      },
+    },
+  });
+
+  const pending = mutation.isPending;
+  const nextValue = !currentInternalOnly;
+
+  const handleOpen = () => {
+    setOpen(true);
+    setPassword("");
+    setErrorMsg(null);
+    // Focus the input after Dialog renders
+    setTimeout(() => inputRef.current?.focus(), 50);
+  };
+
+  const handleConfirm = () => {
+    if (!password || pending) return;
+    mutation.mutate({ id: firmId, data: { internalOnly: nextValue, password } });
+  };
+
+  return (
+    <>
+      <div className="mt-2 flex items-center gap-2">
+        <span className="text-[10px] uppercase tracking-wider text-muted-foreground">Clearance</span>
+        <Switch
+          checked={!currentInternalOnly}
+          onCheckedChange={handleOpen}
+          aria-label={currentInternalOnly ? "Mark as client-ready" : "Mark as internal only"}
+        />
+        <span className="text-[11px] text-muted-foreground">
+          {currentInternalOnly ? "Internal only" : "Client-ready"}
+        </span>
+      </div>
+
+      <Dialog open={open} onOpenChange={(o) => { if (!pending) { setOpen(o); } }}>
+        <DialogContent className="sm:max-w-sm">
+          <DialogHeader>
+            <DialogTitle>Change clearance</DialogTitle>
+            <DialogDescription>
+              {nextValue
+                ? `Mark "${firmName}" as internal only. The client-ready pill will change to red.`
+                : `Mark "${firmName}" as client-ready, removing the internal-only safety signal.`}
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-2">
+            <Label htmlFor={`clearance-pw-${firmId}`}>Admin password</Label>
+            <Input
+              id={`clearance-pw-${firmId}`}
+              ref={inputRef}
+              type="password"
+              placeholder="Enter clearance password"
+              value={password}
+              onChange={(e) => { setPassword(e.target.value); setErrorMsg(null); }}
+              onKeyDown={(e) => { if (e.key === "Enter") handleConfirm(); }}
+              disabled={pending}
+            />
+            {errorMsg && (
+              <p className="text-[11px] text-rose-600">{errorMsg}</p>
+            )}
+          </div>
+          <DialogFooter>
+            <Button variant="outline" size="sm" onClick={() => setOpen(false)} disabled={pending}>
+              Cancel
+            </Button>
+            <Button size="sm" onClick={handleConfirm} disabled={pending || !password}>
+              {pending && <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" />}
+              Confirm
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+    </>
   );
 }
 
@@ -186,6 +306,8 @@ function FirmCard({
           Public-signal data
         </span>
       </div>
+
+      <ClearanceToggle firmId={firm.id} firmName={firm.name} currentInternalOnly={internalOnly} />
 
       {/* Metrics */}
       <div className="mt-4 grid grid-cols-2 gap-4 border-t border-border pt-4 text-sm">

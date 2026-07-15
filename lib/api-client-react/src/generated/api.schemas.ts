@@ -541,6 +541,13 @@ export interface UpdateAdminFirmInput {
   meta?: FirmMeta;
 }
 
+export interface SetFirmClearanceInput {
+  /** The new clearance state. true = internal only; false = client-ready. */
+  internalOnly: boolean;
+  /** The clearance admin password, verified server-side against CLEARANCE_ADMIN_PASSWORD. */
+  password: string;
+}
+
 export interface AdminFirmConfirmResult {
   firm: Firm;
   job: Job;

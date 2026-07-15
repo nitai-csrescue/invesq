@@ -635,6 +635,60 @@ paths:
               schema:
                 $ref: "#/components/schemas/ErrorEnvelope"
 
+  /admin/firms/{id}/clearance:
+    post:
+      operationId: setAdminFirmClearance
+      tags: [admin]
+      summary: Flip a firm's clearance (internalOnly) with admin password verification
+      description: >
+        Admin-only. Verifies the supplied password against CLEARANCE_ADMIN_PASSWORD
+        server-side, then merges the new internalOnly value into firm.meta, and
+        invalidates the portfolio bootstrap cache. 401 on wrong password; 503 if
+        CLEARANCE_ADMIN_PASSWORD is not configured on the server.
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SetFirmClearanceInput"
+      responses:
+        "200":
+          description: Updated firm
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Firm"
+        "400":
+          description: Invalid input
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+        "401":
+          description: Wrong clearance password
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+        "404":
+          description: Firm not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+        "503":
+          description: CLEARANCE_ADMIN_PASSWORD not configured
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+
   /admin/firms/{id}/companies:
     post:
       operationId: addAdminFirmCompany
@@ -2077,6 +2131,17 @@ components:
           enum: [strict, best_effort]
         meta:
           $ref: "#/components/schemas/FirmMeta"
+
+    SetFirmClearanceInput:
+      type: object
+      required: [internalOnly, password]
+      properties:
+        internalOnly:
+          type: boolean
+          description: The new clearance state. true = internal only; false = client-ready.
+        password:
+          type: string
+          description: The clearance admin password, verified server-side against CLEARANCE_ADMIN_PASSWORD.
 
     AdminFirmConfirmResult:
       type: object

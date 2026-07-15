@@ -65,6 +65,7 @@ import type {
   ReportRevisionInput,
   ReportValidateInput,
   Resource,
+  SetFirmClearanceInput,
   SystemHealthReport,
   UpdateAdminFirmInput,
   UpdatePillarEvidenceInput,
@@ -2397,6 +2398,95 @@ export const useDeleteAdminFirm = <
   TContext
 > => {
   return useMutation(getDeleteAdminFirmMutationOptions(options));
+};
+
+/**
+ * Admin-only. Verifies the supplied password against CLEARANCE_ADMIN_PASSWORD server-side, then merges the new internalOnly value into firm.meta, and invalidates the portfolio bootstrap cache. 401 on wrong password; 503 if CLEARANCE_ADMIN_PASSWORD is not configured on the server.
+
+ * @summary Flip a firm's clearance (internalOnly) with admin password verification
+ */
+export const getSetAdminFirmClearanceUrl = (id: number) => {
+  return `/api/admin/firms/${id}/clearance`;
+};
+
+export const setAdminFirmClearance = async (
+  id: number,
+  setFirmClearanceInput: SetFirmClearanceInput,
+  options?: RequestInit,
+): Promise<Firm> => {
+  return customFetch<Firm>(getSetAdminFirmClearanceUrl(id), {
+    ...options,
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(setFirmClearanceInput),
+  });
+};
+
+export const getSetAdminFirmClearanceMutationOptions = <
+  TError = ErrorType<ErrorEnvelope>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof setAdminFirmClearance>>,
+    TError,
+    { id: number; data: BodyType<SetFirmClearanceInput> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof setAdminFirmClearance>>,
+  TError,
+  { id: number; data: BodyType<SetFirmClearanceInput> },
+  TContext
+> => {
+  const mutationKey = ["setAdminFirmClearance"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof setAdminFirmClearance>>,
+    { id: number; data: BodyType<SetFirmClearanceInput> }
+  > = (props) => {
+    const { id, data } = props ?? {};
+
+    return setAdminFirmClearance(id, data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type SetAdminFirmClearanceMutationResult = NonNullable<
+  Awaited<ReturnType<typeof setAdminFirmClearance>>
+>;
+export type SetAdminFirmClearanceMutationBody = BodyType<SetFirmClearanceInput>;
+export type SetAdminFirmClearanceMutationError = ErrorType<ErrorEnvelope>;
+
+/**
+ * @summary Flip a firm's clearance (internalOnly) with admin password verification
+ */
+export const useSetAdminFirmClearance = <
+  TError = ErrorType<ErrorEnvelope>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof setAdminFirmClearance>>,
+    TError,
+    { id: number; data: BodyType<SetFirmClearanceInput> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof setAdminFirmClearance>>,
+  TError,
+  { id: number; data: BodyType<SetFirmClearanceInput> },
+  TContext
+> => {
+  return useMutation(getSetAdminFirmClearanceMutationOptions(options));
 };
 
 /**

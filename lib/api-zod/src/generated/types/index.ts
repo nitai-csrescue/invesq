@@ -135,6 +135,7 @@ export * from "./resourceEnvironment";
 export * from "./resourceMetadata";
 export * from "./resourceSensitivity";
 export * from "./resourceStatus";
+export * from "./setFirmClearanceInput";
 export * from "./systemHealthFirmIssue";
 export * from "./systemHealthFirmIssueIssue";
 export * from "./systemHealthFirmIssueSeverity";

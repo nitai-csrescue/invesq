@@ -1171,6 +1171,65 @@ export const DeleteAdminFirmResponse = zod.object({
 });
 
 /**
+ * Admin-only. Verifies the supplied password against CLEARANCE_ADMIN_PASSWORD server-side, then merges the new internalOnly value into firm.meta, and invalidates the portfolio bootstrap cache. 401 on wrong password; 503 if CLEARANCE_ADMIN_PASSWORD is not configured on the server.
+
+ * @summary Flip a firm's clearance (internalOnly) with admin password verification
+ */
+export const SetAdminFirmClearanceParams = zod.object({
+  id: zod.coerce.number(),
+});
+
+export const SetAdminFirmClearanceBody = zod.object({
+  internalOnly: zod
+    .boolean()
+    .describe(
+      "The new clearance state. true = internal only; false = client-ready.",
+    ),
+  password: zod
+    .string()
+    .describe(
+      "The clearance admin password, verified server-side against CLEARANCE_ADMIN_PASSWORD.",
+    ),
+});
+
+export const SetAdminFirmClearanceResponse = zod.object({
+  id: zod.number(),
+  name: zod.string(),
+  website: zod.string().nullable(),
+  slug: zod.string(),
+  status: zod.string(),
+  dataAuthority: zod
+    .enum(["strict", "best_effort"])
+    .describe(
+      '\"strict\" firms fail loudly on bad data; \"best_effort\" degrade gracefully. Promotion is always an explicit admin action.\n',
+    ),
+  meta: zod
+    .union([
+      zod.object({
+        statusLabel: zod.string(),
+        internalOnly: zod.boolean(),
+        requireLogin: zod
+          .boolean()
+          .optional()
+          .describe(
+            "When true, the tenant portal for this firm requires an authenticated admin session to view. Default\/absent = false (public). UI-gate only; the bootstrap API stays public.\n",
+          ),
+      }),
+      zod.null(),
+    ])
+    .describe(
+      "Portal display metadata (statusLabel, internalOnly, requireLogin). Null for pipeline firms not yet promoted to a tenant portal.\n",
+    ),
+  createdByEmail: zod
+    .string()
+    .nullish()
+    .describe(
+      "Email of the admin who created this firm, captured from their session at creation time. Used to notify them when the build job finishes. Null for firms created before this field existed or outside an authenticated session.\n",
+    ),
+  createdAt: zod.coerce.date(),
+});
+
+/**
  * @summary Add a company to a firm under review
  */
 export const AddAdminFirmCompanyParams = zod.object({
