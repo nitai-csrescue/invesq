@@ -8,7 +8,6 @@ import {
   ArrowUp,
   ArrowDown,
   ListOrdered,
-  ShieldAlert,
   Lock,
   Trash2,
   FilePlus2,
@@ -66,31 +65,6 @@ import {
 // Hand-authored legacy tenants can never be deleted from the admin UI (the
 // server also refuses with a 409); hide the delete affordance entirely.
 const LEGACY_SLUGS = new Set<string>(LEGACY_FIRMS_META.map((f) => f.slug));
-
-// ---------------------------------------------------------------------------
-// Status pill styling (firm lifecycle status: pending/reviewed/active/ready)
-// ---------------------------------------------------------------------------
-const STATUS_STYLES: Record<string, string> = {
-  pending: "border-amber-500/30 bg-amber-500/10 text-amber-600",
-  reviewed: "border-cyan-500/30 bg-cyan-500/10 text-cyan-600",
-  active: "border-emerald-500/30 bg-emerald-500/10 text-emerald-600",
-  ready: "border-emerald-500/30 bg-emerald-500/10 text-emerald-600",
-};
-
-function statusPillClass(status: string) {
-  return STATUS_STYLES[status] ?? "border-slate-500/30 bg-slate-500/10 text-slate-600";
-}
-
-// dataAuthority is admin-only metadata describing how much we trust a firm's
-// underlying data (strict = client-supplied, best_effort = web-discovered).
-function dataAuthorityLabel(v: string): string {
-  return v === "strict" ? "Strict" : "Best effort";
-}
-function dataAuthorityClass(v: string): string {
-  return v === "strict"
-    ? "border-emerald-500/30 bg-emerald-500/10 text-emerald-600"
-    : "border-slate-400/40 bg-slate-400/10 text-slate-500";
-}
 
 // ---------------------------------------------------------------------------
 // Tier distribution mini-bar — small T1..T4 chips, zero-counts hidden.
@@ -189,33 +163,27 @@ function FirmCard({
         </div>
       </div>
 
-      {/* Badges: lifecycle status · statusLabel · dataAuthority — one line,
-          never wrapping; the variable-length statusLabel truncates + tooltips. */}
-      <div className="mt-3 flex items-center gap-1.5 overflow-hidden">
-        <span
-          className={`inline-flex shrink-0 items-center whitespace-nowrap rounded-full border px-2.5 py-0.5 text-[11px] font-medium ${statusPillClass(firm.status)}`}
-          title={`Status: ${firm.status}`}
-        >
-          {firm.status}
-        </span>
-        {statusLabel && (
+      {/* Badges: clearance (internalOnly flag) · data source — always two pills,
+          full text, no truncation. The full statusLabel rides the tooltip. */}
+      <div className="mt-3 flex items-center gap-1.5">
+        {internalOnly ? (
           <span
-            className={`inline-flex min-w-0 shrink items-center gap-1 rounded-full border px-2.5 py-0.5 text-[11px] font-medium ${
-              internalOnly
-                ? "border-rose-500/30 bg-rose-500/10 text-rose-600"
-                : "border-border bg-muted/40 text-muted-foreground"
-            }`}
-            title={statusLabel}
+            className="inline-flex items-center gap-1 whitespace-nowrap rounded-full border border-rose-500/30 bg-rose-500/10 px-2.5 py-0.5 text-[11px] font-medium text-rose-600"
+            title={statusLabel ?? "Internal only — not cleared for external distribution"}
           >
-            {internalOnly && <ShieldAlert className="h-2.5 w-2.5 shrink-0" />}
-            <span className="truncate">{statusLabel}</span>
+            <Lock className="h-2.5 w-2.5 shrink-0" />
+            Internal only
+          </span>
+        ) : (
+          <span
+            className="inline-flex items-center whitespace-nowrap rounded-full border border-emerald-500/30 bg-emerald-500/10 px-2.5 py-0.5 text-[11px] font-medium text-emerald-600"
+            title={statusLabel ?? "Cleared for client distribution"}
+          >
+            Client-ready
           </span>
         )}
-        <span
-          className={`inline-flex shrink-0 items-center whitespace-nowrap rounded-full border px-2.5 py-0.5 text-[11px] font-medium ${dataAuthorityClass(firm.dataAuthority)}`}
-          title={`Data authority: ${dataAuthorityLabel(firm.dataAuthority)}`}
-        >
-          {dataAuthorityLabel(firm.dataAuthority)}
+        <span className="inline-flex items-center whitespace-nowrap rounded-full border border-slate-400/40 bg-slate-400/10 px-2.5 py-0.5 text-[11px] font-medium text-slate-500">
+          Public-signal data
         </span>
       </div>
 
