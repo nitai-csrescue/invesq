@@ -131,7 +131,7 @@ export default function Overview() {
         {/* Hero */}
         <section className="text-center pt-2">
           <Badge variant="outline" className="text-cyan-300 border-cyan-400/30 mb-4">
-            INVESQ · For PE & VC Investors
+            INVESQ · For PE Firms and Portfolio Companies
           </Badge>
           <h1 className="text-4xl md:text-5xl font-bold text-white tracking-tight leading-tight">
             Operational Due Diligence{" "}

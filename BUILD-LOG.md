@@ -958,3 +958,17 @@ curl -X POST https://<prod-domain>/api/admin/repair-assessments-dedup \
   - Scope: single frontend component. No server/schema/data change. INVESQ branding; no em-dashes in user-visible copy.
 
 ---
+
+## Report tagline copy update: "PE & VC" replaced across branding chrome
+
+- Date: 2026-07-15
+- Status: completed
+- Files changed: artifacts/api-server/src/lib/pdf/pages/page6Roadmap.ts, artifacts/cs-rescue/src/pages/Overview.tsx
+- Validation: api-server typecheck pass; cs-rescue typecheck pass; verify-db-invariants PASSED; grep for "PE & VC" (incl. HTML-escaped form) returns zero matches
+- Republish needed: yes
+- QA notes:
+  - page6Roadmap.ts line 64 (PDF "Prepared by / INVESQ" block): "Operational Due Diligence for PE &amp; VC" -> "Operational Due Diligence for PE Firms and Portfolio Companies".
+  - Overview.tsx hero badge: "INVESQ · For PE & VC Investors" -> "INVESQ · For PE Firms and Portfolio Companies" (follow-up approved by user after the first edit).
+  - Pure copy change to shared branding chrome only. No tenant data files (firms.ts, stg.ts, pamlico.ts), no engine.ts/types.ts, no scores/rollups touched: git diff --stat shows only the two files above.
+
+---
