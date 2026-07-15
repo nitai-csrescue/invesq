@@ -972,3 +972,16 @@ curl -X POST https://<prod-domain>/api/admin/repair-assessments-dedup \
   - Pure copy change to shared branding chrome only. No tenant data files (firms.ts, stg.ts, pamlico.ts), no engine.ts/types.ts, no scores/rollups touched: git diff --stat shows only the two files above.
 
 ---
+
+## replit.md: add Cost Discipline section
+
+- Date: 2026-07-15
+- Status: completed
+- Files changed: replit.md
+- Validation: documentation-only; no test cycle needed per Cost Discipline rule 6
+- Republish needed: no
+- QA notes:
+  - Inserted "Cost Discipline" section between Overview and Stack so it loads in context at session start.
+  - Six standing rules covering batch handling, go-straight-to-fix, right-sized verification, keeping docs accurate, avoiding Plan-mode drift, and skipping test cycles on doc-only edits.
+
+---

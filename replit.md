@@ -6,6 +6,19 @@ INVESQ is an investor-demo MVP for an automated **Operational Due Diligence** pl
 
 Formerly branded "CS Rescue". The artifact slug and directory keep that name, but **all user-visible chrome must say INVESQ, never "CS Rescue"**. The CS-flavored mock data (accounts, signals, playbooks) represents a sample portfolio company being assessed. Primary flow: Landing (`/`, the Executive Brief) → Overview → Dashboard; Architecture + AI Copilot live under a demoted "Platform" surface for technical buyers.
 
+## Cost Discipline
+
+The goal is to minimize spend. Every request triggers a full investigate-build-verify cycle that carries all available context, so cost is driven by how many cycles are triggered and how much context each one carries.
+
+Standing rules for how the user will work with the agent, and how the agent should keep costs down:
+
+1. **Batch handling.** Requests will often contain several related fixes in one message. Handle them together in one pass rather than re-investigating per item.
+2. **Go straight to the fix** when a request names an exact route/file/behavior, gives expected-vs-actual, and specifies the environment (published app vs. workspace preview). Do not re-explore the codebase.
+3. **Right-size verification.** When the user says a change is copy/text-only or "no need to test," skip restarts, screenshots, and end-to-end tests. Reserve full verification for changes touching the pipeline, database, scoring, or tenant isolation.
+4. **Keep replit.md and BUILD-LOG.md accurate** so fresh sessions start with context instead of re-investigating.
+5. **Avoid the Plan-mode trap.** When asked to build, execute immediately rather than only reading files and proposing a plan.
+6. **Documentation-only edits never need a test cycle.**
+
 ## Stack
 
 - **Monorepo**: pnpm workspaces, Node 24, TypeScript 5.9.
