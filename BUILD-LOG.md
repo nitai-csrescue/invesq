@@ -985,3 +985,19 @@ curl -X POST https://<prod-domain>/api/admin/repair-assessments-dedup \
   - Six standing rules covering batch handling, go-straight-to-fix, right-sized verification, keeping docs accurate, avoiding Plan-mode drift, and skipping test cycles on doc-only edits.
 
 ---
+
+## Notion sync upsert: wire notion_sync_state for PATCH-if-exists / POST+record
+
+- Date: 2026-07-16
+- Status: completed
+- Files changed: artifacts/api-server/src/lib/notion.ts, artifacts/api-server/src/lib/jobs/build.ts
+- Validation: typecheck:libs PASS; api-server typecheck PASS; cs-rescue typecheck PASS; verify-db-invariants PASSED (140 assessments, 30 companies, 6 firms, 0 violations)
+- Republish needed: yes
+- QA notes:
+  - notion_sync_state table and schema file already existed (created in a prior phase as a placeholder with zero callers).
+  - notion.ts: added assessmentId param to writeDiagnosticToNotion; before POSTing, queries notion_sync_state by assessmentId — if a row exists, PATCHes the existing Notion page and updates lastSyncedAt/lastSyncStatus; if no row, POSTs a new page and inserts a notion_sync_state row recording the new page ID.
+  - build.ts: changed tx.insert(assessmentsTable) to use .returning({ id }) so the new assessmentId is captured; passed as assessmentId to writeDiagnosticToNotion. Re-score path (same-day) already deleted the sync-state row in the transaction, so a re-score always hits the POST branch and records a fresh page ID.
+  - git diff --stat: 2 files changed, 50 insertions(+), 7 deletions(-) — api-server only, no tenant data/frontend/engine changes.
+  - STG and Pamlico rollups confirmed unchanged (verify-db-invariants checks composite recompute parity for all 13 report_exports rows — PASSED).
+
+---

@@ -1,3 +1,5 @@
+import { eq } from "drizzle-orm";
+import { db as appDb, notionSyncStateTable } from "@workspace/db";
 import { logger } from "./logger.js";
 import { PILLARS } from "@workspace/portfolio-engine";
 import type { PillarResult } from "./jobs/scoring.js";
@@ -239,6 +241,7 @@ export async function fetchScoringRubricText(): Promise<string | null> {
 // integration doesn't own that schema. Never throws — Postgres is the
 // source of truth and must never be blocked by a Notion failure.
 export async function writeDiagnosticToNotion(params: {
+  assessmentId: number;
   companyName: string;
   companyWebsite: string | null;
   firmName: string;
@@ -330,12 +333,47 @@ export async function writeDiagnosticToNotion(params: {
       );
     }
 
-    await notionFetch(apiKey, "/pages", {
-      method: "POST",
-      body: JSON.stringify({ parent: { database_id: db.id }, properties }),
-    });
+    // Upsert: PATCH the existing Notion page if we have a sync-state row for
+    // this assessment; otherwise POST a new page and record the sync-state row.
+    // The sync-state row is deleted as part of the same-day re-score transaction
+    // in build.ts, so a re-score always lands here in the POST branch and gets
+    // a fresh page ID recorded.
+    const [existingSyncState] = await appDb
+      .select({ notionPageId: notionSyncStateTable.notionPageId })
+      .from(notionSyncStateTable)
+      .where(eq(notionSyncStateTable.assessmentId, params.assessmentId))
+      .limit(1);
 
-    logger.info({ companyName: params.companyName }, "Notion diagnostic page written successfully");
+    if (existingSyncState) {
+      await notionFetch(apiKey, `/pages/${existingSyncState.notionPageId}`, {
+        method: "PATCH",
+        body: JSON.stringify({ properties }),
+      });
+      await appDb
+        .update(notionSyncStateTable)
+        .set({ lastSyncedAt: new Date(), lastSyncStatus: "success", lastError: null })
+        .where(eq(notionSyncStateTable.assessmentId, params.assessmentId));
+      logger.info(
+        { companyName: params.companyName, notionPageId: existingSyncState.notionPageId },
+        "Notion diagnostic page updated (PATCH) successfully",
+      );
+    } else {
+      const created = await notionFetch<{ id: string }>(apiKey, "/pages", {
+        method: "POST",
+        body: JSON.stringify({ parent: { database_id: db.id }, properties }),
+      });
+      await appDb.insert(notionSyncStateTable).values({
+        assessmentId: params.assessmentId,
+        notionPageId: created.id,
+        lastSyncedAt: new Date(),
+        lastSyncStatus: "success",
+      });
+      logger.info(
+        { companyName: params.companyName, notionPageId: created.id },
+        "Notion diagnostic page created (POST) successfully",
+      );
+    }
+
     return { attempted: true, success: true };
   } catch (err) {
     const reason = err instanceof Error ? err.message : String(err);

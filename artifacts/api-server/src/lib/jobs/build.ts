@@ -128,7 +128,7 @@ async function scoreAndPersistCompany(company: Company, firm: Firm): Promise<Com
   // supersedes the whole validated deliverable, so these are torn down deepest
   // FK first (shipments + validations, both keyed by revision id) before the
   // revisions themselves, then the rest of the cascade.
-  await db.transaction(async (tx) => {
+  const newAssessmentId = await db.transaction(async (tx) => {
     const [existing] = await tx
       .select({ id: assessmentsTable.id })
       .from(assessmentsTable)
@@ -156,7 +156,11 @@ async function scoreAndPersistCompany(company: Company, firm: Firm): Promise<Com
       );
     }
 
-    await tx.insert(assessmentsTable).values(assessmentValues as never);
+    const [{ id: newId }] = await tx
+      .insert(assessmentsTable)
+      .values(assessmentValues as never)
+      .returning({ id: assessmentsTable.id });
+    return newId;
   });
 
   // Populate the descriptive companies.meta the tenant-portal engine reads, so
@@ -173,6 +177,7 @@ async function scoreAndPersistCompany(company: Company, firm: Firm): Promise<Com
     .where(eq(companiesTable.id, company.id));
 
   const notion = await writeDiagnosticToNotion({
+    assessmentId: newAssessmentId,
     companyName: company.name,
     companyWebsite: company.website,
     firmName: firm.name,
