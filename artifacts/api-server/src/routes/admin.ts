@@ -904,13 +904,6 @@ router.post("/firms/:id/refresh", async (req, res) => {
       return;
     }
 
-    if (LEGACY_SLUGS.has(firm.slug)) {
-      res.status(400).json({
-        error: "This is a hand-authored tenant and cannot be re-run by the onboarding pipeline.",
-      });
-      return;
-    }
-
     const activeCount = await db
       .select({ value: count() })
       .from(companiesTable)
