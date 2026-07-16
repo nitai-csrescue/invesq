@@ -1001,3 +1001,18 @@ curl -X POST https://<prod-domain>/api/admin/repair-assessments-dedup \
   - STG and Pamlico rollups confirmed unchanged (verify-db-invariants checks composite recompute parity for all 13 report_exports rows — PASSED).
 
 ---
+
+## Remove LEGACY_SLUGS "hand-authored tenant" guard from refresh route
+
+- Date: 2026-07-16
+- Status: completed
+- Files changed: artifacts/api-server/src/routes/admin.ts
+- Validation: api-server typecheck PASS; verify-db-invariants PASSED (140 assessments, 30 companies, 6 firms, 0 violations)
+- Republish needed: yes (completed — live on cs-rescue.replit.app as of commit 3724c55)
+- QA notes:
+  - Removed the 7-line LEGACY_SLUGS guard from POST /api/admin/firms/:id/refresh that returned HTTP 400 "hand-authored tenant" for the 5 legacy tenants (stg, pamlico, raviga, longarc, solen).
+  - All 5 legacy tenants can now be re-run via the refresh route; the route proceeds to its existing downstream checks (active companies exist, no build job already running) for all firms.
+  - Left intact: admin.ts line ~457 (DELETE 409 guard — legacy tenants still cannot be deleted); admin.ts line ~1399 (backfill-pipeline-meta skip); portfolioData.ts fail-loud bootstrap for legacy tenants; AdminFirmsIndex.tsx hidden delete button.
+  - git diff --stat: 1 file changed, 7 deletions(-) — admin.ts only.
+
+---
