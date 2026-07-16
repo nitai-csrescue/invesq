@@ -24,8 +24,14 @@ import {
   ResponsiveContainer,
   ReferenceLine,
 } from "recharts";
+import {
+  useGetRavigaSignals,
+  getGetRavigaSignalsQueryKey,
+  type SignalRecord,
+} from "@workspace/api-client-react";
 import { ConfidenceBadge } from "@/components/portfolio/ConfidenceBadge";
 import { TenantShell } from "@/components/portfolio/TenantShell";
+import { DiagnosticSignalCard } from "@/components/portfolio/DiagnosticSignals";
 import { PortcoReportWorkflow } from "./PortcoReportWorkflow";
 import { IcpEligibilityChip } from "./RavigaCompanyList";
 import {
@@ -991,6 +997,13 @@ function FirmNotFound() {
 export default function PortfolioCompany() {
   const [, params] = useRoute("/:firmSlug/portfolio/:companyId");
   const firmSlug = params?.firmSlug ?? "";
+  const isRaviga = firmSlug === "raviga";
+  // DB-backed structured evidence signals — Raviga demo tenant only. The
+  // query never fires for any other firm (enabled: isRaviga), so
+  // stg/pamlico/longarc/solen make zero extra requests and render unchanged.
+  const { data: diagnosticData } = useGetRavigaSignals({
+    query: { queryKey: getGetRavigaSignalsQueryKey(), enabled: isRaviga },
+  });
   const firm = getFirm(firmSlug);
 
   if (!firm) return <FirmNotFound />;
@@ -999,8 +1012,12 @@ export default function PortfolioCompany() {
   if (!company) return <CompanyNotFound firm={firm} />;
 
   const { tier } = company;
-  const isRaviga = firmSlug === "raviga";
   const allCompanies = isRaviga ? getFirmCompanies(firmSlug) : [];
+  // Company.id IS the portal slug (companies.slug), which is exactly what the
+  // signals endpoint keys companySlug on.
+  const companySignals: SignalRecord[] = isRaviga
+    ? (diagnosticData?.signals ?? []).filter((s) => s.companySlug === company.id)
+    : [];
   return (
     <TenantShell firm={firm}>
       {isRaviga && allCompanies.length > 1 && (
@@ -1160,6 +1177,15 @@ export default function PortfolioCompany() {
                       style={{ width: `${score === null ? 100 : fill}%` }}
                     />
                   </div>
+                  {isRaviga && companySignals.some((s) => s.pillarId === p.id) && (
+                    <div className="mt-2.5 space-y-2">
+                      {companySignals
+                        .filter((s) => s.pillarId === p.id)
+                        .map((s) => (
+                          <DiagnosticSignalCard key={s.id} signal={s} />
+                        ))}
+                    </div>
+                  )}
                   {!isRaviga && (
                     <>
                       <p className="mt-2 text-xs text-muted-foreground">{p.measures}</p>

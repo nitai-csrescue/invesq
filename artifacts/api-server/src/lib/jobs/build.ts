@@ -11,6 +11,7 @@ import {
   reportRevisionsTable,
   reportValidationsTable,
   driveShipmentsTable,
+  signalsTable,
   type Company,
   type Firm,
 } from "@workspace/db";
@@ -148,6 +149,7 @@ async function scoreAndPersistCompany(company: Company, firm: Firm): Promise<Com
       }
       await tx.delete(reportExportsTable).where(eq(reportExportsTable.assessmentId, existing.id));
       await tx.delete(findingsTable).where(eq(findingsTable.assessmentId, existing.id));
+      await tx.delete(signalsTable).where(eq(signalsTable.assessmentId, existing.id));
       await tx.delete(notionSyncStateTable).where(eq(notionSyncStateTable.assessmentId, existing.id));
       await tx.delete(assessmentsTable).where(eq(assessmentsTable.id, existing.id));
       logger.info(
@@ -160,6 +162,29 @@ async function scoreAndPersistCompany(company: Company, firm: Firm): Promise<Com
       .insert(assessmentsTable)
       .values(assessmentValues as never)
       .returning({ id: assessmentsTable.id });
+
+    // Structured evidence signals ride the same transaction as the assessment
+    // they annotate, so an assessment row can never exist with a partially
+    // written signal set (or vice versa). Signals are evidence metadata only:
+    // nothing downstream (composite, tier, confidence, findings) reads them
+    // for math.
+    const signalRows = PILLARS.flatMap((pillar) =>
+      (pillarResults[pillar.id]!.signals ?? []).map((s) => ({
+        assessmentId: newId,
+        companyId: company.id,
+        pillarId: pillar.id,
+        source: s.source,
+        dateObserved: s.dateObserved,
+        url: s.url,
+        direction: s.direction,
+        confidence: s.confidence,
+        note: s.note,
+      })),
+    );
+    if (signalRows.length > 0) {
+      await tx.insert(signalsTable).values(signalRows);
+    }
+
     return newId;
   });
 

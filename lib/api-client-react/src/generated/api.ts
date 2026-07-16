@@ -61,6 +61,7 @@ import type {
   PatchConnectorInput,
   PatchResourceInput,
   PortfolioBootstrap,
+  RavigaSignals,
   ReorderAdminFirmsInput,
   ReportRevisionInput,
   ReportValidateInput,
@@ -1790,6 +1791,83 @@ export function useGetPortfolioBootstrap<
   request?: SecondParameter<typeof customFetch>;
 }): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
   const queryOptions = getGetPortfolioBootstrapQueryOptions(options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * Returns the structured per-pillar evidence signal records captured during pipeline scoring for every Raviga company, as a flat list keyed by companySlug + pillarId (clients group as needed). Raviga-only demo surface: no other firm slug has this route, so every other tenant 404s. Signals are evidence metadata only and never participate in composite/tier/denominator math.
+
+ * @summary Structured diagnostic signals for the Raviga sandbox tenant
+ */
+export const getGetRavigaSignalsUrl = () => {
+  return `/api/portfolio/raviga/signals`;
+};
+
+export const getRavigaSignals = async (
+  options?: RequestInit,
+): Promise<RavigaSignals> => {
+  return customFetch<RavigaSignals>(getGetRavigaSignalsUrl(), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getGetRavigaSignalsQueryKey = () => {
+  return [`/api/portfolio/raviga/signals`] as const;
+};
+
+export const getGetRavigaSignalsQueryOptions = <
+  TData = Awaited<ReturnType<typeof getRavigaSignals>>,
+  TError = ErrorType<ErrorEnvelope>,
+>(options?: {
+  query?: UseQueryOptions<
+    Awaited<ReturnType<typeof getRavigaSignals>>,
+    TError,
+    TData
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey = queryOptions?.queryKey ?? getGetRavigaSignalsQueryKey();
+
+  const queryFn: QueryFunction<
+    Awaited<ReturnType<typeof getRavigaSignals>>
+  > = ({ signal }) => getRavigaSignals({ signal, ...requestOptions });
+
+  return { queryKey, queryFn, ...queryOptions } as UseQueryOptions<
+    Awaited<ReturnType<typeof getRavigaSignals>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type GetRavigaSignalsQueryResult = NonNullable<
+  Awaited<ReturnType<typeof getRavigaSignals>>
+>;
+export type GetRavigaSignalsQueryError = ErrorType<ErrorEnvelope>;
+
+/**
+ * @summary Structured diagnostic signals for the Raviga sandbox tenant
+ */
+
+export function useGetRavigaSignals<
+  TData = Awaited<ReturnType<typeof getRavigaSignals>>,
+  TError = ErrorType<ErrorEnvelope>,
+>(options?: {
+  query?: UseQueryOptions<
+    Awaited<ReturnType<typeof getRavigaSignals>>,
+    TError,
+    TData
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getGetRavigaSignalsQueryOptions(options);
 
   const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
     queryKey: QueryKey;

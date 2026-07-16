@@ -6,7 +6,37 @@ const SCORING_MODEL = "claude-sonnet-4-6";
 export interface PillarResult {
   score: 0 | 1 | 2 | "Insufficient Data";
   evidence: string;
+  // Structured evidence records backing this pillar's score. Best-effort and
+  // guard-parsed (missing/malformed -> []) — signals are evidence metadata
+  // only and NEVER affect the score, composite, tier, or confidence math.
+  signals?: PillarSignal[];
 }
+
+// One structured, queryable evidence record for a pillar — the
+// machine-readable complement to the free-text `evidence` string. Persisted
+// to the `signals` table by build.ts.
+export interface PillarSignal {
+  source: string; // normalized to SIGNAL_SOURCES; unknown values -> "other"
+  dateObserved: string | null; // ISO YYYY-MM-DD when the artifact is dated
+  url: string | null;
+  direction: "positive" | "negative" | "neutral";
+  confidence: "High" | "Medium" | "Low";
+  note: string;
+}
+
+const SIGNAL_SOURCES = new Set([
+  "linkedin",
+  "job_posting",
+  "g2_capterra",
+  "press",
+  "crunchbase",
+  "pitchbook",
+  "company_site",
+  "other",
+]);
+const SIGNAL_DIRECTIONS = new Set(["positive", "negative", "neutral"]);
+const SIGNAL_CONFIDENCES = new Set(["High", "Medium", "Low"]);
+const MAX_SIGNALS_PER_PILLAR = 4;
 
 // Descriptive company profile researched alongside the pillar scores, in the
 // SAME Claude call. Fields map onto the portfolio engine's CompanyMeta so a
@@ -70,9 +100,17 @@ function buildSystemPrompt(): string {
     "You must ALSO research the company itself (what it does, where it is based, roughly how large it is, and its revenue scale) for a short descriptive profile. Apply the same never-fabricate rule to the profile: if you cannot verify a field from a real signal, use its documented fallback rather than guessing.",
     "",
     "Respond with ONLY a single fenced ```json code block (no prose before or after it) containing one JSON object with these keys:",
-    "1. The 8 pillar keys (the pillar ids above): \"org\", \"onboarding\", \"health\", \"escalation\", \"revenue\", \"leadership\", \"planning\", \"ai\". Each value must be an object with exactly these two fields:",
+    "1. The 8 pillar keys (the pillar ids above): \"org\", \"onboarding\", \"health\", \"escalation\", \"revenue\", \"leadership\", \"planning\", \"ai\". Each value must be an object with exactly these three fields:",
     '   - "score": 0, 1, 2, or the literal string "Insufficient Data"',
     '   - "evidence": a 1-3 sentence explanation citing the specific fact(s) you found (or explicitly stating what you searched for and could not find, if "Insufficient Data")',
+    '   - "signals": an array of 0-4 structured evidence records, one per distinct fact you actually found for this pillar (empty array if none). Each record is an object with exactly these fields:',
+    '       - "source": one of "linkedin", "job_posting", "g2_capterra", "press", "crunchbase", "pitchbook", "company_site", "other"',
+    '       - "dateObserved": the ISO date "YYYY-MM-DD" of the underlying artifact (e.g. a press release or job-posting date) if it is dated, otherwise null',
+    '       - "url": a direct link to the artifact if you have one, otherwise null',
+    '       - "direction": "positive", "negative", or "neutral" — which way this fact points for this pillar',
+    '       - "confidence": "High", "Medium", or "Low" — your confidence in this single fact',
+    '       - "note": 1-2 plain sentences describing the specific fact. Never name individual people in a note; refer to roles only (e.g. "the current CS leader"). Do not use em-dash characters.',
+    "   Signals must describe real facts you found via search — never fabricate a signal, a date, or a URL. A pillar scored \"Insufficient Data\" should usually have an empty signals array.",
     '2. A "profile" key whose value is an object with exactly these fields:',
     '   - "sector": string — the company\'s software sub-sector / vertical (e.g. "Healthcare revenue-cycle SaaS", "DevOps tooling"). Use "Unconfirmed" if you cannot verify it.',
     '   - "hq": string — headquarters as "City, ST" or "City, Country" (e.g. "Austin, TX"). Use "Unconfirmed" if you cannot verify it.',
@@ -126,6 +164,7 @@ function parsePillarResults(text: string): Record<string, PillarResult> {
     results[pillar.id] = {
       score: entry.score,
       evidence: entry.evidence.trim(),
+      signals: parsePillarSignals((entry as unknown as Record<string, unknown>).signals),
     };
   }
 
@@ -136,6 +175,49 @@ function parsePillarResults(text: string): Record<string, PillarResult> {
   }
 
   return results;
+}
+
+// Guard-parses one pillar's "signals" array. NEVER throws and never fails the
+// scoring run — a missing/malformed array (or malformed elements within it)
+// simply yields fewer signals. Unknown sources normalize to "other"; rows
+// missing a valid note/direction/confidence are dropped; notes get the
+// deterministic no-em-dash scrub (prompt instruction is layer one, this is
+// layer two, static copy is layer three).
+function parsePillarSignals(value: unknown): PillarSignal[] {
+  if (!Array.isArray(value)) return [];
+  const out: PillarSignal[] = [];
+  for (const item of value) {
+    if (out.length >= MAX_SIGNALS_PER_PILLAR) break;
+    if (typeof item !== "object" || item === null) continue;
+    const rec = item as Record<string, unknown>;
+
+    const note =
+      typeof rec.note === "string" ? rec.note.replace(/\u2014/g, "--").trim() : "";
+    const direction = typeof rec.direction === "string" ? rec.direction : "";
+    const confidence = typeof rec.confidence === "string" ? rec.confidence : "";
+    if (!note || !SIGNAL_DIRECTIONS.has(direction) || !SIGNAL_CONFIDENCES.has(confidence)) {
+      continue;
+    }
+
+    const source =
+      typeof rec.source === "string" && SIGNAL_SOURCES.has(rec.source) ? rec.source : "other";
+    const dateObserved =
+      typeof rec.dateObserved === "string" && /^\d{4}-\d{2}-\d{2}$/.test(rec.dateObserved)
+        ? rec.dateObserved
+        : null;
+    const url =
+      typeof rec.url === "string" && /^https?:\/\//i.test(rec.url.trim()) ? rec.url.trim() : null;
+
+    out.push({
+      source,
+      dateObserved,
+      url,
+      direction: direction as PillarSignal["direction"],
+      confidence: confidence as PillarSignal["confidence"],
+      note,
+    });
+  }
+  return out;
 }
 
 // Guard-parses the "profile" block from the same JSON. NEVER throws — any

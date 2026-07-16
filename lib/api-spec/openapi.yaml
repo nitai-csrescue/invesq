@@ -415,6 +415,38 @@ paths:
               schema:
                 $ref: "#/components/schemas/ErrorEnvelope"
 
+  /portfolio/raviga/signals:
+    get:
+      operationId: getRavigaSignals
+      tags: [portfolio]
+      summary: Structured diagnostic signals for the Raviga sandbox tenant
+      description: >
+        Returns the structured per-pillar evidence signal records captured
+        during pipeline scoring for every Raviga company, as a flat list keyed
+        by companySlug + pillarId (clients group as needed). Raviga-only demo
+        surface: no other firm slug has this route, so every other tenant 404s.
+        Signals are evidence metadata only and never participate in
+        composite/tier/denominator math.
+      responses:
+        "200":
+          description: Flat list of Raviga signal records
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RavigaSignals"
+        "404":
+          description: Raviga firm row not present in the database
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+        "500":
+          description: Failed to load signals
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+
   /admin/firms:
     get:
       operationId: listAdminFirms
@@ -3121,6 +3153,51 @@ components:
           items:
             $ref: "#/components/schemas/SystemHealthFirmIssue"
       required: [ok, checkedAt, summary, issues]
+
+    SignalRecord:
+      type: object
+      description: >
+        One structured evidence signal captured for a pillar during pipeline
+        scoring. Evidence metadata only; never feeds composite/tier math.
+      required: [id, companySlug, pillarId, source, direction, confidence, note]
+      properties:
+        id:
+          type: integer
+        companySlug:
+          type: string
+        pillarId:
+          type: string
+          description: One of the 8 portfolio-engine pillar ids
+        source:
+          type: string
+          description: >
+            Where the signal was observed, e.g. "linkedin", "job_posting",
+            "g2_capterra", "press", "crunchbase", "pitchbook", "company_site",
+            "other"
+        dateObserved:
+          type: string
+          nullable: true
+          description: ISO date (YYYY-MM-DD) when the artifact is dated
+        url:
+          type: string
+          nullable: true
+        direction:
+          type: string
+          enum: [positive, negative, neutral]
+        confidence:
+          type: string
+          enum: [High, Medium, Low]
+        note:
+          type: string
+
+    RavigaSignals:
+      type: object
+      required: [signals]
+      properties:
+        signals:
+          type: array
+          items:
+            $ref: "#/components/schemas/SignalRecord"
 
     PortfolioBootstrap:
       type: object

@@ -6,7 +6,7 @@
 // between the two. Order (children first):
 //   report_validations (via revision ids) -> drive_shipments ->
 //   report_revisions -> notion_sync_state (via assessment ids) ->
-//   report_exports -> findings -> assessments -> companies ->
+//   report_exports -> signals -> findings -> assessments -> companies ->
 //   jobs (polymorphic text target_id: firm id + company ids) ->
 //   ingestion_sources -> firm.
 //
@@ -29,6 +29,7 @@ import {
   notionSyncStateTable,
   ingestionSourcesTable,
   jobsTable,
+  signalsTable,
 } from "@workspace/db";
 
 export interface DeleteFirmCascadeResult {
@@ -92,6 +93,7 @@ export async function deleteFirmCascade(firmId: number): Promise<DeleteFirmCasca
         .where(inArray(reportExportsTable.companyId, companyIds));
     }
     if (assessmentIds.length > 0) {
+      await tx.delete(signalsTable).where(inArray(signalsTable.assessmentId, assessmentIds));
       await tx.delete(findingsTable).where(inArray(findingsTable.assessmentId, assessmentIds));
       await tx.delete(assessmentsTable).where(inArray(assessmentsTable.id, assessmentIds));
     }

@@ -2,10 +2,16 @@ import { useState, useMemo } from "react";
 import { useRoute, Link } from "wouter";
 import { AlertTriangle, ArrowRight, Building2, Cloud, Activity, Phone, Radio } from "lucide-react";
 import {
+  useGetRavigaSignals,
+  getGetRavigaSignalsQueryKey,
+  type SignalRecord,
+} from "@workspace/api-client-react";
+import {
   getFirm,
   getFirmCompanies,
   gapTitle,
   getLiveSignalsForCompanies,
+  PILLARS,
   type Company,
   type GapItem,
   type ConnectorId,
@@ -13,6 +19,7 @@ import {
   type LiveSignalSeverity,
 } from "@/data/portfolio";
 import { TenantShell } from "@/components/portfolio/TenantShell";
+import { DiagnosticSignalCard } from "@/components/portfolio/DiagnosticSignals";
 
 type Severity = "All" | "High" | "Medium";
 type LiveSeverityFilter = "All" | LiveSignalSeverity;
@@ -184,6 +191,28 @@ export default function RavigaFindings() {
       (signalSeverity === "All" || s.severity === signalSeverity),
   );
 
+  // ── Diagnostic Signals (Raviga only, DB-backed structured evidence) ──────
+  // Distinct from the simulated Live Signals feed above: these are real
+  // per-pillar evidence records captured during pipeline scoring. The query
+  // never fires for any other tenant (enabled: isRaviga).
+  const { data: diagnosticData } = useGetRavigaSignals({
+    query: { queryKey: getGetRavigaSignalsQueryKey(), enabled: isRaviga },
+  });
+  const diagnosticSignals: SignalRecord[] = isRaviga ? (diagnosticData?.signals ?? []) : [];
+  const companyNameBySlug = useMemo(
+    () => new Map(companies.map((c) => [c.id, c.name])),
+    [companies],
+  );
+  const signalsByPillar = useMemo(() => {
+    const map = new Map<string, SignalRecord[]>();
+    for (const s of diagnosticSignals) {
+      const arr = map.get(s.pillarId) ?? [];
+      arr.push(s);
+      map.set(s.pillarId, arr);
+    }
+    return map;
+  }, [diagnosticSignals]);
+
   return (
     <TenantShell firm={firm}>
       {/* Header */}
@@ -237,6 +266,43 @@ export default function RavigaFindings() {
           {filtered.map((f) => (
             <FindingCard key={f.key} finding={f} firmSlug={firmSlug} />
           ))}
+        </div>
+      )}
+
+      {isRaviga && (
+        <div className="mt-10 border-t border-border pt-6">
+          <div className="mb-4">
+            <h2 className="text-lg font-bold text-foreground">Diagnostic Signals</h2>
+            <p className="mt-1 text-sm text-muted-foreground">
+              {diagnosticSignals.length} structured evidence record
+              {diagnosticSignals.length === 1 ? "" : "s"} captured during Phase 1 diagnostic
+              scoring · grouped by pillar
+            </p>
+          </div>
+          {diagnosticSignals.length === 0 ? (
+            <p className="py-6 text-center text-sm text-muted-foreground">
+              No structured diagnostic signals recorded yet. Signals are captured automatically
+              the next time this portfolio is scored.
+            </p>
+          ) : (
+            <div className="space-y-6">
+              {PILLARS.filter((p) => (signalsByPillar.get(p.id)?.length ?? 0) > 0).map((p) => (
+                <div key={p.id}>
+                  <h3 className="mb-2 text-sm font-semibold text-foreground">{p.name}</h3>
+                  <div className="grid grid-cols-1 gap-3 lg:grid-cols-2">
+                    {signalsByPillar.get(p.id)!.map((s) => (
+                      <DiagnosticSignalCard
+                        key={s.id}
+                        signal={s}
+                        companyName={companyNameBySlug.get(s.companySlug) ?? s.companySlug}
+                        companyHref={`/${firmSlug}/portfolio/${s.companySlug}`}
+                      />
+                    ))}
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
         </div>
       )}
 

@@ -1016,3 +1016,21 @@ curl -X POST https://<prod-domain>/api/admin/repair-assessments-dedup \
   - git diff --stat: 1 file changed, 7 deletions(-) — admin.ts only.
 
 ---
+
+## Signals: structured evidence capture (Raviga sandbox)
+
+- Date: 2026-07-16
+- Status: completed
+- Files changed: lib/db/src/schema/signals.ts (new), lib/db/src/schema/index.ts, lib/api-spec/openapi.yaml, generated api-client-react + api-zod outputs, artifacts/api-server/src/lib/jobs/scoring.ts, artifacts/api-server/src/lib/jobs/build.ts, artifacts/api-server/src/routes/portfolio.ts, artifacts/api-server/src/lib/deleteFirmCascade.ts, artifacts/cs-rescue/src/components/portfolio/DiagnosticSignals.tsx (new), artifacts/cs-rescue/src/pages/portfolio/RavigaFindings.tsx, artifacts/cs-rescue/src/pages/portfolio/PortfolioCompany.tsx
+- Validation: typecheck:libs PASS; api-server and cs-rescue typechecks PASS; verify-db-invariants PASSED (143 assessments, 1144 findings, 0 violations); pipeline-smoke-test PASSED; GET /api/portfolio/raviga/signals returns {"signals":[]} on the clean dev DB and full records with temporary QA rows (deleted after the visual check); /api/portfolio/stg/signals returns 404; Raviga company page verified rendering signal cards under their pillars via screenshot.
+- Republish needed: yes (new signals table reaches prod via the Publish schema auto-diff; no startup DDL)
+- QA notes:
+  - New signals table holds structured per-pillar evidence (assessment/company FKs, pillarId, source, dateObserved, url, direction, confidence, note). Evidence metadata only: nothing reads signals for composite/tier/denominator math, so scoring semantics are byte-identical.
+  - Scoring prompt now requests 0-4 signals per pillar with the never-fabricate rule, no named individuals, and no em-dashes; parsing is guard-only (malformed entries drop silently, a missing array yields zero signals, unknown sources normalize to "other"). A signals-free Claude response still scores normally.
+  - build.ts writes signals inside the same transaction as the assessment insert; the same-day re-score teardown deletes signals alongside the other FK children.
+  - GET /api/portfolio/raviga/signals is a literal-slug route, so every other tenant 404s by construction. Both frontend surfaces gate on isRaviga and pass enabled: isRaviga to the query, so STG/Pamlico/Long Arc/Solen make zero extra requests and render unchanged.
+  - Existing Raviga assessments predate the feature, so the Findings-page section shows an empty state until the next scoring run; backfilling historical signals is deliberately out of scope.
+  - Incidental repair during verification: build job 34 (Long Arc, run earlier today) had left assessments 155-157 without findings; ran backfill-unified-db (24 findings inserted) to restore the invariants gate. That fan-out is the documented post-build operational step and was not caused by this change.
+  - Architect review caught one blocking gap, fixed before completion: deleteFirmCascade.ts now deletes signals before findings/assessments (signals has plain FKs with no onDelete cascade), so DELETE /api/admin/firms/:id cannot 500 on any AI-onboarded firm scored after this ships.
+
+---

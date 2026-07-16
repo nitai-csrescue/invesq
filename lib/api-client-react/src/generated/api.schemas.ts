@@ -1421,6 +1421,48 @@ export interface SystemHealthReport {
   issues: SystemHealthFirmIssue[];
 }
 
+export type SignalRecordDirection =
+  (typeof SignalRecordDirection)[keyof typeof SignalRecordDirection];
+
+export const SignalRecordDirection = {
+  positive: "positive",
+  negative: "negative",
+  neutral: "neutral",
+} as const;
+
+export type SignalRecordConfidence =
+  (typeof SignalRecordConfidence)[keyof typeof SignalRecordConfidence];
+
+export const SignalRecordConfidence = {
+  High: "High",
+  Medium: "Medium",
+  Low: "Low",
+} as const;
+
+/**
+ * One structured evidence signal captured for a pillar during pipeline scoring. Evidence metadata only; never feeds composite/tier math.
+
+ */
+export interface SignalRecord {
+  id: number;
+  companySlug: string;
+  /** One of the 8 portfolio-engine pillar ids */
+  pillarId: string;
+  /** Where the signal was observed, e.g. "linkedin", "job_posting", "g2_capterra", "press", "crunchbase", "pitchbook", "company_site", "other"
+   */
+  source: string;
+  /** ISO date (YYYY-MM-DD) when the artifact is dated */
+  dateObserved?: string | null;
+  url?: string | null;
+  direction: SignalRecordDirection;
+  confidence: SignalRecordConfidence;
+  note: string;
+}
+
+export interface RavigaSignals {
+  signals: SignalRecord[];
+}
+
 export interface PortfolioBootstrap {
   asOfDate: string;
   firms: PortfolioBootstrapFirm[];

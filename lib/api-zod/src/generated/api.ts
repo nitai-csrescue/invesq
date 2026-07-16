@@ -904,6 +904,40 @@ export const GetPortfolioBootstrapResponse = zod.object({
 });
 
 /**
+ * Returns the structured per-pillar evidence signal records captured during pipeline scoring for every Raviga company, as a flat list keyed by companySlug + pillarId (clients group as needed). Raviga-only demo surface: no other firm slug has this route, so every other tenant 404s. Signals are evidence metadata only and never participate in composite/tier/denominator math.
+
+ * @summary Structured diagnostic signals for the Raviga sandbox tenant
+ */
+export const GetRavigaSignalsResponse = zod.object({
+  signals: zod.array(
+    zod
+      .object({
+        id: zod.number(),
+        companySlug: zod.string(),
+        pillarId: zod
+          .string()
+          .describe("One of the 8 portfolio-engine pillar ids"),
+        source: zod
+          .string()
+          .describe(
+            'Where the signal was observed, e.g. \"linkedin\", \"job_posting\", \"g2_capterra\", \"press\", \"crunchbase\", \"pitchbook\", \"company_site\", \"other\"\n',
+          ),
+        dateObserved: zod
+          .string()
+          .nullish()
+          .describe("ISO date (YYYY-MM-DD) when the artifact is dated"),
+        url: zod.string().nullish(),
+        direction: zod.enum(["positive", "negative", "neutral"]),
+        confidence: zod.enum(["High", "Medium", "Low"]),
+        note: zod.string(),
+      })
+      .describe(
+        "One structured evidence signal captured for a pillar during pipeline scoring. Evidence metadata only; never feeds composite\/tier math.\n",
+      ),
+  ),
+});
+
+/**
  * @summary List all firms with company counts, for the internal admin index
  */
 export const ListAdminFirmsResponseItem = zod.object({

@@ -1,5 +1,7 @@
 import { Router, type IRouter } from "express";
-import { GetPortfolioBootstrapResponse } from "@workspace/api-zod";
+import { and, asc, eq, isNotNull } from "drizzle-orm";
+import { db, companiesTable, firmsTable, signalsTable } from "@workspace/db";
+import { GetPortfolioBootstrapResponse, GetRavigaSignalsResponse } from "@workspace/api-zod";
 import { getPortfolioBootstrap } from "../lib/portfolioData.js";
 import {
   getCompanyWebsite,
@@ -25,6 +27,52 @@ router.get("/bootstrap", async (req, res) => {
   } catch (err) {
     req.log.error({ err }, "Portfolio bootstrap response failed schema validation");
     res.status(500).json({ error: "Portfolio bootstrap response invalid" });
+  }
+});
+
+// Structured diagnostic signals for the Raviga sandbox tenant ONLY. The path
+// is deliberately the literal slug (not /:firmSlug/signals): no other tenant
+// has this route, so stg/pamlico/longarc/solen 404 by construction rather
+// than by a runtime check. Public like the rest of the tenant demo surface.
+// Signals are evidence metadata only — nothing here feeds composite/tier
+// math. Registered before the /:firmSlug/... wildcard-style routes below so
+// "raviga" is never swallowed as a firm slug by a later pattern.
+router.get("/raviga/signals", async (req, res) => {
+  try {
+    const [firm] = await db
+      .select({ id: firmsTable.id })
+      .from(firmsTable)
+      .where(eq(firmsTable.slug, "raviga"))
+      .limit(1);
+    if (!firm) {
+      res.status(404).json({ error: "Raviga tenant not found" });
+      return;
+    }
+
+    const rows = await db
+      .select({
+        id: signalsTable.id,
+        companySlug: companiesTable.slug,
+        pillarId: signalsTable.pillarId,
+        source: signalsTable.source,
+        dateObserved: signalsTable.dateObserved,
+        url: signalsTable.url,
+        direction: signalsTable.direction,
+        confidence: signalsTable.confidence,
+        note: signalsTable.note,
+      })
+      .from(signalsTable)
+      .innerJoin(companiesTable, eq(signalsTable.companyId, companiesTable.id))
+      // slug is nullable in the schema; a slugless company can't be linked
+      // from the portal anyway, so its signals are excluded rather than
+      // failing response validation on a null companySlug.
+      .where(and(eq(companiesTable.firmId, firm.id), isNotNull(companiesTable.slug)))
+      .orderBy(asc(companiesTable.slug), asc(signalsTable.pillarId), asc(signalsTable.id));
+
+    res.json(GetRavigaSignalsResponse.parse({ signals: rows }));
+  } catch (err) {
+    req.log.error({ err }, "Failed to load Raviga diagnostic signals");
+    res.status(500).json({ error: "Failed to load signals" });
   }
 });
 
