@@ -3,7 +3,7 @@
 // from the repo-root BUILD-LOG.md as JSON, for external build-health checks.
 // ---------------------------------------------------------------------------
 import { Router, type IRouter } from "express";
-import { getLatestBuildLogEntry } from "../lib/buildLog.js";
+import { getLatestBuildLogEntry, getRecentBuildLogEntries } from "../lib/buildLog.js";
 
 const router: IRouter = Router();
 
@@ -22,6 +22,9 @@ router.get("/build-status", (_req, res) => {
     validation: entry.validation,
     republishNeeded: entry.republishNeeded,
     notes: entry.notes,
+    // Newest-first summaries of the last few entries so consumers can see
+    // recent history, not just the single latest entry.
+    recent: getRecentBuildLogEntries(5),
   });
 });
 

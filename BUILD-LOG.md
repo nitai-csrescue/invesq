@@ -1034,3 +1034,18 @@ curl -X POST https://<prod-domain>/api/admin/repair-assessments-dedup \
   - Architect review caught one blocking gap, fixed before completion: deleteFirmCascade.ts now deletes signals before findings/assessments (signals has plain FKs with no onDelete cascade), so DELETE /api/admin/firms/:id cannot 500 on any AI-onboarded firm scored after this ships.
 
 ---
+
+## CQ-3: /api/build-status stale-entry fix (live repo-root read + recent history)
+
+- Date: 2026-07-16
+- Status: completed
+- Files changed: artifacts/api-server/src/lib/buildLog.ts, artifacts/api-server/src/routes/buildStatus.ts
+- Validation: api-server typecheck PASS; GET /api/build-status returns the current latest entry with a recent[] array containing today's Signals and Notion-sync-upsert entries; git diff --stat shows only the two intended files; this very entry appearing in the endpoint without a server restart is the live-read proof.
+- Republish needed: yes (prod ships the fixed resolution order; prod still reads its publish-time snapshot by design since the repo root is not deployed)
+- QA notes:
+  - ROOT CAUSE: the dev workflow runs the esbuild bundle (build then start), and resolveBuildLogPath preferred the dist-adjacent BUILD-LOG.md snapshot copied at build time. Entries appended after the last rebuild were invisible to /api/build-status until the next restart, so the endpoint served whatever entry was latest at build time (the crash-loop entry when CQ-3 was filed).
+  - FIX: resolution order swapped to prefer the live repo-root BUILD-LOG.md (always current in dev) and fall back to the dist snapshot (deploys only, where the repo root is not shipped; fresh as of publish time).
+  - Added recent[] (date/task/status of the last 5 parseable entries, newest first) to the response so consumers see recent history, not just the single latest entry. Existing top-level fields unchanged for backward compatibility.
+  - Untouched: all tenant data, scoring engine, every route other than build-status, and all historical BUILD-LOG entries.
+
+---

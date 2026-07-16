@@ -26,13 +26,17 @@ export interface BuildLogEntry {
 function resolveBuildLogPath(): string | null {
   const bundleDir = path.dirname(fileURLToPath(import.meta.url));
   const candidates = [
-    // Preferred: the copy build.mjs places next to the bundle so it ships with
-    // the deploy (the repo-root file is not part of the deployed bundle, which
-    // is why /api/build-status 404s in production without this).
-    path.resolve(bundleDir, "./BUILD-LOG.md"),
-    // Fallback for non-bundled runs (e.g. tsx) and older layouts: the repo
-    // root, three levels up from artifacts/api-server/dist/index.mjs.
+    // Preferred: the LIVE repo-root file, three levels up from
+    // artifacts/api-server/dist/index.mjs. The dev workflow runs the bundled
+    // dist, so preferring the dist-adjacent snapshot (copied at build time)
+    // made /api/build-status serve stale entries in dev until the next
+    // rebuild. The repo root is always current when it exists.
     path.resolve(bundleDir, "../../../BUILD-LOG.md"),
+    // Fallback for deploys: the copy build.mjs places next to the bundle so
+    // it ships with the deploy (the repo-root file is not part of the
+    // deployed bundle, which is why /api/build-status 404s in production
+    // without this). Fresh as of publish time, which is the best prod can do.
+    path.resolve(bundleDir, "./BUILD-LOG.md"),
   ];
   for (const candidate of candidates) {
     if (existsSync(candidate)) return candidate;
@@ -77,16 +81,11 @@ function parseEntryBlock(block: string): BuildLogEntry | null {
   };
 }
 
-/**
- * Returns the most recently appended entry in BUILD-LOG.md, or null if the
- * file is missing or contains no parseable entry. Never throws — a missing
- * or malformed log must never take down the /api/build-status endpoint.
- */
-export function getLatestBuildLogEntry(): BuildLogEntry | null {
+function readEntryBlocks(): string[] {
   const filePath = resolveBuildLogPath();
   if (!filePath) {
     logger.warn("BUILD-LOG.md not found in any known location");
-    return null;
+    return [];
   }
 
   let content: string;
@@ -94,10 +93,19 @@ export function getLatestBuildLogEntry(): BuildLogEntry | null {
     content = readFileSync(filePath, "utf-8");
   } catch (err) {
     logger.warn({ err }, "BUILD-LOG.md not found or unreadable");
-    return null;
+    return [];
   }
 
-  const blocks = content.split(/\n-{3,}\n/).filter((b) => /^##\s+/m.test(b));
+  return content.split(/\n-{3,}\n/).filter((b) => /^##\s+/m.test(b));
+}
+
+/**
+ * Returns the most recently appended entry in BUILD-LOG.md, or null if the
+ * file is missing or contains no parseable entry. Never throws — a missing
+ * or malformed log must never take down the /api/build-status endpoint.
+ */
+export function getLatestBuildLogEntry(): BuildLogEntry | null {
+  const blocks = readEntryBlocks();
   // Return the most recent PARSEABLE entry, scanning from the end. Freeform
   // trailing blocks (missing the canonical "- Date:"/"- Status:" bullets that
   // parseEntryBlock requires) are skipped rather than 404ing the endpoint.
@@ -106,4 +114,26 @@ export function getLatestBuildLogEntry(): BuildLogEntry | null {
     if (entry) return entry;
   }
   return null;
+}
+
+export interface BuildLogEntrySummary {
+  date: string;
+  task: string;
+  status: string;
+}
+
+/**
+ * Returns summaries (date/task/status) of the most recent parseable entries,
+ * newest first. Same never-throws contract as getLatestBuildLogEntry.
+ */
+export function getRecentBuildLogEntries(limit = 5): BuildLogEntrySummary[] {
+  const blocks = readEntryBlocks();
+  const summaries: BuildLogEntrySummary[] = [];
+  for (let i = blocks.length - 1; i >= 0 && summaries.length < limit; i--) {
+    const entry = parseEntryBlock(blocks[i]!);
+    if (entry) {
+      summaries.push({ date: entry.date, task: entry.task, status: entry.status });
+    }
+  }
+  return summaries;
 }
