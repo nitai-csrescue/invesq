@@ -12,11 +12,15 @@
 //   renewal_expansion_score = combine(revenue, planning)
 //   (the "ai" pillar drops out of the v2 rubric)
 //
-// portco_score = plurality band across the row's 4 pillar values,
-// substituting Medium for any Insufficient Data pillar FOR THIS ROLLUP ONLY
-// (the stored per-pillar value stays "Insufficient Data"). An exact tie
-// between two bands resolves to the lower, more conservative band
-// (Low < Medium < High).
+// portco_score = numeric composite across the row's 4 pillar values:
+// each pillar maps Low=0 / Medium=1 / High=2, with Insufficient Data
+// substituting as Medium (1) FOR THIS SUM ONLY (the stored per-pillar value
+// stays "Insufficient Data"). Composite range is 0-8, banded
+// 0-2 Low, 3-5 Medium, 6-8 High.
+//
+// The previous plurality-based rollup (count bands, plurality wins, ties to
+// the lower band) is RETIRED as of the 2026-07-20 hard-gate sign-off; do not
+// reintroduce it anywhere.
 // ---------------------------------------------------------------------------
 import type { PillarScore } from "./types";
 
@@ -26,7 +30,7 @@ export type RubricValue = RubricBand | "Insufficient Data";
 export const RUBRIC_INSUFFICIENT: RubricValue = "Insufficient Data";
 export const RUBRIC_VERSION_V2 = "v2";
 
-// Conservative-first ordering used for tie-breaking and any band sorting.
+// Conservative-first ordering (Low < Medium < High) for band sorting/display.
 export const RUBRIC_BAND_ORDER: readonly RubricBand[] = ["Low", "Medium", "High"];
 
 /** single(x): NA -> Insufficient Data, 0 -> Low, 1 -> Medium, 2 -> High. */
@@ -54,20 +58,33 @@ export function combineToRubric(
 }
 
 /**
- * Plurality rollup across the 4 pillar values. Insufficient Data pillars
- * count as Medium for THIS calculation only. Exact ties resolve to the
- * lower (more conservative) band.
+ * Numeric points for one pillar value in the PortCo composite:
+ * Low=0, Medium=1, High=2. Insufficient Data substitutes as Medium (1)
+ * for THIS sum only; the pillar itself still displays as Insufficient Data.
+ */
+export function rubricValueToPoints(v: RubricValue): number {
+  if (v === "Low") return 0;
+  if (v === "High") return 2;
+  // Medium and Insufficient Data both contribute 1.
+  return 1;
+}
+
+/** PortCo composite = sum of the 4 pillar point values. Range 0-8. */
+export function computePortcoComposite(pillarValues: readonly RubricValue[]): number {
+  return pillarValues.reduce((sum, v) => sum + rubricValueToPoints(v), 0);
+}
+
+/** Band the 0-8 composite: 0-2 Low, 3-5 Medium, 6-8 High. */
+export function portcoBandFromComposite(composite: number): RubricBand {
+  return composite <= 2 ? "Low" : composite <= 5 ? "Medium" : "High";
+}
+
+/**
+ * PortCo Score rollup: numeric composite of the 4 pillar values (see
+ * rubricValueToPoints), banded 0-2 Low / 3-5 Medium / 6-8 High.
  */
 export function computePortcoScore(pillarValues: readonly RubricValue[]): RubricBand {
-  const counts: Record<RubricBand, number> = { Low: 0, Medium: 0, High: 0 };
-  for (const v of pillarValues) {
-    const band: RubricBand = v === "Insufficient Data" ? "Medium" : v;
-    counts[band] += 1;
-  }
-  const max = Math.max(counts.Low, counts.Medium, counts.High);
-  // RUBRIC_BAND_ORDER is conservative-first, so the first band at max count
-  // is the tie-broken winner.
-  return RUBRIC_BAND_ORDER.find((b) => counts[b] === max) as RubricBand;
+  return portcoBandFromComposite(computePortcoComposite(pillarValues));
 }
 
 export interface RubricV2Scores {

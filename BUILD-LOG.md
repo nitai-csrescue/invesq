@@ -1069,3 +1069,19 @@ curl -X POST https://<prod-domain>/api/admin/repair-assessments-dedup \
   - Frontend cutover limited to the 3 tenant routes (/:firmSlug/portfolio, /:firmSlug/portfolio/:company, .../report). Removed the ForecastSection and the weighted-score chip from the company page; composite ring replaced by the PortCo band ring; trend chart now renders band steps (Low/Medium/High).
   - report_exports / PDF pipeline and every non-tenant surface still read p1-p8; no RUBRIC_VERSION bump needed (report cache untouched).
   - Build pipeline writes the v2 columns on every new assessment (jobs/build.ts); bootstrap ships stored values and the client falls back to computeRubricV2() when they are absent -- so prod renders correctly after Republish even before any prod backfill.
+
+---
+
+## PortCo Score rollup change -- plurality retired, numeric composite adopted (hard-gate sign-off)
+- Date: 2026-07-20 22:59 UTC
+- Status: complete in dev; Republish pending explicit user confirmation
+- Files changed: lib/portfolio-engine/src/rubricV2.ts (computePortcoScore rewritten; new rubricValueToPoints / computePortcoComposite / portcoBandFromComposite), lib/portfolio-engine/src/index.ts (barrel exports), FIRM-ONBOARDING.md (rollup description), BUILD-LOG.md
+- Validation: typecheck PASS (libs, api-server, cs-rescue); verify-db-invariants PASS; pipeline-smoke-test PASS; dev backfill re-run 143/143 rows; read-only prod replica diff completed
+- Republish needed: yes
+- QA notes:
+  - NEW logic (signed off by Nitai + Jay): each pillar value maps Low=0 / Medium=1 / High=2; Insufficient Data substitutes as Medium (1) for the sum ONLY (pillar still displays Insufficient Data); composite = sum of the 4 pillar values (range 0-8); band 0-2 Low, 3-5 Medium, 6-8 High.
+  - OLD plurality logic (count bands, plurality wins, ties to lower band) fully RETIRED. computePortcoScore in rubricV2.ts is the single implementation; grep confirms no other code path computes a PortCo band (backfill script, jobs/build.ts, client resolveRubric fallback all route through computeRubricV2).
+  - Pillar-level Low/Medium/High values, p1-p8 legacy columns, and all UI besides the PortCo band derivation untouched.
+  - Dev DB re-backfilled with the new rollup: portco distribution moved from H8/L67/M68 to High=21 / Low=67 / Medium=55 (143 rows); the 4 pillar distributions are byte-identical to the Phase 2 entry (mapping unchanged).
+  - Prod read-only replica diff (187 assessment rows, NOT 143 -- prod carries more assessment history than dev): old plurality dist L86/M92/H9 vs new composite dist L84/M82/H21; 14 rows flip bands (12 Medium->High, 2 Low->Medium; no downgrades). Flip detail reported in chat.
+  - Prod rows still carry OLD stored portco_score values (or NULLs); after Republish the client fallback computes the new band for rows without stored values, and stored prod values follow via the established idempotent-startup-routine convention if/when requested.

@@ -28,3 +28,4 @@
 - [Deployment-pane secrets vs workspace store](deployment-secret-vs-workspace-store.md) — a secret "set" in Publishing settings can be invisible to the running server & viewEnvVars; put it in the shared workspace store + Republish.
 - [Light-canvas inherited color](light-canvas-inherited-color.md) — in a force-dark app, a light scope must re-declare `color`, not just CSS variables, or inherit-color buttons go white-on-white.
 - [FK child tables and delete paths](fk-child-table-delete-paths.md) — a new FK child table breaks every delete path not updated with it; empty-table gates cannot catch the gap.
+- [Stored derived scores go stale](derived-score-staleness.md) — formula changes need stored-row rewrites per environment; fallbacks that prefer stored values keep serving old results.

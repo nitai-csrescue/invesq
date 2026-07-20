@@ -30,7 +30,7 @@ The tenant portal routes (`/<firmSlug>/portfolio`, `/<firmSlug>/portfolio/<compa
 | Health Scoring | combine(health, escalation) |
 | Renewal & Expansion | combine(revenue, planning) |
 
-The `ai` pillar drops out of the v2 rubric. The **PortCo Score** is the plurality band across the 4 pillar values; "Insufficient Data" counts as Medium for the rollup only (the stored pillar value stays "Insufficient Data"), and an exact tie resolves to the lower, more conservative band.
+The `ai` pillar drops out of the v2 rubric. The **PortCo Score** is a numeric composite of the 4 pillar values: each pillar maps Low=0 / Medium=1 / High=2, with "Insufficient Data" substituting as Medium (1) for this sum only (the stored pillar value stays "Insufficient Data"). The composite (range 0-8) is banded 0-2 Low, 3-5 Medium, 6-8 High. The earlier plurality-based rollup is retired; do not reintroduce it.
 
 **Onboarding input is unchanged**: you still author all 8 pillar scores exactly as described below. The mapping lives in exactly one place, `computeRubricV2()` in `lib/portfolio-engine/src/rubricV2.ts` -- never re-implement the bucketing. DB-backed tenants store the result in additive `assessments` columns (`org_design_score`, `onboarding_score`, `health_scoring_score`, `renewal_expansion_score`, `portco_score`, `rubric_version`); the portal falls back to computing the rubric client-side when stored values are absent. Reports/PDF export and every non-tenant surface still read the 8-pillar scores.
 
