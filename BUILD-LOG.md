@@ -1085,3 +1085,16 @@ curl -X POST https://<prod-domain>/api/admin/repair-assessments-dedup \
   - Dev DB re-backfilled with the new rollup: portco distribution moved from H8/L67/M68 to High=21 / Low=67 / Medium=55 (143 rows); the 4 pillar distributions are byte-identical to the Phase 2 entry (mapping unchanged).
   - Prod read-only replica diff (187 assessment rows, NOT 143 -- prod carries more assessment history than dev): old plurality dist L86/M92/H9 vs new composite dist L84/M82/H21; 14 rows flip bands (12 Medium->High, 2 Low->Medium; no downgrades). Flip detail reported in chat.
   - Prod rows still carry OLD stored portco_score values (or NULLs); after Republish the client fallback computes the new band for rows without stored values, and stored prod values follow via the established idempotent-startup-routine convention if/when requested.
+
+---
+
+## Prod cutover prep: idempotent startup refresh of stored rubric-v2 values
+- Date: 2026-07-20 23:14 UTC
+- Status: complete in dev; Republish approved by user, pending Publish click
+- Files changed: artifacts/api-server/src/lib/backfillRubricV2.ts (new), artifacts/api-server/src/index.ts (boot wiring), BUILD-LOG.md
+- Validation: api-server typecheck PASS; verify-db-invariants PASS; pipeline-smoke-test PASS; dev boot log shows "rubric v2 stored values already current; no refresh needed (total: 143)" proving the no-op/idempotency path
+- Republish needed: yes
+- QA notes:
+  - backfillRubricV2() runs on every boot: recomputes the six rubric columns (org_design/onboarding/health_scoring/renewal_expansion/portco + rubric_version) for every assessments row from stored p1..p8 via the single shared computeRubricV2(); updates ONLY rows whose stored values differ, so it no-ops once refreshed. p1..p8 and evidence are read-only. Non-fatal on error (logged, never crashes boot), mirroring backfillNormalizedNames.
+  - On first prod boot after Republish it will refresh all stale/NULL prod rows (187 total), including the 14 whose PortCo band flips under the composite formula; the boot log line "rubric v2 stored-value refresh complete" reports total/updated/portcoBandChanged.
+  - Post-publish verification plan: prod replica query of the 14 flip rows' stored portco_score + spot check Tinubu (Long Arc, High 6/8), EHS Insight (Pamlico, Medium 3/8), Nomis Solutions (STG, Medium 3/8) on the live tenant portal.
