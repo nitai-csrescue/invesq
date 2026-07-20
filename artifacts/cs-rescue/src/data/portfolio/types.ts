@@ -1,6 +1,7 @@
 // ---------------------------------------------------------------------------
 // Portfolio data layer — shared TypeScript types
 // ---------------------------------------------------------------------------
+import type { RubricBand, RubricV2Scores } from "@workspace/portfolio-engine";
 
 // 0 = Infrastructure Gap · 1 = Partial/Developing · 2 = Optimized · null = Insufficient Data (NA)
 export type PillarScore = 0 | 1 | 2 | null;
@@ -14,6 +15,10 @@ export interface Assessment {
   date: string;                              // ISO date string e.g. "2026-06-04"
   pillarScores: Record<string, PillarScore>; // all 8 pillars must be present
   note?: string;                             // optional narrative for this diagnostic run
+  // Rubric v2 (4-pillar Low/Medium/High) — DB-stored, shipped via bootstrap.
+  // Optional so legacy payloads degrade gracefully; resolveRubric() falls
+  // back to computing it from pillarScores.
+  rubric?: RubricV2Scores;
 }
 
 // A single data point on the company's composite trend — one per assessment,
@@ -163,6 +168,13 @@ export interface Company extends RawCompany {
   weightedMax: number;       // weighted max given scored pillars
   insufficientCount: number; // pillars marked Insufficient Data (NA)
   tier: Tier;
+  // Rubric v2 (display cutover) — resolved from the latest assessment
+  // (stored value, else computed). Never absent: every company always has
+  // a portco band to render.
+  rubric: RubricV2Scores;
+  // One point per assessment for band trend displays (conservative-first
+  // ordinal derives from band via portcoOrdinal()).
+  rubricPoints: { date: string; band: RubricBand }[];
   gaps: GapItem[];           // ranked biggest weighted gap first (excludes NA pillars)
   topGap: GapItem | null;
   // ARR range × tier risk midpoint. null when ARR is undisclosed.

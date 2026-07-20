@@ -1,7 +1,7 @@
 import { Link, useRoute } from "wouter";
 import { TenantShell } from "@/components/portfolio/TenantShell";
 import { RavigaCompanyList } from "./RavigaCompanyList";
-import { PILLAR_MAX, getFirm, getFirmCompanies, getFirmSummary } from "@/data/portfolio";
+import { getFirm, getFirmCompanies, getFirmSummary } from "@/data/portfolio";
 
 function FirmNotFound() {
   return (
@@ -42,20 +42,13 @@ export default function PortfolioDashboard() {
   if (!summary) return <FirmDataUnavailable />;
 
   const isRaviga = firmSlug === "raviga";
-  const attentionCount = companies.filter((c) => c.tier.id <= 2).length;
+  const bandCounts = {
+    Low: companies.filter((c) => c.rubric.portcoScore === "Low").length,
+    Medium: companies.filter((c) => c.rubric.portcoScore === "Medium").length,
+    High: companies.filter((c) => c.rubric.portcoScore === "High").length,
+  };
+  const attentionCount = bandCounts.Low;
   const openFindings = companies.reduce((s, c) => s + c.gaps.length, 0);
-  const scoredCompanies = companies.filter((c) => c.displayMax > 0);
-  const avgNorm =
-    scoredCompanies.length > 0
-      ? Math.round(
-          (scoredCompanies.reduce(
-            (s, c) => s + (c.composite / c.displayMax) * PILLAR_MAX,
-            0,
-          ) /
-            scoredCompanies.length) *
-            10,
-        ) / 10
-      : 0;
 
   return (
     <TenantShell firm={firm}>
@@ -123,14 +116,15 @@ export default function PortfolioDashboard() {
           </div>
         </div>
         <div className="rounded-xl border border-border bg-card p-5 shadow-sm">
-          <div className="text-3xl font-bold text-foreground">
-            {avgNorm.toFixed(1)}
-            <span className="ml-1 text-base font-normal text-muted-foreground"> / {PILLAR_MAX}</span>
+          <div className="flex items-baseline gap-2.5 text-3xl font-bold">
+            <span className="text-rose-400">{bandCounts.Low}</span>
+            <span className="text-amber-400">{bandCounts.Medium}</span>
+            <span className="text-emerald-400">{bandCounts.High}</span>
           </div>
           <div className="mt-1.5 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
-            Avg Composite
+            PortCo Score Mix
           </div>
-          <div className="mt-0.5 text-[10px] text-muted-foreground/70">higher is better</div>
+          <div className="mt-0.5 text-[10px] text-muted-foreground/70">Low / Medium / High</div>
         </div>
         <div className="rounded-xl border border-border bg-card p-5 shadow-sm">
           <div
@@ -141,7 +135,7 @@ export default function PortfolioDashboard() {
           <div className="mt-1.5 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
             Need Attention
           </div>
-          <div className="mt-0.5 text-[10px] text-muted-foreground/70">Tier 1 &amp; 2 companies</div>
+          <div className="mt-0.5 text-[10px] text-muted-foreground/70">Low PortCo Score</div>
         </div>
         <div className="rounded-xl border border-border bg-card p-5 shadow-sm">
           <div className="text-3xl font-bold text-foreground">{openFindings}</div>

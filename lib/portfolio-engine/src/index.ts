@@ -41,6 +41,21 @@ export {
 export { PILLAR_IDS, scoreToText, textToScore, normalizeCompanyName } from "./mapping";
 
 export {
+  RUBRIC_INSUFFICIENT,
+  RUBRIC_VERSION_V2,
+  RUBRIC_BAND_ORDER,
+  RUBRIC_PILLARS,
+  singleToRubric,
+  combineToRubric,
+  computePortcoScore,
+  computeRubricV2,
+  type RubricBand,
+  type RubricValue,
+  type RubricV2Scores,
+  type RubricPillarDef,
+} from "./rubricV2";
+
+export {
   AS_OF_DATE,
   buildCompany,
   computeIcpFit,

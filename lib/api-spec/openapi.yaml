@@ -2966,6 +2966,40 @@ components:
         - date
         - label
 
+    PortfolioRubricScores:
+      type: object
+      description: >
+        Rubric v2 (Phase 2) — 4-pillar Low/Medium/High fields stored on the
+        assessment row. Computed exclusively via computeRubricV2() in
+        @workspace/portfolio-engine; clients read these stored values, never
+        re-derive them ad hoc. portcoScore never carries Insufficient Data
+        (the rollup substitutes Medium for ID pillars).
+      properties:
+        orgDesignScore:
+          type: string
+          enum: [Low, Medium, High, Insufficient Data]
+        onboardingScore:
+          type: string
+          enum: [Low, Medium, High, Insufficient Data]
+        healthScoringScore:
+          type: string
+          enum: [Low, Medium, High, Insufficient Data]
+        renewalExpansionScore:
+          type: string
+          enum: [Low, Medium, High, Insufficient Data]
+        portcoScore:
+          type: string
+          enum: [Low, Medium, High]
+        rubricVersion:
+          type: string
+      required:
+        - orgDesignScore
+        - onboardingScore
+        - healthScoringScore
+        - renewalExpansionScore
+        - portcoScore
+        - rubricVersion
+
     PortfolioAssessment:
       type: object
       description: A single diagnostic run for a company. The company's current state always derives from the LATEST assessment in the array.
@@ -2978,6 +3012,8 @@ components:
           additionalProperties:
             type: [integer, "null"]
             enum: [0, 1, 2, null]
+        rubric:
+          $ref: "#/components/schemas/PortfolioRubricScores"
         note:
           type: string
       required:

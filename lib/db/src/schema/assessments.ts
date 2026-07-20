@@ -34,6 +34,20 @@ export const assessmentsTable = pgTable(
     // for every row today, same reasoning/deferral as companies.sourceJobId
     // above — wiring this into build.ts's insert call is Phase 5 scope.
     sourceJobId: integer("source_job_id").references(() => jobsTable.id),
+    // ── Rubric v2 (Phase 2, additive) ──────────────────────────────────────
+    // 4-pillar Low/Medium/High rubric. Values: "Low" | "Medium" | "High" |
+    // "Insufficient Data" (portco_score never stores Insufficient Data — the
+    // rollup substitutes Medium for ID pillars). Computed exclusively via
+    // computeRubricV2() in @workspace/portfolio-engine (rubricV2.ts); the
+    // legacy p1-p8 columns above remain untouched until Phase 3 cleanup.
+    orgDesignScore: text("org_design_score"),
+    onboardingScore: text("onboarding_score"),
+    healthScoringScore: text("health_scoring_score"),
+    renewalExpansionScore: text("renewal_expansion_score"),
+    portcoScore: text("portco_score"),
+    // "v1" = pre-migration row shape; "v2" = new columns populated (backfill
+    // or any post-migration write path).
+    rubricVersion: text("rubric_version").notNull().default("v1"),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   },
   (table) => [

@@ -23,6 +23,8 @@ import {
   type PortfolioBootstrap,
   type PortfolioBootstrapFirm,
   type RawCompany,
+  type RubricBand,
+  type RubricValue,
 } from "@workspace/portfolio-engine";
 import { LEGACY_FIRMS_META } from "@workspace/portfolio-engine/data";
 import { logger } from "./logger.js";
@@ -50,7 +52,25 @@ function rowToAssessment(row: AssessmentRow): Assessment {
   PILLAR_IDS.forEach((pillarId, i) => {
     pillarScores[pillarId] = textToScore(cols[i]);
   });
-  return { date: row.date, pillarScores };
+  // Rubric v2 (Phase 2): ship the STORED fields when the row carries them all
+  // (backfilled or pipeline-written rows). Rows without them (none today)
+  // simply omit `rubric`; clients degrade via the shared computeRubricV2().
+  const rubric =
+    row.orgDesignScore && row.onboardingScore && row.healthScoringScore &&
+    row.renewalExpansionScore && row.portcoScore
+      ? {
+          // DB boundary cast: these text columns are only ever written by
+          // computeRubricV2() (backfill + build pipeline), so the value space
+          // is the RubricValue/RubricBand unions by construction.
+          orgDesignScore: row.orgDesignScore as RubricValue,
+          onboardingScore: row.onboardingScore as RubricValue,
+          healthScoringScore: row.healthScoringScore as RubricValue,
+          renewalExpansionScore: row.renewalExpansionScore as RubricValue,
+          portcoScore: row.portcoScore as RubricBand,
+          rubricVersion: row.rubricVersion,
+        }
+      : undefined;
+  return { date: row.date, pillarScores, ...(rubric ? { rubric } : {}) };
 }
 
 async function load(): Promise<PortfolioLoadResult> {

@@ -19,6 +19,23 @@ The engine pre-computes all derived values (composites, tiers, gaps, rollups, as
 
 ---
 
+## Rubric v2 display layer (Phase 2)
+
+The tenant portal routes (`/<firmSlug>/portfolio`, `/<firmSlug>/portfolio/<companySlug>`, and the report page) display a **4-pillar Low/Medium/High rubric** instead of the raw 0-16 composite:
+
+| v2 pillar | Derived from (8-pillar ids) |
+|---|---|
+| Org Design | combine(org, leadership) |
+| Onboarding | single(onboarding) |
+| Health Scoring | combine(health, escalation) |
+| Renewal & Expansion | combine(revenue, planning) |
+
+The `ai` pillar drops out of the v2 rubric. The **PortCo Score** is the plurality band across the 4 pillar values; "Insufficient Data" counts as Medium for the rollup only (the stored pillar value stays "Insufficient Data"), and an exact tie resolves to the lower, more conservative band.
+
+**Onboarding input is unchanged**: you still author all 8 pillar scores exactly as described below. The mapping lives in exactly one place, `computeRubricV2()` in `lib/portfolio-engine/src/rubricV2.ts` -- never re-implement the bucketing. DB-backed tenants store the result in additive `assessments` columns (`org_design_score`, `onboarding_score`, `health_scoring_score`, `renewal_expansion_score`, `portco_score`, `rubric_version`); the portal falls back to computing the rubric client-side when stored values are absent. Reports/PDF export and every non-tenant surface still read the 8-pillar scores.
+
+---
+
 ## Step 1 — Add the firm to the registry
 
 Edit **`artifacts/cs-rescue/src/data/portfolio/firms.ts`** and append a `Firm` object:

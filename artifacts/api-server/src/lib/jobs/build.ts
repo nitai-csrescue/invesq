@@ -19,8 +19,11 @@ import {
   PILLARS,
   scoreToText,
   getTier,
+  computeRubricV2,
+  RUBRIC_VERSION_V2,
   type CompanyMeta,
   type FirmMeta,
+  type PillarScore,
 } from "@workspace/portfolio-engine";
 import { logger } from "../logger.js";
 import { writeDiagnosticToNotion } from "../notion.js";
@@ -105,6 +108,22 @@ async function scoreAndPersistCompany(company: Company, firm: Firm): Promise<Com
     assessmentValues[`p${n}`] = scoreToText(result.score === "Insufficient Data" ? null : result.score);
     assessmentValues[`p${n}Evidence`] = result.evidence;
   });
+
+  // Rubric v2 (Phase 2): every newly created assessment also carries the
+  // 4-pillar Low/Medium/High fields, computed via the single shared
+  // implementation in @workspace/portfolio-engine — never inline math here.
+  const pillarScoresById: Record<string, PillarScore> = {};
+  for (const pillar of PILLARS) {
+    const result = pillarResults[pillar.id]!;
+    pillarScoresById[pillar.id] = result.score === "Insufficient Data" ? null : result.score;
+  }
+  const rubric = computeRubricV2(pillarScoresById);
+  assessmentValues.orgDesignScore = rubric.orgDesignScore;
+  assessmentValues.onboardingScore = rubric.onboardingScore;
+  assessmentValues.healthScoringScore = rubric.healthScoringScore;
+  assessmentValues.renewalExpansionScore = rubric.renewalExpansionScore;
+  assessmentValues.portcoScore = rubric.portcoScore;
+  assessmentValues.rubricVersion = RUBRIC_VERSION_V2;
 
   // Postgres is the source of truth — this write must succeed for the
   // company's scoring to count as done, regardless of what happens with Notion.

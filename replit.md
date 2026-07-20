@@ -97,6 +97,7 @@ Async two-job pipeline (`api-server/src/lib/jobs/{discovery,build}.ts`) backed b
 
 Postgres (Replit built-in) via `@workspace/db` (Drizzle). Tables: `users`, `sessions`, `firms`, `companies`, `assessments`, `findings`, `report_exports`, `jobs`.
 
+- **Rubric v2 (Phase 2)**: additive `assessments` columns `org_design_score` / `onboarding_score` / `health_scoring_score` / `renewal_expansion_score` / `portco_score` + `rubric_version` ("v1"/"v2"). Single mapping implementation: `computeRubricV2()` in `@workspace/portfolio-engine` (rubricV2.ts); never re-implement the bucketing. The 3 tenant portal routes display this 4-pillar Low/Medium/High rubric (stored values via bootstrap, client-side fallback when absent); p1-p8 and the report_exports/PDF pipeline are unchanged and still read 8-pillar scores.
 - **Invariants gate**: `verify-db-invariants` checks findings completeness, dedup, report composite recompute, FK integrity. Run after any pipeline/schema change; must PASS.
 - **Prod schema**: the Publish flow auto-diffs dev-vs-prod schema and applies it. Never add startup DDL or custom prod migration scripts — make the change in dev and republish.
 - **Prod data**: the agent cannot write prod directly. Additive/idempotent fixes ride an idempotent startup routine + Republish; destructive repairs need the two-Publish dance (`.agents/memory/prod-data-repair-two-publish.md`).

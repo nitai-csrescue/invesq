@@ -860,6 +860,39 @@ export const GetPortfolioBootstrapResponse = zod.object({
                     .describe(
                       "Keyed by pillar id; all 8 pillars must be present. 0\/1\/2 = scored, null = Insufficient Data (NA).",
                     ),
+                  rubric: zod
+                    .object({
+                      orgDesignScore: zod.enum([
+                        "Low",
+                        "Medium",
+                        "High",
+                        "Insufficient Data",
+                      ]),
+                      onboardingScore: zod.enum([
+                        "Low",
+                        "Medium",
+                        "High",
+                        "Insufficient Data",
+                      ]),
+                      healthScoringScore: zod.enum([
+                        "Low",
+                        "Medium",
+                        "High",
+                        "Insufficient Data",
+                      ]),
+                      renewalExpansionScore: zod.enum([
+                        "Low",
+                        "Medium",
+                        "High",
+                        "Insufficient Data",
+                      ]),
+                      portcoScore: zod.enum(["Low", "Medium", "High"]),
+                      rubricVersion: zod.string(),
+                    })
+                    .optional()
+                    .describe(
+                      "Rubric v2 (Phase 2) — 4-pillar Low\/Medium\/High fields stored on the assessment row. Computed exclusively via computeRubricV2() in @workspace\/portfolio-engine; clients read these stored values, never re-derive them ad hoc. portcoScore never carries Insufficient Data (the rollup substitutes Medium for ID pillars).\n",
+                    ),
                   note: zod.string().optional(),
                 })
                 .describe(

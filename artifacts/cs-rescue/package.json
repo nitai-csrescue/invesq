@@ -14,6 +14,7 @@
     "normalize-name-matrix": "tsx ./scripts/normalize-name-matrix.ts",
     "dedup-repair-companies": "tsx ./scripts/dedup-repair-companies.ts",
     "backfill-unified-db": "tsx ./scripts/backfill-unified-db.ts",
+    "backfill-rubric-v2": "tsx ./scripts/backfill-rubric-v2.ts",
     "verify-db-invariants": "tsx ./scripts/verify-db-invariants.ts",
     "pipeline-smoke-test": "tsx ./scripts/pipeline-smoke-test.ts"
   },

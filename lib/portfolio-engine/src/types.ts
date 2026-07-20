@@ -10,9 +10,28 @@ export type PillarScore = 0 | 1 | 2 | null;
 // The company's current state always derives from the LATEST assessment.
 // Appending a new assessment = performing a re-run.
 // ---------------------------------------------------------------------------
+// Rubric v2 (Phase 2) — stored 4-pillar Low/Medium/High fields riding on the
+// assessment. Optional while v1 rows may still exist; when present, clients
+// display these stored values instead of re-deriving them.
+// Type-only import from ./rubricV2 (which imports PillarScore from here) —
+// safe: the cycle is erased at compile time.
+import type { RubricBand, RubricValue } from "./rubricV2";
+
+export interface AssessmentRubric {
+  orgDesignScore: RubricValue;
+  onboardingScore: RubricValue;
+  healthScoringScore: RubricValue;
+  renewalExpansionScore: RubricValue;
+  portcoScore: RubricBand;
+  // Optional so client-side RubricV2Scores (which omits it) stays mutually
+  // assignable; every DB row carries it (NOT NULL, default "v1").
+  rubricVersion?: string;
+}
+
 export interface Assessment {
   date: string;                              // ISO date string e.g. "2026-06-04"
   pillarScores: Record<string, PillarScore>; // all 8 pillars must be present
+  rubric?: AssessmentRubric;                 // rubric v2 stored fields (Phase 2)
   note?: string;                             // optional narrative for this diagnostic run
 }
 

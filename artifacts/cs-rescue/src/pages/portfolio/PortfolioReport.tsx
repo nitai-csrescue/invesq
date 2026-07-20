@@ -6,11 +6,12 @@ import { PillarScorecard } from "@/components/portfolio/PillarScorecard";
 import { TenantExportButton } from "@/components/portfolio/TenantExportButton";
 import {
   AS_OF_DATE,
-  PILLAR_MAX,
+  RUBRIC_PILLARS,
   formatDate,
   gapTitle,
   getFirm,
   getFirmCompany,
+  rubricBandMeta,
   scoreLevel,
   type Firm,
 } from "@/data/portfolio";
@@ -65,6 +66,10 @@ export default function PortfolioReport() {
   }
 
   const { tier } = company;
+  const bandMeta = rubricBandMeta(company.rubric.portcoScore);
+  const idCount = RUBRIC_PILLARS.filter(
+    (p) => company.rubric[p.key] === "Insufficient Data",
+  ).length;
 
   return (
     <TenantShell firm={firm}>
@@ -90,33 +95,22 @@ export default function PortfolioReport() {
             </p>
             <div className="mt-3 flex flex-wrap items-center gap-1.5">
               <span
-                className={`inline-flex items-center rounded-full border px-2.5 py-0.5 text-[11px] font-medium ${tier.badgeClass}`}
+                className={`inline-flex items-center rounded-full border px-2.5 py-0.5 text-[11px] font-medium ${bandMeta.badgeClass}`}
               >
-                Tier {tier.id} · {tier.label}
+                PortCo Score · {company.rubric.portcoScore}
               </span>
               <ConfidenceBadge confidence={company.confidence} />
             </div>
           </div>
           <div className="text-left lg:text-right">
-            <div className="text-[10px] uppercase tracking-wider text-muted-foreground">Phase 1 composite</div>
-            <div className="font-mono text-5xl font-bold leading-none" style={{ color: tier.color }}>
-              {company.compositeDisplay}
-              {company.displayMax > 0 ? (
-                <>
-                  <span className="text-lg text-muted-foreground"> / {company.displayMax}</span>
-                  {company.insufficientCount > 0 && (
-                    <span className="text-sm text-muted-foreground/50"> (of {PILLAR_MAX})</span>
-                  )}
-                </>
-              ) : (
-                <span className="text-lg text-muted-foreground"> Insufficient Data</span>
-              )}
+            <div className="text-[10px] uppercase tracking-wider text-muted-foreground">PortCo Score</div>
+            <div className="text-5xl font-bold leading-none" style={{ color: bandMeta.color }}>
+              {company.rubric.portcoScore}
             </div>
-            {company.insufficientCount > 0 && (
+            <p className="mt-1.5 text-[11px] text-muted-foreground">{bandMeta.description}</p>
+            {idCount > 0 && (
               <p className="mt-1.5 text-[11px] text-amber-300/80">
-                {company.insufficientCount}{" "}
-                {company.insufficientCount === 1 ? "pillar" : "pillars"} marked Insufficient Data — excluded from
-                the composite, reducing the max from {PILLAR_MAX} to {company.displayMax}.
+                {idCount} of 4 pillars marked Insufficient Data; scored pillars drive the rating.
               </p>
             )}
           </div>
@@ -128,7 +122,7 @@ export default function PortfolioReport() {
           <MetaItem label="ARR" value={company.arrDisplay} />
           <MetaItem label="Headcount" value={company.employeesDisplay} />
           <MetaItem label="Est. ARR at risk" value={company.arrAtRiskDisplay} />
-          <MetaItem label="Framework" value={`8 pillars · 0–${PILLAR_MAX}`} />
+          <MetaItem label="Framework" value="4 pillars · Low / Medium / High" />
         </div>
       </div>
 
@@ -143,11 +137,7 @@ export default function PortfolioReport() {
       </div>
 
       {/* Pillar scorecard */}
-      <PillarScorecard
-        scores={company.scores}
-        compositeDisplay={company.compositeDisplay}
-        displayMax={company.displayMax}
-      />
+      <PillarScorecard rubric={company.rubric} />
 
       {/* Priority findings */}
       <div className="mt-4 rounded-xl border border-border bg-card p-6">
@@ -155,7 +145,7 @@ export default function PortfolioReport() {
           <TrendingDown className="h-4 w-4 text-rose-400" /> Priority findings
         </h2>
         <p className="mt-0.5 text-xs text-muted-foreground">
-          Ranked by weighted gap severity — (2 − score) × pillar weight
+          Ranked by severity of the underlying diagnostic gap
         </p>
         <div className="mt-4 space-y-3">
           {company.gaps.slice(0, 4).map((g, i) => (
@@ -205,14 +195,14 @@ export default function PortfolioReport() {
         <p className="mt-2 text-xs text-muted-foreground">
           {company.arrAtRiskRange ? (
             <>
-              Tier {tier.id} companies typically carry {tier.arrRisk}, reflecting typical churn and
-              contraction patterns at this diagnostic tier rather than a company-specific forecast — for{" "}
+              Companies at this diagnostic level typically carry {tier.arrRisk}, reflecting typical churn
+              and contraction patterns at this level rather than a company-specific forecast; for{" "}
               {company.name}, an estimated {company.arrAtRiskDisplay} of {company.arrDisplay} ARR.
             </>
           ) : (
             <>
-              Tier {tier.id} companies typically carry {tier.arrRisk}, reflecting typical churn and
-              contraction patterns at this diagnostic tier rather than a company-specific forecast.{" "}
+              Companies at this diagnostic level typically carry {tier.arrRisk}, reflecting typical churn
+              and contraction patterns at this level rather than a company-specific forecast.{" "}
               {company.name}&apos;s ARR is undisclosed, so no dollar estimate is shown.
             </>
           )}
@@ -226,15 +216,18 @@ export default function PortfolioReport() {
         </h2>
         <ul className="mt-3 space-y-2 text-xs leading-relaxed text-muted-foreground">
           <li>
-            Phase 1 scores each of the 8 pillars 0–2 using external public signals only (LinkedIn, job descriptions,
-            G2/Capterra, company content) — unweighted composite out of {PILLAR_MAX}.
+            Phase 1 rates each of the 4 pillars Low, Medium, or High using external public signals only
+            (LinkedIn, job descriptions, G2/Capterra, company content).
           </li>
           <li>
-            Phase 2 applies pillar weights (max 19.5) once proprietary data is available post-engagement.
+            The overall PortCo Score rolls the four pillar ratings into a single Low / Medium / High band;
+            pillars without enough signal are treated as neutral in the roll-up.
           </li>
           <li>
-            Pillars that cannot be assessed from public data are marked Insufficient Data and excluded from the
-            composite — never estimated.
+            Phase 2 upgrades ratings with proprietary connected data once available post-engagement.
+          </li>
+          <li>
+            Pillars that cannot be assessed from public data are marked Insufficient Data and never estimated.
           </li>
         </ul>
         <div className="mt-4 flex items-start gap-2 rounded-lg border border-blue-200 bg-blue-50 p-3 text-[11px] text-blue-600">

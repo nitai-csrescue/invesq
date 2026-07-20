@@ -73,6 +73,20 @@ export {
   type ArrForecastPoint,
 } from "./engine";
 
+// Rubric v2 (4-pillar Low/Medium/High) — display cutover for tenant routes
+export {
+  RUBRIC_PILLARS,
+  RUBRIC_BAND_META,
+  rubricBandMeta,
+  portcoOrdinal,
+  resolveRubric,
+  type RubricBand,
+  type RubricValue,
+  type RubricV2Scores,
+  type RubricPillarDef,
+  type RubricBandMeta as RubricBandMetaInfo,
+} from "./rubric";
+
 // Raviga-tenant-only simulated live-data layer (Phase 2 connected-data demo).
 // Never import these from non-Raviga call sites.
 export {

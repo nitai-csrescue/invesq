@@ -1049,3 +1049,23 @@ curl -X POST https://<prod-domain>/api/admin/repair-assessments-dedup \
   - Untouched: all tenant data, scoring engine, every route other than build-status, and all historical BUILD-LOG entries.
 
 ---
+## Rubric v2 Phase 2 -- 4-pillar Low/Medium/High cutover (tenant portal)
+- Date: 2026-07-20 03:38 UTC
+- Status: complete
+- Files changed: lib/portfolio-engine (rubricV2.ts new, types.ts, index.ts), lib/db (assessments schema), lib/api-spec openapi.yaml + regenerated api-zod and api-client-react, api-server (portfolioData.ts, jobs/build.ts), cs-rescue (data/portfolio rubric.ts new, types.ts, engine.ts, index.ts; PillarScorecard, PortfolioDashboard, RavigaCompanyList, PortfolioCompany, PortfolioReport; scripts/backfill-rubric-v2.ts new)
+- Validation: typecheck PASS (libs, api-server, cs-rescue); verify-db-invariants PASS; pipeline-smoke-test PASS; all 3 tenant routes screenshot-verified rendering the new rubric with zero console errors
+- Republish needed: yes
+- QA notes:
+  - Additive DDL only, applied to dev (prod picks these up via the Publish dev-vs-prod schema diff):
+    ALTER TABLE assessments ADD COLUMN org_design_score text;
+    ALTER TABLE assessments ADD COLUMN onboarding_score text;
+    ALTER TABLE assessments ADD COLUMN health_scoring_score text;
+    ALTER TABLE assessments ADD COLUMN renewal_expansion_score text;
+    ALTER TABLE assessments ADD COLUMN portco_score text;
+    ALTER TABLE assessments ADD COLUMN rubric_version text NOT NULL DEFAULT 'v1';
+  - Backfilled all 143 dev assessment rows via the single shared computeRubricV2() (scripts/backfill-rubric-v2.ts, idempotent); rubric_version set to "v2" on backfilled rows.
+  - Backfill distributions: org_design H18/ID5/L56/M64; onboarding H27/ID7/L28/M81; health_scoring H4/ID6/L77/M56; renewal_expansion H19/ID6/L57/M61; portco H8/L67/M68 (portco_score never stores Insufficient Data; the rollup substitutes Medium for ID pillars and ties resolve to the lower band).
+  - Legacy p1-p8 columns untouched: pre/post backfill checksum ea9e99b3eb3c33e7ded19889730a4062 identical.
+  - Frontend cutover limited to the 3 tenant routes (/:firmSlug/portfolio, /:firmSlug/portfolio/:company, .../report). Removed the ForecastSection and the weighted-score chip from the company page; composite ring replaced by the PortCo band ring; trend chart now renders band steps (Low/Medium/High).
+  - report_exports / PDF pipeline and every non-tenant surface still read p1-p8; no RUBRIC_VERSION bump needed (report cache untouched).
+  - Build pipeline writes the v2 columns on every new assessment (jobs/build.ts); bootstrap ships stored values and the client falls back to computeRubricV2() when they are absent -- so prod renders correctly after Republish even before any prod backfill.

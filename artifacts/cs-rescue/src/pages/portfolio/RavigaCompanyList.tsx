@@ -17,7 +17,9 @@ import {
   gapTitle,
   formatDate,
   monthsSince,
-  PILLAR_MAX,
+  portcoOrdinal,
+  rubricBandMeta,
+  type RubricBand,
 } from "@/data/portfolio";
 
 // ---------------------------------------------------------------------------
@@ -100,16 +102,10 @@ function Sparkline({
 // Compact ops KPI strip — sits above the accordion
 // ---------------------------------------------------------------------------
 function OpsStrip({ companies }: { companies: Company[] }) {
-  const attention = companies.filter((c) => c.tier.id <= 2).length;
+  const low = companies.filter((c) => c.rubric.portcoScore === "Low").length;
+  const medium = companies.filter((c) => c.rubric.portcoScore === "Medium").length;
+  const high = companies.filter((c) => c.rubric.portcoScore === "High").length;
   const findings = companies.reduce((s, c) => s + c.gaps.length, 0);
-  const avgNorm =
-    companies.length > 0
-      ? Math.round(
-          (companies.reduce((s, c) => s + (c.composite / c.displayMax) * PILLAR_MAX, 0) /
-            companies.length) *
-            10,
-        ) / 10
-      : 0;
 
   return (
     <div className="flex flex-wrap items-center gap-x-5 gap-y-2 rounded-lg border border-border bg-card/40 px-4 py-2.5 text-sm">
@@ -121,7 +117,7 @@ function OpsStrip({ companies }: { companies: Company[] }) {
       <div className="flex items-center gap-1.5">
         <AlertTriangle className="h-3.5 w-3.5 text-amber-400" />
         <span className="text-xs text-muted-foreground">Needing Attention</span>
-        <span className="font-semibold text-amber-300">{attention}</span>
+        <span className="font-semibold text-amber-300">{low}</span>
       </div>
       <div className="hidden h-3 w-px bg-border sm:block" />
       <div className="flex items-center gap-1.5">
@@ -130,10 +126,10 @@ function OpsStrip({ companies }: { companies: Company[] }) {
       </div>
       <div className="hidden h-3 w-px bg-border sm:block" />
       <div className="flex items-center gap-1.5">
-        <span className="text-xs text-muted-foreground">Avg Composite</span>
-        <span className="font-semibold text-foreground">
-          {avgNorm} / {PILLAR_MAX}
-        </span>
+        <span className="text-xs text-muted-foreground">PortCo Score Mix</span>
+        <span className="font-semibold text-rose-400">{low}L</span>
+        <span className="font-semibold text-amber-400">{medium}M</span>
+        <span className="font-semibold text-emerald-400">{high}H</span>
       </div>
     </div>
   );
@@ -176,7 +172,7 @@ function MetricTile({ label, value, sub }: { label: string; value: string; sub?:
 // ---------------------------------------------------------------------------
 // Sort controls
 // ---------------------------------------------------------------------------
-type SortField = "tier" | "composite" | "name" | "arr";
+type SortField = "portco" | "name" | "arr";
 
 function SortBtn({
   label,
@@ -231,8 +227,9 @@ function CompanyRow({
   isExpanded: boolean;
   onToggle: () => void;
 }) {
-  const tier = company.tier;
-  const sparkline = company.assessmentPoints.map((p) => p.normalizedComposite);
+  const band = company.rubric.portcoScore;
+  const bandMeta = rubricBandMeta(band);
+  const sparkline = company.rubricPoints.map((p) => portcoOrdinal(p.band));
 
   return (
     <div className="border-b border-border last:border-0">
@@ -244,15 +241,12 @@ function CompanyRow({
       >
         <span className="w-5 flex-none text-center text-[11px] text-muted-foreground">{rank}</span>
 
-        {/* Score badge */}
+        {/* PortCo Score badge */}
         <div
           className="flex h-10 w-10 flex-none items-center justify-center rounded-lg font-bold leading-none"
-          style={{ backgroundColor: `${tier.color}22`, color: tier.color }}
+          style={{ backgroundColor: `${bandMeta.color}22`, color: bandMeta.color }}
         >
-          <span className="text-sm">{company.compositeDisplay}</span>
-          {company.displayMax > 0 && (
-            <span className="ml-0.5 text-[8px] opacity-50">/{company.displayMax}</span>
-          )}
+          <span className="text-[11px]">{band === "Medium" ? "Med" : band}</span>
         </div>
 
         {/* Name + sector */}
@@ -261,11 +255,11 @@ function CompanyRow({
           <div className="truncate text-xs text-muted-foreground">{company.sector}</div>
         </div>
 
-        {/* Tier badge */}
+        {/* PortCo Score pill */}
         <span
-          className={`hidden flex-none items-center rounded-full border px-2 py-0.5 text-[11px] font-medium sm:inline-flex ${tier.badgeClass}`}
+          className={`hidden flex-none items-center rounded-full border px-2 py-0.5 text-[11px] font-medium sm:inline-flex ${bandMeta.badgeClass}`}
         >
-          Tier {tier.id} · {tier.label}
+          PortCo Score · {band}
         </span>
 
         {/* ICP eligibility chip (renders nothing without ICP data) */}
@@ -294,19 +288,15 @@ function CompanyRow({
           {/* Metrics */}
           <div className="mb-4 grid grid-cols-2 gap-2 sm:grid-cols-4">
             <MetricTile
-              label="Composite"
-              value={
-                company.displayMax > 0
-                  ? `${company.composite} / ${company.displayMax}`
-                  : "N/A"
-              }
-              sub={`Tier ${tier.id} — ${tier.label}`}
+              label="PortCo Score"
+              value={band}
+              sub={bandMeta.description}
             />
             <MetricTile label="ARR" value={company.arrDisplay} />
             <MetricTile
               label="ARR at Risk"
               value={company.arrAtRiskDisplay}
-              sub={tier.arrRisk}
+              sub={company.tier.arrRisk}
             />
             <MetricTile
               label="Last Assessed"
@@ -365,8 +355,8 @@ interface RavigaCompanyListProps {
 
 export function RavigaCompanyList({ companies, firm, summary }: RavigaCompanyListProps) {
   const [search, setSearch] = useState("");
-  const [filterTier, setFilterTier] = useState<number | null>(null);
-  const [sortBy, setSortBy] = useState<SortField>("tier");
+  const [filterBand, setFilterBand] = useState<RubricBand | null>(null);
+  const [sortBy, setSortBy] = useState<SortField>("portco");
   const [sortDir, setSortDir] = useState<"asc" | "desc">("asc");
   const [expandedId, setExpandedId] = useState<string | null>(null);
 
@@ -389,15 +379,17 @@ export function RavigaCompanyList({ companies, firm, summary }: RavigaCompanyLis
       );
     }
 
-    if (filterTier !== null) {
-      result = result.filter((c) => c.tier.id === filterTier);
+    if (filterBand !== null) {
+      result = result.filter((c) => c.rubric.portcoScore === filterBand);
     }
 
     result.sort((a, b) => {
       let cmp = 0;
       if (sortBy === "name") cmp = a.name.localeCompare(b.name);
-      else if (sortBy === "tier") cmp = a.tierComposite - b.tierComposite;
-      else if (sortBy === "composite") cmp = a.composite - b.composite;
+      else if (sortBy === "portco")
+        cmp =
+          portcoOrdinal(a.rubric.portcoScore) - portcoOrdinal(b.rubric.portcoScore) ||
+          a.tierComposite - b.tierComposite;
       else if (sortBy === "arr") {
         const aM = a.arrForRollup ? (a.arrForRollup[0] + a.arrForRollup[1]) / 2 : 0;
         const bM = b.arrForRollup ? (b.arrForRollup[0] + b.arrForRollup[1]) / 2 : 0;
@@ -407,7 +399,7 @@ export function RavigaCompanyList({ companies, firm, summary }: RavigaCompanyLis
     });
 
     return result;
-  }, [companies, search, filterTier, sortBy, sortDir]);
+  }, [companies, search, filterBand, sortBy, sortDir]);
 
   return (
     <div className="mt-6 space-y-4">
@@ -428,22 +420,22 @@ export function RavigaCompanyList({ companies, firm, summary }: RavigaCompanyLis
           />
         </div>
 
-        {/* Tier filter pills */}
+        {/* PortCo Score filter pills */}
         <div className="flex flex-wrap items-center gap-1.5">
-          {[null, 1, 2, 3, 4].map((t) => (
+          {([null, "Low", "Medium", "High"] as (RubricBand | null)[]).map((b) => (
             <button
-              key={t ?? "all"}
+              key={b ?? "all"}
               onClick={() => {
-                setFilterTier(t);
+                setFilterBand(b);
                 setExpandedId(null);
               }}
               className={`rounded-full border px-2.5 py-1 text-xs transition-colors ${
-                filterTier === t
+                filterBand === b
                   ? "border-primary/30 bg-primary/10 font-medium text-primary"
                   : "border-border text-muted-foreground hover:text-foreground"
               }`}
             >
-              {t === null ? "All" : `T${t}`}
+              {b === null ? "All" : b}
             </button>
           ))}
         </div>
@@ -451,10 +443,10 @@ export function RavigaCompanyList({ companies, firm, summary }: RavigaCompanyLis
         {/* Sort */}
         <div className="ml-auto flex items-center gap-1">
           <span className="mr-1 text-xs text-muted-foreground">Sort:</span>
-          {(["tier", "composite", "arr", "name"] as SortField[]).map((f) => (
+          {(["portco", "arr", "name"] as SortField[]).map((f) => (
             <SortBtn
               key={f}
-              label={f === "arr" ? "ARR" : f === "composite" ? "Score" : f.charAt(0).toUpperCase() + f.slice(1)}
+              label={f === "arr" ? "ARR" : f === "portco" ? "PortCo Score" : "Name"}
               field={f}
               current={sortBy}
               dir={sortDir}
@@ -472,7 +464,7 @@ export function RavigaCompanyList({ companies, firm, summary }: RavigaCompanyLis
           <span className="w-10" />
           <span className="flex-1 text-[11px] uppercase tracking-wider text-muted-foreground">Company</span>
           <span className="hidden w-44 text-[11px] uppercase tracking-wider text-muted-foreground sm:block">
-            Tier
+            PortCo Score
           </span>
           <span className="hidden w-24 text-right text-[11px] uppercase tracking-wider text-muted-foreground md:block">
             ARR

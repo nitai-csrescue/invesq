@@ -21,6 +21,7 @@ import type {
 } from "./types";
 import { PILLARS, PILLAR_MAX, TIERS, getTier } from "./pillars";
 import { getFirm as _getFirm } from "./firms";
+import { resolveRubric, portcoOrdinal } from "./rubric";
 
 // ---------------------------------------------------------------------------
 // Internal helpers
@@ -192,6 +193,10 @@ function buildCompany(raw: RawCompany): Company {
       ]
     : null;
 
+  // Rubric v2 — display cutover. Resolved (stored, else computed) so it is
+  // never absent; internal composite/tier math above stays untouched.
+  const rubric = resolveRubric(latest);
+
   return {
     ...raw,
     // Derived from latest assessment:
@@ -208,6 +213,11 @@ function buildCompany(raw: RawCompany): Company {
       Math.round(scored.reduce((s, p) => s + p.weight * 2, 0) * 10) / 10,
     insufficientCount: PILLARS.length - scored.length,
     tier,
+    rubric,
+    rubricPoints: raw.assessments.map((a) => ({
+      date: a.date,
+      band: resolveRubric(a).portcoScore,
+    })),
     gaps,
     topGap: gaps[0] ?? null,
     arrAtRiskRange,
@@ -460,7 +470,14 @@ export function hydratePortfolioData(
   for (const { slug, companies: rawList } of bootstrapFirms) {
     const companies = rawList
       .map(buildCompany)
-      .sort((a, b) => a.tierComposite - b.tierComposite);
+      // Conservative-first: Low portco band sorts to the top; tierComposite
+      // (internal) breaks ties within a band.
+      .sort(
+        (a, b) =>
+          portcoOrdinal(a.rubric.portcoScore) -
+            portcoOrdinal(b.rubric.portcoScore) ||
+          a.tierComposite - b.tierComposite,
+      );
 
     validateFirmData(slug, rawList, companies);
 

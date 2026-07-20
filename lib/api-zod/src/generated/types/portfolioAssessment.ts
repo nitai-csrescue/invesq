@@ -6,6 +6,7 @@
  * OpenAPI spec version: 0.1.0
  */
 import type { PortfolioAssessmentPillarScores } from "./portfolioAssessmentPillarScores";
+import type { PortfolioRubricScores } from "./portfolioRubricScores";
 
 /**
  * A single diagnostic run for a company. The company's current state always derives from the LATEST assessment in the array.
@@ -14,5 +15,6 @@ export interface PortfolioAssessment {
   date: string;
   /** Keyed by pillar id; all 8 pillars must be present. 0/1/2 = scored, null = Insufficient Data (NA). */
   pillarScores: PortfolioAssessmentPillarScores;
+  rubric?: PortfolioRubricScores;
   note?: string;
 }

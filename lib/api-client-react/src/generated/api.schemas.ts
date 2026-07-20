@@ -1273,6 +1273,68 @@ export interface PortfolioActionLogEntry {
   label: string;
 }
 
+export type PortfolioRubricScoresOrgDesignScore =
+  (typeof PortfolioRubricScoresOrgDesignScore)[keyof typeof PortfolioRubricScoresOrgDesignScore];
+
+export const PortfolioRubricScoresOrgDesignScore = {
+  Low: "Low",
+  Medium: "Medium",
+  High: "High",
+  Insufficient_Data: "Insufficient Data",
+} as const;
+
+export type PortfolioRubricScoresOnboardingScore =
+  (typeof PortfolioRubricScoresOnboardingScore)[keyof typeof PortfolioRubricScoresOnboardingScore];
+
+export const PortfolioRubricScoresOnboardingScore = {
+  Low: "Low",
+  Medium: "Medium",
+  High: "High",
+  Insufficient_Data: "Insufficient Data",
+} as const;
+
+export type PortfolioRubricScoresHealthScoringScore =
+  (typeof PortfolioRubricScoresHealthScoringScore)[keyof typeof PortfolioRubricScoresHealthScoringScore];
+
+export const PortfolioRubricScoresHealthScoringScore = {
+  Low: "Low",
+  Medium: "Medium",
+  High: "High",
+  Insufficient_Data: "Insufficient Data",
+} as const;
+
+export type PortfolioRubricScoresRenewalExpansionScore =
+  (typeof PortfolioRubricScoresRenewalExpansionScore)[keyof typeof PortfolioRubricScoresRenewalExpansionScore];
+
+export const PortfolioRubricScoresRenewalExpansionScore = {
+  Low: "Low",
+  Medium: "Medium",
+  High: "High",
+  Insufficient_Data: "Insufficient Data",
+} as const;
+
+export type PortfolioRubricScoresPortcoScore =
+  (typeof PortfolioRubricScoresPortcoScore)[keyof typeof PortfolioRubricScoresPortcoScore];
+
+export const PortfolioRubricScoresPortcoScore = {
+  Low: "Low",
+  Medium: "Medium",
+  High: "High",
+} as const;
+
+/**
+ * Rubric v2 (Phase 2) — 4-pillar Low/Medium/High fields stored on the assessment row. Computed exclusively via computeRubricV2() in @workspace/portfolio-engine; clients read these stored values, never re-derive them ad hoc. portcoScore never carries Insufficient Data (the rollup substitutes Medium for ID pillars).
+
+ */
+export interface PortfolioRubricScores {
+  orgDesignScore: PortfolioRubricScoresOrgDesignScore;
+  onboardingScore: PortfolioRubricScoresOnboardingScore;
+  healthScoringScore: PortfolioRubricScoresHealthScoringScore;
+  renewalExpansionScore: PortfolioRubricScoresRenewalExpansionScore;
+  portcoScore: PortfolioRubricScoresPortcoScore;
+  rubricVersion: string;
+}
+
 /**
  * Keyed by pillar id; all 8 pillars must be present. 0/1/2 = scored, null = Insufficient Data (NA).
  */
@@ -1287,6 +1349,7 @@ export interface PortfolioAssessment {
   date: string;
   /** Keyed by pillar id; all 8 pillars must be present. 0/1/2 = scored, null = Insufficient Data (NA). */
   pillarScores: PortfolioAssessmentPillarScores;
+  rubric?: PortfolioRubricScores;
   note?: string;
 }
 
