@@ -1099,6 +1099,8 @@ curl -X POST https://<prod-domain>/api/admin/repair-assessments-dedup \
   - On first prod boot after Republish it will refresh all stale/NULL prod rows (187 total), including the 14 whose PortCo band flips under the composite formula; the boot log line "rubric v2 stored-value refresh complete" reports total/updated/portcoBandChanged.
   - Post-publish verification plan: prod replica query of the 14 flip rows' stored portco_score + spot check Tinubu (Long Arc, High 6/8), EHS Insight (Pamlico, Medium 3/8), Nomis Solutions (STG, Medium 3/8) on the live tenant portal.
 
+---
+
 ## CQ-20 hard gate: report/PDF pipeline cutover to rubric v2 (4-pillar bands, 0-8 PortCo composite)
 - Date: 2026-07-21 02:55 UTC
 - Status: complete in dev; CEATI re-exported at v6 and PDF verified
@@ -1111,6 +1113,8 @@ curl -X POST https://<prod-domain>/api/admin/repair-assessments-dedup \
   - PDF chrome: header label + page-6 footer now "Operational Value Creation" (was "Operational Due Diligence"); cover shows PortCo Score N/8 with band-colored chip; page 3 is a 4-Pillar Scorecard with pts legend; page 5 renders 4 rubric sections with per-source evidence sub-blocks, AI Adoption Maturity demoted to an informational block outside the rubric.
   - Gaps = 3 lowest-rated rubric pillars (band points ascending); parity script reports gap-title divergence vs the portal's v1-weighted ranking as informational only, by design.
   - Engagement-tier code intentionally left in jobs/build.ts and the cs-rescue portal engine (out of scope for the PDF gate).
+
+---
 
 ## PDF/web layout regression fixes: page-1 pagination, validation badge relocation, scorecard whitespace
 - Date: 2026-07-21 03:35 UTC
