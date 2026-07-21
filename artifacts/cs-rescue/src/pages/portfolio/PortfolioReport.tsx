@@ -137,10 +137,10 @@ export default function PortfolioReport() {
       </div>
 
       {/* Pillar scorecard */}
-      <PillarScorecard rubric={company.rubric} />
+      <PillarScorecard rubric={company.rubric} className="mt-4 rounded-xl border border-border bg-card p-4" />
 
       {/* Priority findings */}
-      <div className="mt-4 rounded-xl border border-border bg-card p-6">
+      <div className="mt-4 rounded-xl border border-border bg-card p-4">
         <h2 className="flex items-center gap-1.5 text-sm font-semibold text-foreground">
           <TrendingDown className="h-4 w-4 text-rose-400" /> Priority findings
         </h2>

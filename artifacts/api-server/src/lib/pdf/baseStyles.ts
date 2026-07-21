@@ -44,7 +44,8 @@ export const BASE_STYLES = `
   .page {
     position: relative;
     width: 8.5in;
-    min-height: 11in;
+    height: 11in;
+    overflow: hidden;
     padding: 0.5in 0.55in 0 0.55in;
     break-after: page;
     display: flex;

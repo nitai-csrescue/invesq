@@ -122,7 +122,6 @@ export function renderPage1(ctx: ReportContext): string {
         <h1 style="font-family:'Source Serif 4', Georgia, serif; font-weight:800; font-size:24px; color:${COLORS.slate900}; letter-spacing:-0.01em;">
           ${esc(reportData.companyName)}
         </h1>
-        ${validationStamp(ctx)}
       </div>
     </div>
 

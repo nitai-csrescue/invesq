@@ -1111,3 +1111,14 @@ curl -X POST https://<prod-domain>/api/admin/repair-assessments-dedup \
   - PDF chrome: header label + page-6 footer now "Operational Value Creation" (was "Operational Due Diligence"); cover shows PortCo Score N/8 with band-colored chip; page 3 is a 4-Pillar Scorecard with pts legend; page 5 renders 4 rubric sections with per-source evidence sub-blocks, AI Adoption Maturity demoted to an informational block outside the rubric.
   - Gaps = 3 lowest-rated rubric pillars (band points ascending); parity script reports gap-title divergence vs the portal's v1-weighted ranking as informational only, by design.
   - Engagement-tier code intentionally left in jobs/build.ts and the cs-rescue portal engine (out of scope for the PDF gate).
+
+## PDF/web layout regression fixes: page-1 pagination, validation badge relocation, scorecard whitespace
+- Date: 2026-07-21 03:35 UTC
+- Status: complete
+- Files changed: artifacts/api-server/src/lib/pdf/baseStyles.ts, artifacts/api-server/src/lib/pdf/pages/page1Cover.ts, artifacts/api-server/src/lib/pdf/pages/page7Sources.ts, artifacts/cs-rescue/src/pages/portfolio/PortfolioReport.tsx, BUILD-LOG.md
+- Validation: api-server + cs-rescue typecheck PASS; verify-db-invariants PASS; pipeline-smoke-test PASS; CEATI PDF re-rendered (7 pages, page-1 footer confirmed on physical page 1, validation provenance block confirmed on page 7); web report page tighter spacing verified (CEATI + STG Nomis Solutions)
+- Republish needed: yes
+- QA notes:
+  - PDF pagination: changed .page from min-height:11in (footer could float to physical page 2 on content-heavy pages) to height:11in; overflow:hidden (each logical page is exactly one physical page; footer always on the same page as its content). CEATI page 1 confirmed: "INVESQ · DRAFT DIAGNOSTIC / PAGE 1 OF 7 / DRAFT · NOT VALIDATED" footer at bottom of page 1.
+  - Validation badge: removed from page-1 cover (was next to company name). Now renders only at the very end of page 7 (Methodology & Sources) as a provenance/audit block — red DRAFT for unvalidated exports, orange Validated stamp with signer names and date for validated ones. The diagonal DRAFT watermark and the "Draft · Not Validated" header tag on pages 2-7 are unchanged.
+  - Web scorecard/gaps cards: reduced padding from p-6 to p-4 on the PillarScorecard and priority-findings cards in PortfolioReport.tsx so the 4-pillar layout sits tight with no leftover dead space.

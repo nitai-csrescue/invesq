@@ -52,6 +52,34 @@ export function renderPage7(ctx: ReportContext): string {
     },
   ];
 
+  const { validated, validatorNames, validatedAt, overrideNote } = ctx.validation;
+  let validationBlock: string;
+  if (!validated) {
+    validationBlock = `
+      <div style="margin-top:22px; border:1px solid ${COLORS.danger500}; border-radius:6px; padding:10px 14px; display:flex; align-items:center; gap:12px;">
+        <span class="pill" style="border:1.5px solid ${COLORS.danger500}; color:${COLORS.danger500}; padding:3px 10px; font-size:8.5px; flex-shrink:0;">DRAFT &middot; NOT VALIDATED</span>
+        <span style="font-size:9px; color:${COLORS.slate500}; font-style:italic;">This draft has not yet been reviewed and signed off. It is for internal use only and must not be distributed externally.</span>
+      </div>
+    `;
+  } else {
+    const names = validatorNames.length > 0 ? validatorNames.join(", ") : "INVESQ";
+    const dateStr = validatedAt ? new Date(validatedAt).toISOString().slice(0, 10) : "";
+    let stamp: string;
+    if (overrideNote) {
+      stamp = dateStr
+        ? `Validated &middot; ${esc(names)} &middot; ${esc(overrideNote)} &middot; ${esc(dateStr)}`
+        : `Validated &middot; ${esc(names)} &middot; ${esc(overrideNote)}`;
+    } else {
+      stamp = dateStr ? `Validated &middot; ${esc(names)} &middot; ${esc(dateStr)}` : `Validated &middot; ${esc(names)}`;
+    }
+    validationBlock = `
+      <div style="margin-top:22px; border:1px solid ${COLORS.orange500}; border-radius:6px; padding:10px 14px; display:flex; align-items:center; gap:12px;">
+        <span class="pill" style="border:1.5px solid ${COLORS.orange500}; color:${COLORS.orange500}; padding:3px 10px; font-size:8.5px; flex-shrink:0;">${stamp}</span>
+        <span style="font-size:9px; color:${COLORS.slate700};">Reviewed and approved for external distribution by the validators listed.</span>
+      </div>
+    `;
+  }
+
   const body = `
     <h2 class="section-heading">Methodology &amp; Sources</h2>
     <p style="margin-bottom:18px;">${esc(METHODOLOGY_PARAGRAPH)}</p>
@@ -63,6 +91,8 @@ export function renderPage7(ctx: ReportContext): string {
       This report reflects publicly observable signal as of ${esc(reportData.reportDate)} and should be read
       alongside direct diligence rather than as a substitute for it.
     </p>
+
+    ${validationBlock}
   `;
 
   return pageShell(7, ctx, body);
