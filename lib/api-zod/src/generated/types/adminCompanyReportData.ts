@@ -9,7 +9,7 @@ import type { AdminCompanyReportDataMeta } from "./adminCompanyReportDataMeta";
 import type { DiagnosticReportData } from "./diagnosticReportData";
 
 /**
- * Assembled report-data.json export payload for the Diagnostic Report pattern. `reportData` matches the external report-data.json schema (Notion: "External CS Diagnostic — Scoring Rubric & Cowork Instructions", Step 7) field-for-field, so it is safe to copy verbatim into the Claude design-file prompt. `meta` carries admin-only context (assessment provenance, derived composite/tier) that must NOT be included in the exported JSON.
+ * Assembled report-data.json export payload for the Diagnostic Report pattern. `reportData` matches the external report-data.json schema (Notion: "External CS Diagnostic — Scoring Rubric & Cowork Instructions", Step 7) field-for-field, so it is safe to copy verbatim into the Claude design-file prompt. `meta` carries admin-only context (assessment provenance, derived rubric-v2 bands/composite) that must NOT be included in the exported JSON.
 
  */
 export interface AdminCompanyReportData {

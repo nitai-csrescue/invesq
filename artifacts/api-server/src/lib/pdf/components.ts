@@ -1,4 +1,5 @@
-import { COLORS, RADII, SPARKLE, TOTAL_PAGES, scoreStatusFor, type ScoreStatus } from "./theme.js";
+import type { RubricValue } from "@workspace/portfolio-engine";
+import { COLORS, RADII, SPARKLE, TOTAL_PAGES, bandStatusFor, type BandStatus } from "./theme.js";
 import type { ReportContext } from "./types.js";
 
 export function esc(value: string | null | undefined): string {
@@ -25,7 +26,7 @@ export function pageHeader(pageNumber: number, ctx: ReportContext): string {
   const tag = ctx.validation.validated ? "Confidential" : "Draft \u00b7 Not Validated";
   const metaRight =
     pageNumber === 1
-      ? `<div class="label">Operational Due Diligence</div>`
+      ? `<div class="label">Operational Value Creation</div>`
       : `<div class="label">Customer Success Diagnostic &middot; ${tag}</div>`;
 
   return `
@@ -79,31 +80,27 @@ export function sparkleBullet(): string {
 }
 
 // Fixed-outline legend pill (used in the Page 3 legend row) — outline only,
-// not the filled treatment used for in-table score badges.
-export function legendPill(status: ScoreStatus, scoreLabel: string): string {
+// not the filled treatment used for in-table band badges. `annotation` is the
+// composite-points note (e.g. "2 pts") rendered after the band label.
+export function bandLegendPill(status: BandStatus, annotation: string): string {
   return `
     <span class="pill" style="border:1.5px solid ${status.border}; color:${status.text}; padding:4px 10px; margin-right:10px;">
-      ${esc(scoreLabel)} &middot; ${esc(status.label)}
+      ${esc(status.label)} &middot; ${esc(annotation)}
     </span>
   `;
 }
 
-// Filled score-status badge used in tables / pillar headings.
-export function scoreBadge(score: number | "NA" | null, opts?: { compact?: boolean }): string {
-  const status = scoreStatusFor(score);
-  // "Insufficient Data" pillars render as an em-dash glyph ("— · Insufficient
-  // Data"), not "NA". This em-dash is chrome, not generated narrative, so it is
-  // intentionally exempt from the no-em-dash policy (which only strips
-  // Claude-written/stored reportData text).
-  const scoreLabel = score === "NA" || score === null ? "\u2014" : String(score);
+// Filled rubric-band badge used in tables / pillar headings.
+export function bandBadge(value: RubricValue, opts?: { compact?: boolean }): string {
+  const status = bandStatusFor(value);
   const pad = opts?.compact ? "3px 9px" : "4px 12px";
   // Compact badges (page 3's scorecard table + page 5's pillar headings) get
-  // a 1px smaller font so the longest labels ("Infrastructure Gap",
-  // "Insufficient Data") reliably fit on one line at typical column widths.
+  // a 1px smaller font so the longest label ("Insufficient Data") reliably
+  // fits on one line at typical column widths.
   const fontSize = opts?.compact ? "9.5px" : "10.5px";
   return `
     <span class="pill" style="background:${status.bg}; color:${status.text}; padding:${pad}; font-size:${fontSize};">
-      ${esc(scoreLabel)} &middot; ${esc(status.label)}
+      ${esc(status.label)}
     </span>
   `;
 }

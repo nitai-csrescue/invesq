@@ -1,4 +1,4 @@
-import { COLORS, FONTS } from "../theme.js";
+import { COLORS, FONTS, bandStatusFor } from "../theme.js";
 import { esc, pageShell, eyebrow } from "../components.js";
 import type { ReportContext } from "../types.js";
 
@@ -22,27 +22,33 @@ function preparedCard(title: string, lines: Array<{ label: string; value: string
   `;
 }
 
-// Page 1 composite section: a dark navy header (huge serif "N / D" score +
-// outlined amber engagement-tier chip) sitting above a separate LIGHT panel
-// that stacks the three narrative subsections vertically. The score is always
-// meta.composite / meta.compositeMax (scored pillars only; Insufficient-Data
-// pillars are EXCLUDED from both numerator and denominator) — never the
-// tierComposite/16 figure used purely for tier banding (see types.ts).
+// Page 1 composite section: a dark navy header (huge serif "N / 8" PortCo
+// Score + band-colored outlined chip) sitting above a separate LIGHT panel
+// that stacks the three narrative subsections vertically. The score is
+// always meta.rubric.portcoComposite / 8 (rubric v2: Low=0, Medium=1,
+// High=2 per pillar, Insufficient Data counts as 1) so the number shown
+// matches the narrative text and the JSON export — the PDF never recomputes
+// it. Chip color follows the band (Low=red, Medium=amber, High=green).
 function compositePanel(ctx: ReportContext): string {
-  const { reportData, meta, tier } = ctx;
+  const { reportData, meta } = ctx;
+  const rubric = meta.rubric;
 
-  const naCount = 8 - meta.compositeMax / 2;
-  const allNA = meta.compositeMax === 0;
+  const pillarValues = [
+    rubric.orgDesignScore,
+    rubric.onboardingScore,
+    rubric.healthScoringScore,
+    rubric.renewalExpansionScore,
+  ];
+  const idCount = pillarValues.filter((v) => v === "Insufficient Data").length;
 
-  const scoreDisplay = allNA
-    ? "&mdash;"
-    : `${meta.composite} <span style="opacity:0.5; font-weight:700;">/</span> ${meta.compositeMax}`;
+  const scoreDisplay = `${rubric.portcoComposite} <span style="opacity:0.5; font-weight:700;">/</span> 8`;
 
-  const caption = allNA
-    ? "All 8 pillars returned Insufficient Data; tier assigned by substituting 1 point per pillar."
-    : naCount > 0
-      ? `${naCount} of 8 ${naCount === 1 ? "pillar" : "pillars"} Insufficient Data, excluded from the score (max reduced from 16 to ${meta.compositeMax}) and counted as 1 each for tier banding.`
-      : "All 8 pillars scored from external signal.";
+  const caption =
+    idCount > 0
+      ? `${idCount} of 4 rubric ${idCount === 1 ? "pillar" : "pillars"} returned Insufficient Data; each counts as Medium (1 point) in the composite while still displaying as Insufficient Data.`
+      : "All 4 rubric pillars rated from external signal (Low = 0, Medium = 1, High = 2 points).";
+
+  const bandStatus = bandStatusFor(rubric.portcoBand);
 
   const contextSection = (label: string, text: string) => `
     <div>
@@ -55,13 +61,13 @@ function compositePanel(ctx: ReportContext): string {
     <div class="rounded-lg" style="background:${COLORS.navy500}; color:${COLORS.white}; padding:14px 16px; margin-top:8px;">
       <div style="display:flex; align-items:center; justify-content:space-between; gap:24px;">
         <div>
-          <div class="label" style="color:${COLORS.white}; opacity:0.8;">Composite Diagnostic Score</div>
+          <div class="label" style="color:${COLORS.white}; opacity:0.8;">PortCo Score</div>
           <div style="font-family:${FONTS.serif}; font-weight:800; font-size:36px; line-height:1.05; margin-top:4px; letter-spacing:-0.01em;">${scoreDisplay}</div>
           <div style="font-size:8px; font-style:italic; opacity:0.72; margin-top:6px; max-width:320px; line-height:1.3;">${caption}</div>
         </div>
         <div style="text-align:right; flex-shrink:0;">
-          <span class="pill" style="border:1.5px solid ${COLORS.orange500}; color:${COLORS.orange500}; background:transparent; padding:4px 12px; font-size:9.5px;">Tier ${tier.id} &middot; ${esc(tier.label)}</span>
-          <div style="font-size:8.5px; opacity:0.78; margin-top:5px; max-width:210px; line-height:1.3;">${esc(tier.engagement)}</div>
+          <span class="pill" style="border:1.5px solid ${bandStatus.border}; color:${bandStatus.border}; background:transparent; padding:4px 12px; font-size:9.5px;">${esc(rubric.portcoBand)} Band</span>
+          <div style="font-size:8.5px; opacity:0.78; margin-top:5px; max-width:210px; line-height:1.3;">Composite banded 0-2 Low &middot; 3-5 Medium &middot; 6-8 High.</div>
         </div>
       </div>
     </div>

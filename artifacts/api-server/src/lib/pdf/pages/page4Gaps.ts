@@ -37,7 +37,7 @@ export function renderPage4(ctx: ReportContext): string {
   const body = `
     <h2 class="section-heading">Top Identified Gaps</h2>
     <p style="margin-bottom:10px; font-size:10px; line-height:1.42;">
-      The three lowest-scoring pillars below represent the most immediate, evidence-backed opportunities for
+      The three lowest-rated rubric pillars below represent the most immediate, evidence-backed opportunities for
       operational improvement, and for <strong>${esc(reportData.parentFund)}</strong>, the clearest near-term
       levers on retention and expansion at this portfolio company.
     </p>

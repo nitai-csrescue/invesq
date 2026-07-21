@@ -53,30 +53,34 @@ export const FONTS = {
   mono: "'IBM Plex Mono', ui-monospace, 'SFMono-Regular', monospace",
 } as const;
 
-// Fixed, spec-given score-status treatment. Labels are the exact wording
-// from the spec (note: this intentionally differs from
-// `@workspace/portfolio-engine`'s SCORE_LEVELS.label, which uses
-// "Developing" for score 1 — the client-facing report always says
-// "Partial" per the report spec, so it is hardcoded here rather than
-// reused from the app's internal in-product labels).
-export interface ScoreStatus {
-  key: "0" | "1" | "2" | "na";
+// Rubric-v2 band status treatment (CQ-20 hard gate, 2026-07-21): the report
+// renders 4-pillar Low/Medium/High ratings, colored per Jay's sign-off —
+// Low = red (danger), Medium = amber (warning), High = green (success),
+// Insufficient Data = neutral gray (same assumption note as before: no exact
+// hex was supplied for the neutral family).
+export interface BandStatus {
+  key: "low" | "medium" | "high" | "id";
   label: string;
   text: string;
   bg: string;
   border: string;
 }
 
-export const SCORE_STATUS: Record<"0" | "1" | "2" | "na", ScoreStatus> = {
-  "2": { key: "2", label: "Optimized", text: COLORS.success700, bg: COLORS.success50, border: COLORS.success500 },
-  "1": { key: "1", label: "Partial", text: COLORS.warning700, bg: COLORS.warning50, border: COLORS.warning500 },
-  "0": { key: "0", label: "Infrastructure Gap", text: COLORS.danger700, bg: COLORS.danger50, border: COLORS.danger500 },
-  na: { key: "na", label: "Insufficient Data", text: COLORS.neutral700, bg: COLORS.neutral50, border: COLORS.neutral500 },
+export const BAND_STATUS: Record<"Low" | "Medium" | "High" | "Insufficient Data", BandStatus> = {
+  High: { key: "high", label: "High", text: COLORS.success700, bg: COLORS.success50, border: COLORS.success500 },
+  Medium: { key: "medium", label: "Medium", text: COLORS.warning700, bg: COLORS.warning50, border: COLORS.warning500 },
+  Low: { key: "low", label: "Low", text: COLORS.danger700, bg: COLORS.danger50, border: COLORS.danger500 },
+  "Insufficient Data": {
+    key: "id",
+    label: "Insufficient Data",
+    text: COLORS.neutral700,
+    bg: COLORS.neutral50,
+    border: COLORS.neutral500,
+  },
 };
 
-export function scoreStatusFor(score: number | "NA" | null): ScoreStatus {
-  if (score === "NA" || score === null) return SCORE_STATUS.na;
-  return SCORE_STATUS[String(score) as "0" | "1" | "2"];
+export function bandStatusFor(value: "Low" | "Medium" | "High" | "Insufficient Data"): BandStatus {
+  return BAND_STATUS[value];
 }
 
 // Orange four-point sparkle/star glyph used as the accent bullet mark

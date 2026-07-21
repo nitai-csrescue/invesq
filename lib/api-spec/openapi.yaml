@@ -1669,8 +1669,8 @@ components:
         (Notion: "External CS Diagnostic — Scoring Rubric & Cowork
         Instructions", Step 7) field-for-field, so it is safe to copy
         verbatim into the Claude design-file prompt. `meta` carries
-        admin-only context (assessment provenance, derived composite/tier)
-        that must NOT be included in the exported JSON.
+        admin-only context (assessment provenance, derived rubric-v2
+        bands/composite) that must NOT be included in the exported JSON.
       required: [reportData, meta]
       properties:
         reportData:
@@ -1681,9 +1681,7 @@ components:
             [
               companyId,
               assessmentDate,
-              composite,
-              compositeMax,
-              tier,
+              rubric,
               generatedAt,
               model,
               preparedByName,
@@ -1697,12 +1695,44 @@ components:
             assessmentDate:
               type: string
               description: Date of the source assessment used (ISO date).
-            composite:
-              type: number
-            compositeMax:
-              type: number
-            tier:
-              type: string
+            rubric:
+              type: object
+              description: >
+                Rubric v2 (4-pillar Low/Medium/High) values for the source
+                assessment, matching computeRubricV2/computePortcoScore in
+                @workspace/portfolio-engine exactly. Stored assessments
+                columns win when the row carries all five; otherwise derived
+                live via computeRubricV2(). portcoComposite is the 0-8
+                numeric composite (Low=0, Medium=1, High=2, Insufficient
+                Data counts as 1), banded 0-2 Low / 3-5 Medium / 6-8 High.
+              required:
+                [
+                  orgDesignScore,
+                  onboardingScore,
+                  healthScoringScore,
+                  renewalExpansionScore,
+                  portcoComposite,
+                  portcoBand,
+                ]
+              properties:
+                orgDesignScore:
+                  type: string
+                  enum: [Low, Medium, High, Insufficient Data]
+                onboardingScore:
+                  type: string
+                  enum: [Low, Medium, High, Insufficient Data]
+                healthScoringScore:
+                  type: string
+                  enum: [Low, Medium, High, Insufficient Data]
+                renewalExpansionScore:
+                  type: string
+                  enum: [Low, Medium, High, Insufficient Data]
+                portcoComposite:
+                  type: integer
+                  description: Numeric composite 0-8.
+                portcoBand:
+                  type: string
+                  enum: [Low, Medium, High]
             generatedAt:
               type: [string, "null"]
               description: >

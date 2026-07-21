@@ -1524,9 +1524,38 @@ export const GetAdminCompanyReportDataResponse = zod
           assessmentDate: zod
             .string()
             .describe("Date of the source assessment used (ISO date)."),
-          composite: zod.number(),
-          compositeMax: zod.number(),
-          tier: zod.string(),
+          rubric: zod
+            .object({
+              orgDesignScore: zod.enum([
+                "Low",
+                "Medium",
+                "High",
+                "Insufficient Data",
+              ]),
+              onboardingScore: zod.enum([
+                "Low",
+                "Medium",
+                "High",
+                "Insufficient Data",
+              ]),
+              healthScoringScore: zod.enum([
+                "Low",
+                "Medium",
+                "High",
+                "Insufficient Data",
+              ]),
+              renewalExpansionScore: zod.enum([
+                "Low",
+                "Medium",
+                "High",
+                "Insufficient Data",
+              ]),
+              portcoComposite: zod.number().describe("Numeric composite 0-8."),
+              portcoBand: zod.enum(["Low", "Medium", "High"]),
+            })
+            .describe(
+              "Rubric v2 (4-pillar Low\/Medium\/High) values for the source assessment, matching computeRubricV2\/computePortcoScore in @workspace\/portfolio-engine exactly. Stored assessments columns win when the row carries all five; otherwise derived live via computeRubricV2(). portcoComposite is the 0-8 numeric composite (Low=0, Medium=1, High=2, Insufficient Data counts as 1), banded 0-2 Low \/ 3-5 Medium \/ 6-8 High.\n",
+            ),
           generatedAt: zod
             .string()
             .nullable()
@@ -1563,7 +1592,7 @@ export const GetAdminCompanyReportDataResponse = zod
         }),
       })
       .describe(
-        'Assembled report-data.json export payload for the Diagnostic Report pattern. `reportData` matches the external report-data.json schema (Notion: \"External CS Diagnostic — Scoring Rubric & Cowork Instructions\", Step 7) field-for-field, so it is safe to copy verbatim into the Claude design-file prompt. `meta` carries admin-only context (assessment provenance, derived composite\/tier) that must NOT be included in the exported JSON.\n',
+        'Assembled report-data.json export payload for the Diagnostic Report pattern. `reportData` matches the external report-data.json schema (Notion: \"External CS Diagnostic — Scoring Rubric & Cowork Instructions\", Step 7) field-for-field, so it is safe to copy verbatim into the Claude design-file prompt. `meta` carries admin-only context (assessment provenance, derived rubric-v2 bands\/composite) that must NOT be included in the exported JSON.\n',
       ),
     revision: zod
       .object({
@@ -1783,9 +1812,38 @@ export const SaveAdminCompanyReportRevisionResponse = zod
           assessmentDate: zod
             .string()
             .describe("Date of the source assessment used (ISO date)."),
-          composite: zod.number(),
-          compositeMax: zod.number(),
-          tier: zod.string(),
+          rubric: zod
+            .object({
+              orgDesignScore: zod.enum([
+                "Low",
+                "Medium",
+                "High",
+                "Insufficient Data",
+              ]),
+              onboardingScore: zod.enum([
+                "Low",
+                "Medium",
+                "High",
+                "Insufficient Data",
+              ]),
+              healthScoringScore: zod.enum([
+                "Low",
+                "Medium",
+                "High",
+                "Insufficient Data",
+              ]),
+              renewalExpansionScore: zod.enum([
+                "Low",
+                "Medium",
+                "High",
+                "Insufficient Data",
+              ]),
+              portcoComposite: zod.number().describe("Numeric composite 0-8."),
+              portcoBand: zod.enum(["Low", "Medium", "High"]),
+            })
+            .describe(
+              "Rubric v2 (4-pillar Low\/Medium\/High) values for the source assessment, matching computeRubricV2\/computePortcoScore in @workspace\/portfolio-engine exactly. Stored assessments columns win when the row carries all five; otherwise derived live via computeRubricV2(). portcoComposite is the 0-8 numeric composite (Low=0, Medium=1, High=2, Insufficient Data counts as 1), banded 0-2 Low \/ 3-5 Medium \/ 6-8 High.\n",
+            ),
           generatedAt: zod
             .string()
             .nullable()
@@ -1822,7 +1880,7 @@ export const SaveAdminCompanyReportRevisionResponse = zod
         }),
       })
       .describe(
-        'Assembled report-data.json export payload for the Diagnostic Report pattern. `reportData` matches the external report-data.json schema (Notion: \"External CS Diagnostic — Scoring Rubric & Cowork Instructions\", Step 7) field-for-field, so it is safe to copy verbatim into the Claude design-file prompt. `meta` carries admin-only context (assessment provenance, derived composite\/tier) that must NOT be included in the exported JSON.\n',
+        'Assembled report-data.json export payload for the Diagnostic Report pattern. `reportData` matches the external report-data.json schema (Notion: \"External CS Diagnostic — Scoring Rubric & Cowork Instructions\", Step 7) field-for-field, so it is safe to copy verbatim into the Claude design-file prompt. `meta` carries admin-only context (assessment provenance, derived rubric-v2 bands\/composite) that must NOT be included in the exported JSON.\n',
       ),
     revision: zod
       .object({
@@ -2047,9 +2105,38 @@ export const UpdateAdminCompanyReportMetaResponse = zod
           assessmentDate: zod
             .string()
             .describe("Date of the source assessment used (ISO date)."),
-          composite: zod.number(),
-          compositeMax: zod.number(),
-          tier: zod.string(),
+          rubric: zod
+            .object({
+              orgDesignScore: zod.enum([
+                "Low",
+                "Medium",
+                "High",
+                "Insufficient Data",
+              ]),
+              onboardingScore: zod.enum([
+                "Low",
+                "Medium",
+                "High",
+                "Insufficient Data",
+              ]),
+              healthScoringScore: zod.enum([
+                "Low",
+                "Medium",
+                "High",
+                "Insufficient Data",
+              ]),
+              renewalExpansionScore: zod.enum([
+                "Low",
+                "Medium",
+                "High",
+                "Insufficient Data",
+              ]),
+              portcoComposite: zod.number().describe("Numeric composite 0-8."),
+              portcoBand: zod.enum(["Low", "Medium", "High"]),
+            })
+            .describe(
+              "Rubric v2 (4-pillar Low\/Medium\/High) values for the source assessment, matching computeRubricV2\/computePortcoScore in @workspace\/portfolio-engine exactly. Stored assessments columns win when the row carries all five; otherwise derived live via computeRubricV2(). portcoComposite is the 0-8 numeric composite (Low=0, Medium=1, High=2, Insufficient Data counts as 1), banded 0-2 Low \/ 3-5 Medium \/ 6-8 High.\n",
+            ),
           generatedAt: zod
             .string()
             .nullable()
@@ -2086,7 +2173,7 @@ export const UpdateAdminCompanyReportMetaResponse = zod
         }),
       })
       .describe(
-        'Assembled report-data.json export payload for the Diagnostic Report pattern. `reportData` matches the external report-data.json schema (Notion: \"External CS Diagnostic — Scoring Rubric & Cowork Instructions\", Step 7) field-for-field, so it is safe to copy verbatim into the Claude design-file prompt. `meta` carries admin-only context (assessment provenance, derived composite\/tier) that must NOT be included in the exported JSON.\n',
+        'Assembled report-data.json export payload for the Diagnostic Report pattern. `reportData` matches the external report-data.json schema (Notion: \"External CS Diagnostic — Scoring Rubric & Cowork Instructions\", Step 7) field-for-field, so it is safe to copy verbatim into the Claude design-file prompt. `meta` carries admin-only context (assessment provenance, derived rubric-v2 bands\/composite) that must NOT be included in the exported JSON.\n',
       ),
     revision: zod
       .object({
@@ -2298,9 +2385,38 @@ export const UpdateAdminCompanyPillarEvidenceResponse = zod
           assessmentDate: zod
             .string()
             .describe("Date of the source assessment used (ISO date)."),
-          composite: zod.number(),
-          compositeMax: zod.number(),
-          tier: zod.string(),
+          rubric: zod
+            .object({
+              orgDesignScore: zod.enum([
+                "Low",
+                "Medium",
+                "High",
+                "Insufficient Data",
+              ]),
+              onboardingScore: zod.enum([
+                "Low",
+                "Medium",
+                "High",
+                "Insufficient Data",
+              ]),
+              healthScoringScore: zod.enum([
+                "Low",
+                "Medium",
+                "High",
+                "Insufficient Data",
+              ]),
+              renewalExpansionScore: zod.enum([
+                "Low",
+                "Medium",
+                "High",
+                "Insufficient Data",
+              ]),
+              portcoComposite: zod.number().describe("Numeric composite 0-8."),
+              portcoBand: zod.enum(["Low", "Medium", "High"]),
+            })
+            .describe(
+              "Rubric v2 (4-pillar Low\/Medium\/High) values for the source assessment, matching computeRubricV2\/computePortcoScore in @workspace\/portfolio-engine exactly. Stored assessments columns win when the row carries all five; otherwise derived live via computeRubricV2(). portcoComposite is the 0-8 numeric composite (Low=0, Medium=1, High=2, Insufficient Data counts as 1), banded 0-2 Low \/ 3-5 Medium \/ 6-8 High.\n",
+            ),
           generatedAt: zod
             .string()
             .nullable()
@@ -2337,7 +2453,7 @@ export const UpdateAdminCompanyPillarEvidenceResponse = zod
         }),
       })
       .describe(
-        'Assembled report-data.json export payload for the Diagnostic Report pattern. `reportData` matches the external report-data.json schema (Notion: \"External CS Diagnostic — Scoring Rubric & Cowork Instructions\", Step 7) field-for-field, so it is safe to copy verbatim into the Claude design-file prompt. `meta` carries admin-only context (assessment provenance, derived composite\/tier) that must NOT be included in the exported JSON.\n',
+        'Assembled report-data.json export payload for the Diagnostic Report pattern. `reportData` matches the external report-data.json schema (Notion: \"External CS Diagnostic — Scoring Rubric & Cowork Instructions\", Step 7) field-for-field, so it is safe to copy verbatim into the Claude design-file prompt. `meta` carries admin-only context (assessment provenance, derived rubric-v2 bands\/composite) that must NOT be included in the exported JSON.\n',
       ),
     revision: zod
       .object({
@@ -2554,9 +2670,38 @@ export const ValidateAdminCompanyReportResponse = zod
           assessmentDate: zod
             .string()
             .describe("Date of the source assessment used (ISO date)."),
-          composite: zod.number(),
-          compositeMax: zod.number(),
-          tier: zod.string(),
+          rubric: zod
+            .object({
+              orgDesignScore: zod.enum([
+                "Low",
+                "Medium",
+                "High",
+                "Insufficient Data",
+              ]),
+              onboardingScore: zod.enum([
+                "Low",
+                "Medium",
+                "High",
+                "Insufficient Data",
+              ]),
+              healthScoringScore: zod.enum([
+                "Low",
+                "Medium",
+                "High",
+                "Insufficient Data",
+              ]),
+              renewalExpansionScore: zod.enum([
+                "Low",
+                "Medium",
+                "High",
+                "Insufficient Data",
+              ]),
+              portcoComposite: zod.number().describe("Numeric composite 0-8."),
+              portcoBand: zod.enum(["Low", "Medium", "High"]),
+            })
+            .describe(
+              "Rubric v2 (4-pillar Low\/Medium\/High) values for the source assessment, matching computeRubricV2\/computePortcoScore in @workspace\/portfolio-engine exactly. Stored assessments columns win when the row carries all five; otherwise derived live via computeRubricV2(). portcoComposite is the 0-8 numeric composite (Low=0, Medium=1, High=2, Insufficient Data counts as 1), banded 0-2 Low \/ 3-5 Medium \/ 6-8 High.\n",
+            ),
           generatedAt: zod
             .string()
             .nullable()
@@ -2593,7 +2738,7 @@ export const ValidateAdminCompanyReportResponse = zod
         }),
       })
       .describe(
-        'Assembled report-data.json export payload for the Diagnostic Report pattern. `reportData` matches the external report-data.json schema (Notion: \"External CS Diagnostic — Scoring Rubric & Cowork Instructions\", Step 7) field-for-field, so it is safe to copy verbatim into the Claude design-file prompt. `meta` carries admin-only context (assessment provenance, derived composite\/tier) that must NOT be included in the exported JSON.\n',
+        'Assembled report-data.json export payload for the Diagnostic Report pattern. `reportData` matches the external report-data.json schema (Notion: \"External CS Diagnostic — Scoring Rubric & Cowork Instructions\", Step 7) field-for-field, so it is safe to copy verbatim into the Claude design-file prompt. `meta` carries admin-only context (assessment provenance, derived rubric-v2 bands\/composite) that must NOT be included in the exported JSON.\n',
       ),
     revision: zod
       .object({
@@ -2790,9 +2935,38 @@ export const ShipAdminCompanyReportToDriveResponse = zod
           assessmentDate: zod
             .string()
             .describe("Date of the source assessment used (ISO date)."),
-          composite: zod.number(),
-          compositeMax: zod.number(),
-          tier: zod.string(),
+          rubric: zod
+            .object({
+              orgDesignScore: zod.enum([
+                "Low",
+                "Medium",
+                "High",
+                "Insufficient Data",
+              ]),
+              onboardingScore: zod.enum([
+                "Low",
+                "Medium",
+                "High",
+                "Insufficient Data",
+              ]),
+              healthScoringScore: zod.enum([
+                "Low",
+                "Medium",
+                "High",
+                "Insufficient Data",
+              ]),
+              renewalExpansionScore: zod.enum([
+                "Low",
+                "Medium",
+                "High",
+                "Insufficient Data",
+              ]),
+              portcoComposite: zod.number().describe("Numeric composite 0-8."),
+              portcoBand: zod.enum(["Low", "Medium", "High"]),
+            })
+            .describe(
+              "Rubric v2 (4-pillar Low\/Medium\/High) values for the source assessment, matching computeRubricV2\/computePortcoScore in @workspace\/portfolio-engine exactly. Stored assessments columns win when the row carries all five; otherwise derived live via computeRubricV2(). portcoComposite is the 0-8 numeric composite (Low=0, Medium=1, High=2, Insufficient Data counts as 1), banded 0-2 Low \/ 3-5 Medium \/ 6-8 High.\n",
+            ),
           generatedAt: zod
             .string()
             .nullable()
@@ -2829,7 +3003,7 @@ export const ShipAdminCompanyReportToDriveResponse = zod
         }),
       })
       .describe(
-        'Assembled report-data.json export payload for the Diagnostic Report pattern. `reportData` matches the external report-data.json schema (Notion: \"External CS Diagnostic — Scoring Rubric & Cowork Instructions\", Step 7) field-for-field, so it is safe to copy verbatim into the Claude design-file prompt. `meta` carries admin-only context (assessment provenance, derived composite\/tier) that must NOT be included in the exported JSON.\n',
+        'Assembled report-data.json export payload for the Diagnostic Report pattern. `reportData` matches the external report-data.json schema (Notion: \"External CS Diagnostic — Scoring Rubric & Cowork Instructions\", Step 7) field-for-field, so it is safe to copy verbatim into the Claude design-file prompt. `meta` carries admin-only context (assessment provenance, derived rubric-v2 bands\/composite) that must NOT be included in the exported JSON.\n',
       ),
     revision: zod
       .object({
@@ -3024,9 +3198,38 @@ export const GenerateAdminCompanyReportExportResponse = zod
       assessmentDate: zod
         .string()
         .describe("Date of the source assessment used (ISO date)."),
-      composite: zod.number(),
-      compositeMax: zod.number(),
-      tier: zod.string(),
+      rubric: zod
+        .object({
+          orgDesignScore: zod.enum([
+            "Low",
+            "Medium",
+            "High",
+            "Insufficient Data",
+          ]),
+          onboardingScore: zod.enum([
+            "Low",
+            "Medium",
+            "High",
+            "Insufficient Data",
+          ]),
+          healthScoringScore: zod.enum([
+            "Low",
+            "Medium",
+            "High",
+            "Insufficient Data",
+          ]),
+          renewalExpansionScore: zod.enum([
+            "Low",
+            "Medium",
+            "High",
+            "Insufficient Data",
+          ]),
+          portcoComposite: zod.number().describe("Numeric composite 0-8."),
+          portcoBand: zod.enum(["Low", "Medium", "High"]),
+        })
+        .describe(
+          "Rubric v2 (4-pillar Low\/Medium\/High) values for the source assessment, matching computeRubricV2\/computePortcoScore in @workspace\/portfolio-engine exactly. Stored assessments columns win when the row carries all five; otherwise derived live via computeRubricV2(). portcoComposite is the 0-8 numeric composite (Low=0, Medium=1, High=2, Insufficient Data counts as 1), banded 0-2 Low \/ 3-5 Medium \/ 6-8 High.\n",
+        ),
       generatedAt: zod
         .string()
         .nullable()
@@ -3063,7 +3266,7 @@ export const GenerateAdminCompanyReportExportResponse = zod
     }),
   })
   .describe(
-    'Assembled report-data.json export payload for the Diagnostic Report pattern. `reportData` matches the external report-data.json schema (Notion: \"External CS Diagnostic — Scoring Rubric & Cowork Instructions\", Step 7) field-for-field, so it is safe to copy verbatim into the Claude design-file prompt. `meta` carries admin-only context (assessment provenance, derived composite\/tier) that must NOT be included in the exported JSON.\n',
+    'Assembled report-data.json export payload for the Diagnostic Report pattern. `reportData` matches the external report-data.json schema (Notion: \"External CS Diagnostic — Scoring Rubric & Cowork Instructions\", Step 7) field-for-field, so it is safe to copy verbatim into the Claude design-file prompt. `meta` carries admin-only context (assessment provenance, derived rubric-v2 bands\/composite) that must NOT be included in the exported JSON.\n',
   );
 
 /**

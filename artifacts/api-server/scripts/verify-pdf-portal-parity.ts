@@ -7,22 +7,26 @@
 // portal-visible company by running BOTH real pipelines and diffing them:
 //
 //   PDF side    -> getReportData(companyId)  (the exact cache-only payload the
-//                  PDF route feeds into buildReportPdfHtml), plus the tier the
-//                  PDF actually renders: getTier(computeTierComposite(scores)).
-//   Portal side -> buildCompany(RawCompany) for each company returned by
-//                  getPortfolioBootstrap() (the exact payload the SPA hydrates).
+//                  PDF route feeds into buildReportPdfHtml). The PDF renders
+//                  meta.rubric verbatim: the 4 rubric-v2 pillar bands, the
+//                  0-8 portcoComposite, and its Low/Medium/High portcoBand.
+//   Portal side -> the same resolution the portal's rubric.ts performs on the
+//                  bootstrap payload: latest assessment's STORED rubric when
+//                  present, else computeRubricV2(pillarScores); composite and
+//                  band recomputed via the shared engine functions.
 //
-// HARD failures (exit 1): companyName, composite, compositeMax<->displayMax,
-// tier.id, tier.label, all 8 pillar scores (frozen cache vs live engine),
-// assessmentDate<->lastDiagnostic. These are the values printed on the PDF and
-// must never drift from the portal.
+// HARD failures (exit 1): companyName, all 4 rubric pillar bands, the 0-8
+// portcoComposite, portcoBand (and its consistency with the stored/derived
+// portcoScore), all 8 underlying pillar scores (frozen cache vs live engine),
+// assessmentDate<->lastDiagnostic. These are the values printed on the PDF
+// and must never drift from the portal. The legacy composite/16 + engagement
+// tier checks were retired with the CQ-20 rubric-v2 hard gate (2026-07-21):
+// the PDF no longer renders those values anywhere.
 //
 // INFORMATIONAL (never fails): gap-title differences. The PDF's gap selection
-// (3 lowest pillars, Insufficient-Data counted as 1) and the portal's
-// (score<2 non-null pillars ranked by (2-score)*weight) are intentionally
-// different algorithms. Reconciling them would require regenerating every
-// cached report_exports row (a RUBRIC_VERSION bump), which is out of scope for
-// a data-parity gate. Reported for visibility only.
+// (3 lowest-rated rubric pillars by band points) and the portal's
+// (score<2 non-null v1 pillars ranked by (2-score)*weight) are intentionally
+// different algorithms. Reported for visibility only.
 //
 // Performs ZERO writes. Run with:
 //   pnpm --filter @workspace/api-server run verify-pdf-parity
@@ -30,10 +34,14 @@
 import { db, pool, companiesTable } from "@workspace/db";
 import {
   PILLARS,
-  getTier,
+  RUBRIC_PILLARS,
   buildCompany,
   gapTitle,
+  computeRubricV2,
+  computePortcoComposite,
+  portcoBandFromComposite,
   type RawCompany,
+  type RubricValue,
 } from "@workspace/portfolio-engine";
 import { parseRawScore } from "../src/lib/pdf/scoreParsing.js";
 import { getReportData } from "../src/lib/reportExport.js";
@@ -43,16 +51,6 @@ interface Mismatch {
   field: string;
   pdf: string;
   portal: string;
-}
-
-// Mirrors computeTierComposite in reportHtml.ts exactly: sum all 8 pillars,
-// substituting 1 for every Insufficient-Data pillar. This is the composite the
-// PDF feeds into getTier() to pick the engagement tier it prints.
-function pdfTierComposite(scores: Record<string, number | string>): number {
-  return PILLARS.reduce((sum, _pillar, index) => {
-    const score = parseRawScore(scores[`p${index + 1}`]);
-    return sum + (score === "NA" ? 1 : score);
-  }, 0);
 }
 
 async function main(): Promise<number> {
@@ -88,6 +86,20 @@ async function main(): Promise<number> {
 
       const company = buildCompany(raw);
 
+      // Portal-side rubric resolution — mirrors the portal's resolveRubric():
+      // prefer the assessment's STORED rubric (shipped via bootstrap), else
+      // derive live through the single shared computeRubricV2() mapping.
+      const latest = raw.assessments[raw.assessments.length - 1];
+      const portalRubric = latest.rubric ?? computeRubricV2(latest.pillarScores);
+      const portalPillarValues: RubricValue[] = [
+        portalRubric.orgDesignScore,
+        portalRubric.onboardingScore,
+        portalRubric.healthScoringScore,
+        portalRubric.renewalExpansionScore,
+      ];
+      const portalComposite = computePortcoComposite(portalPillarValues);
+      const portalBand = portcoBandFromComposite(portalComposite);
+
       let pdf: Awaited<ReturnType<typeof getReportData>>;
       try {
         pdf = await getReportData(dbId);
@@ -99,23 +111,39 @@ async function main(): Promise<number> {
 
       audited++;
       const mismatches: Mismatch[] = [];
+      const pdfRubric = pdf.meta.rubric;
 
       if (pdf.reportData.companyName !== company.name) {
         mismatches.push({ field: "companyName", pdf: pdf.reportData.companyName, portal: company.name });
       }
-      if (pdf.meta.composite !== company.composite) {
-        mismatches.push({ field: "composite", pdf: String(pdf.meta.composite), portal: String(company.composite) });
-      }
-      if (pdf.meta.compositeMax !== company.displayMax) {
-        mismatches.push({ field: "compositeMax", pdf: String(pdf.meta.compositeMax), portal: String(company.displayMax) });
-      }
 
-      const pdfTier = getTier(pdfTierComposite(pdf.reportData.scores));
-      if (pdfTier.id !== company.tier.id) {
-        mismatches.push({ field: "tier.id", pdf: String(pdfTier.id), portal: String(company.tier.id) });
+      for (const pillar of RUBRIC_PILLARS) {
+        if (pdfRubric[pillar.key] !== portalRubric[pillar.key]) {
+          mismatches.push({
+            field: `rubric.${pillar.key}`,
+            pdf: String(pdfRubric[pillar.key]),
+            portal: String(portalRubric[pillar.key]),
+          });
+        }
       }
-      if (pdfTier.label !== company.tier.label) {
-        mismatches.push({ field: "tier.label", pdf: pdfTier.label, portal: company.tier.label });
+      if (pdfRubric.portcoComposite !== portalComposite) {
+        mismatches.push({
+          field: "rubric.portcoComposite",
+          pdf: String(pdfRubric.portcoComposite),
+          portal: String(portalComposite),
+        });
+      }
+      if (pdfRubric.portcoBand !== portalBand) {
+        mismatches.push({ field: "rubric.portcoBand", pdf: pdfRubric.portcoBand, portal: portalBand });
+      }
+      // Internal consistency: a stored portcoScore band (when present) must
+      // agree with the band recomputed from the stored pillar values.
+      if (latest.rubric && latest.rubric.portcoScore !== portalBand) {
+        mismatches.push({
+          field: "storedRubric.portcoScore (internal consistency)",
+          pdf: latest.rubric.portcoScore,
+          portal: portalBand,
+        });
       }
 
       if (pdf.meta.assessmentDate !== company.lastDiagnostic) {
@@ -153,7 +181,7 @@ async function main(): Promise<number> {
         }
       } else {
         console.log(
-          `\u2713 [${firm.slug}/${slug}] parity OK (${pdf.meta.composite}/${pdf.meta.compositeMax}, Tier ${pdfTier.id} ${pdfTier.label})`,
+          `\u2713 [${firm.slug}/${slug}] parity OK (${pdfRubric.portcoComposite}/8, ${pdfRubric.portcoBand} band)`,
         );
       }
     }

@@ -200,13 +200,76 @@ export interface Company {
   hasAssessment: boolean;
 }
 
+export type AdminCompanyReportDataMetaRubricOrgDesignScore =
+  (typeof AdminCompanyReportDataMetaRubricOrgDesignScore)[keyof typeof AdminCompanyReportDataMetaRubricOrgDesignScore];
+
+export const AdminCompanyReportDataMetaRubricOrgDesignScore = {
+  Low: "Low",
+  Medium: "Medium",
+  High: "High",
+  Insufficient_Data: "Insufficient Data",
+} as const;
+
+export type AdminCompanyReportDataMetaRubricOnboardingScore =
+  (typeof AdminCompanyReportDataMetaRubricOnboardingScore)[keyof typeof AdminCompanyReportDataMetaRubricOnboardingScore];
+
+export const AdminCompanyReportDataMetaRubricOnboardingScore = {
+  Low: "Low",
+  Medium: "Medium",
+  High: "High",
+  Insufficient_Data: "Insufficient Data",
+} as const;
+
+export type AdminCompanyReportDataMetaRubricHealthScoringScore =
+  (typeof AdminCompanyReportDataMetaRubricHealthScoringScore)[keyof typeof AdminCompanyReportDataMetaRubricHealthScoringScore];
+
+export const AdminCompanyReportDataMetaRubricHealthScoringScore = {
+  Low: "Low",
+  Medium: "Medium",
+  High: "High",
+  Insufficient_Data: "Insufficient Data",
+} as const;
+
+export type AdminCompanyReportDataMetaRubricRenewalExpansionScore =
+  (typeof AdminCompanyReportDataMetaRubricRenewalExpansionScore)[keyof typeof AdminCompanyReportDataMetaRubricRenewalExpansionScore];
+
+export const AdminCompanyReportDataMetaRubricRenewalExpansionScore = {
+  Low: "Low",
+  Medium: "Medium",
+  High: "High",
+  Insufficient_Data: "Insufficient Data",
+} as const;
+
+export type AdminCompanyReportDataMetaRubricPortcoBand =
+  (typeof AdminCompanyReportDataMetaRubricPortcoBand)[keyof typeof AdminCompanyReportDataMetaRubricPortcoBand];
+
+export const AdminCompanyReportDataMetaRubricPortcoBand = {
+  Low: "Low",
+  Medium: "Medium",
+  High: "High",
+} as const;
+
+/**
+ * Rubric v2 (4-pillar Low/Medium/High) values for the source assessment, matching computeRubricV2/computePortcoScore in @workspace/portfolio-engine exactly. Stored assessments columns win when the row carries all five; otherwise derived live via computeRubricV2(). portcoComposite is the 0-8 numeric composite (Low=0, Medium=1, High=2, Insufficient Data counts as 1), banded 0-2 Low / 3-5 Medium / 6-8 High.
+
+ */
+export type AdminCompanyReportDataMetaRubric = {
+  orgDesignScore: AdminCompanyReportDataMetaRubricOrgDesignScore;
+  onboardingScore: AdminCompanyReportDataMetaRubricOnboardingScore;
+  healthScoringScore: AdminCompanyReportDataMetaRubricHealthScoringScore;
+  renewalExpansionScore: AdminCompanyReportDataMetaRubricRenewalExpansionScore;
+  /** Numeric composite 0-8. */
+  portcoComposite: number;
+  portcoBand: AdminCompanyReportDataMetaRubricPortcoBand;
+};
+
 export type AdminCompanyReportDataMeta = {
   companyId: number;
   /** Date of the source assessment used (ISO date). */
   assessmentDate: string;
-  composite: number;
-  compositeMax: number;
-  tier: string;
+  /** Rubric v2 (4-pillar Low/Medium/High) values for the source assessment, matching computeRubricV2/computePortcoScore in @workspace/portfolio-engine exactly. Stored assessments columns win when the row carries all five; otherwise derived live via computeRubricV2(). portcoComposite is the 0-8 numeric composite (Low=0, Medium=1, High=2, Insufficient Data counts as 1), banded 0-2 Low / 3-5 Medium / 6-8 High.
+   */
+  rubric: AdminCompanyReportDataMetaRubric;
   /**
    * When the AI-generated narrative sections (execSummary, compositeContext, existingSystems, pathForward, pillarSignals, gap impact/recommendation, nextSteps) were produced, or null if this response still carries the blank-placeholder fallback (no report_exports row yet for this assessment).
 
@@ -318,7 +381,7 @@ export interface DiagnosticReportData {
 }
 
 /**
- * Assembled report-data.json export payload for the Diagnostic Report pattern. `reportData` matches the external report-data.json schema (Notion: "External CS Diagnostic — Scoring Rubric & Cowork Instructions", Step 7) field-for-field, so it is safe to copy verbatim into the Claude design-file prompt. `meta` carries admin-only context (assessment provenance, derived composite/tier) that must NOT be included in the exported JSON.
+ * Assembled report-data.json export payload for the Diagnostic Report pattern. `reportData` matches the external report-data.json schema (Notion: "External CS Diagnostic — Scoring Rubric & Cowork Instructions", Step 7) field-for-field, so it is safe to copy verbatim into the Claude design-file prompt. `meta` carries admin-only context (assessment provenance, derived rubric-v2 bands/composite) that must NOT be included in the exported JSON.
 
  */
 export interface AdminCompanyReportData {

@@ -21,7 +21,18 @@ import type {
   UpdatePillarEvidenceInput,
   UpdateReportMetaInput,
 } from "@workspace/api-zod";
-import { PILLARS, getTier, textToScore, type FirmMeta } from "@workspace/portfolio-engine";
+import {
+  PILLARS,
+  RUBRIC_PILLARS,
+  computePortcoComposite,
+  computeRubricV2,
+  rubricValueToPoints,
+  textToScore,
+  type FirmMeta,
+  type RubricBand,
+  type RubricV2Scores,
+  type RubricValue,
+} from "@workspace/portfolio-engine";
 import { getAnthropicClient, extractText, extractJsonFence } from "./anthropic.js";
 import { fetchScoringRubricText } from "./notion.js";
 import { redactNamedIndividuals } from "./nameRedaction.js";
@@ -45,7 +56,15 @@ import { logger } from "./logger.js";
 // pillar has no Claude-written evidence narrative and get baked into the
 // cached reportData JSON at generation time, superseding v4 rows whose
 // fallback gap descriptions still contain the old em-dash gapNote text.
-const RUBRIC_VERSION = "v5";
+// v6 (2026-07-21): CQ-20 hard gate. Report pipeline cut over from the legacy
+// 8-pillar composite/Tier framing to rubric v2: 4 pillars (Org Design,
+// Onboarding, Health Scoring, Renewal & Expansion) rated Low/Medium/High/
+// Insufficient Data, 0-8 PortCo composite (Low=0/Med=1/High=2, ID counts as
+// 1) banded 0-2 Low / 3-5 Medium / 6-8 High. Gaps are now the 3 lowest-rated
+// rubric pillars (titles changed), the narrative prompt speaks band language,
+// and "Tier"/"/16" vocabulary is retired, superseding v5 rows whose cached
+// narrative still references composite/16 and Tier N.
+const RUBRIC_VERSION = "v6";
 const NARRATIVE_MODEL = "claude-sonnet-4-6";
 
 type Company = typeof companiesTable.$inferSelect;
@@ -57,10 +76,13 @@ export class NoAssessmentError extends Error {}
 
 interface BaseReportData {
   reportData: DiagnosticReportData;
-  composite: number;
-  compositeMax: number;
-  tierId: number;
-  tier: string;
+  // Rubric v2 (4-pillar Low/Medium/High) values for the source assessment;
+  // stored assessments columns win when the row carries all five, else
+  // derived live via computeRubricV2(). portcoComposite is the 0-8 numeric
+  // composite; portcoBand its Low/Medium/High banding (== rubric.portcoScore).
+  rubric: RubricV2Scores;
+  portcoComposite: number;
+  portcoBand: RubricBand;
   pillarScores: Record<string, number | null>;
   pillarEvidence: Record<string, string | null>;
   p6Label: string;
@@ -93,8 +115,8 @@ async function loadCompanyContext(
 }
 
 // Assembles the parts of report-data.json that are fully derivable from the
-// DB with no AI call: raw scores, composite/tier, and the P6 recommendation
-// (mechanically derived from the p6 score). Fields that need synthesis
+// DB with no AI call: raw scores, rubric-v2 bands/composite, and the P6
+// recommendation (mechanically derived from the p6 score). Fields that need synthesis
 // (execSummary, compositeContext, existingSystems, pathForward,
 // pillarSignals, gap impact/recommendation, nextSteps) are left at their
 // schema-designed blank fallback ("" / []) here — callers either serve that
@@ -130,14 +152,33 @@ function buildBaseReportData(company: Company, firm: Firm, assessment: Assessmen
     PILLARS.map((pillar, index) => [pillar.id, evidence[pillarKeys[index]]]),
   );
 
-  const scoredPillars = PILLARS.filter((p) => pillarScores[p.id] !== null);
-  const composite = scoredPillars.reduce((sum, p) => sum + (pillarScores[p.id] as number), 0);
-  const compositeMax = scoredPillars.length * 2;
-  const tierComposite = PILLARS.reduce((sum, p) => {
-    const s = pillarScores[p.id];
-    return sum + (s === null ? 1 : s);
-  }, 0);
-  const tier = getTier(tierComposite);
+  // Rubric v2: mirror the portal's precedence exactly (see portfolioData.ts).
+  // The STORED assessments columns win when the row carries all five
+  // (backfilled or pipeline-written rows); rows without them derive live via
+  // the single shared computeRubricV2() implementation. The text columns are
+  // only ever written by computeRubricV2(), so the value space is the
+  // RubricValue/RubricBand unions by construction.
+  const rubric: RubricV2Scores =
+    assessment.orgDesignScore &&
+    assessment.onboardingScore &&
+    assessment.healthScoringScore &&
+    assessment.renewalExpansionScore &&
+    assessment.portcoScore
+      ? {
+          orgDesignScore: assessment.orgDesignScore as RubricValue,
+          onboardingScore: assessment.onboardingScore as RubricValue,
+          healthScoringScore: assessment.healthScoringScore as RubricValue,
+          renewalExpansionScore: assessment.renewalExpansionScore as RubricValue,
+          portcoScore: assessment.portcoScore as RubricBand,
+        }
+      : computeRubricV2(pillarScores);
+  const portcoComposite = computePortcoComposite([
+    rubric.orgDesignScore,
+    rubric.onboardingScore,
+    rubric.healthScoringScore,
+    rubric.renewalExpansionScore,
+  ]);
+  const portcoBand = rubric.portcoScore;
 
   const reportScores = Object.fromEntries(
     PILLARS.map((pillar, index) => {
@@ -158,21 +199,29 @@ function buildBaseReportData(company: Company, firm: Firm, assessment: Assessmen
   const p6Label = p6Score === 2 ? "Retain and Develop" : p6Score === 1 ? "Augment" : p6Score === 0 ? "Replace" : "";
   const p6Recommendation = p6Label ? (p6Evidence ? `${p6Label}: ${p6Evidence}` : p6Label) : "";
 
-  const gaps = [...PILLARS]
-    .map((pillar, index) => ({
-      pillar,
-      index,
-      effectiveScore: pillarScores[pillar.id] === null ? 1 : (pillarScores[pillar.id] as number),
-      evidenceText: evidence[pillarKeys[index]],
-    }))
-    .sort((a, b) => a.effectiveScore - b.effectiveScore || a.index - b.index)
+  // Gaps = the 3 lowest-rated rubric-v2 pillars, ranked by band points
+  // ascending (Low=0, Medium=1, High=2; Insufficient Data counts as Medium,
+  // matching the composite), RUBRIC_PILLARS render order as the tiebreak.
+  // Descriptions join the underlying source-pillar evidence; when no source
+  // evidence exists, fall back to the pillar's "measures" definition.
+  const gaps = RUBRIC_PILLARS.map((pillar, index) => ({
+    pillar,
+    index,
+    points: rubricValueToPoints(rubric[pillar.key]),
+  }))
+    .sort((a, b) => a.points - b.points || a.index - b.index)
     .slice(0, 3)
-    .map(({ pillar, evidenceText }) => ({
-      title: pillar.name,
-      description: evidenceText ?? pillar.gapNote,
-      impact: "",
-      recommendation: "",
-    }));
+    .map(({ pillar }) => {
+      const evidenceParts = pillar.sourcePillarIds
+        .map((id) => pillarEvidenceById[id])
+        .filter((e): e is string => typeof e === "string" && e.trim().length > 0);
+      return {
+        title: pillar.name,
+        description: evidenceParts.length > 0 ? evidenceParts.join(" ") : pillar.measures,
+        impact: "",
+        recommendation: "",
+      };
+    });
 
   const reportData: DiagnosticReportData = {
     companyName: company.name,
@@ -198,10 +247,9 @@ function buildBaseReportData(company: Company, firm: Firm, assessment: Assessmen
 
   return {
     reportData,
-    composite,
-    compositeMax,
-    tierId: tier.id,
-    tier: `Tier ${tier.id} · ${tier.label}`,
+    rubric,
+    portcoComposite,
+    portcoBand,
     pillarScores,
     pillarEvidence: pillarEvidenceById,
     p6Label,
@@ -229,8 +277,9 @@ interface NarrativeResult {
 
 function buildNarrativeSystemPrompt(rubricText: string): string {
   return [
-    "You are a senior operational due-diligence analyst at INVESQ, writing the narrative sections of a Diagnostic Report for a PE/VC firm about one of its portfolio companies.",
-    "You are given that company's already-scored 8-pillar CS diagnostic (scores + evidence) — you are NOT scoring anything and must NOT invent new facts, scores, or evidence beyond what is provided.",
+    "You are a senior operational value-creation analyst at INVESQ, writing the narrative sections of a Diagnostic Report for a PE/VC firm about one of its portfolio companies.",
+    "You are given that company's already-scored operational diagnostic: 8 underlying diagnostic signals (raw scores + evidence) that roll up into a 4-pillar rubric (Org Design, Onboarding, Health Scoring, Renewal & Expansion), each pillar rated Low / Medium / High, or Insufficient Data when public evidence is too thin. You are NOT scoring anything and must NOT invent new facts, scores, ratings, or evidence beyond what is provided.",
+    "The company-level PortCo Score is a numeric composite of the 4 pillar ratings (Low=0, Medium=1, High=2; Insufficient Data counts as 1), giving a 0-8 score banded 0-2 Low, 3-5 Medium, 6-8 High. Frame all company-level conclusions in this 4-pillar band language.",
     "",
     "Ground your writing in the scoring rubric and cowork instructions below (paraphrase and apply its intent — do not just copy sentences from it):",
     "---",
@@ -244,28 +293,34 @@ function buildNarrativeSystemPrompt(rubricText: string): string {
     "- Written for a PE/VC investment committee audience: precise, evidence-grounded, no hype, no filler adjectives.",
     "- Every claim must trace back to the provided scores/evidence — do not fabricate specifics (numbers, tools) that were not given to you, beyond stripping personal names as instructed above.",
     "",
-    "SCORE ACCURACY (strict, non-negotiable): The composite score and tier given to you in the user message are COMPUTED CONSTANTS derived from the raw pillar data -- they are ground truth. You MUST use them EXACTLY as given. Do NOT recalculate, round, estimate, or paraphrase them. If you reference the composite score anywhere in execSummary or compositeContext, write it as the exact fraction given (e.g. \"12/16\") and use the exact tier label given (e.g. \"Tier 3\"). Any composite number or tier you invent that differs from the given values is an error.",
+    "SCORE ACCURACY (strict, non-negotiable): The 4 pillar ratings, the PortCo composite score, and the PortCo band given to you in the user message are COMPUTED CONSTANTS derived from the raw diagnostic data -- they are ground truth. You MUST use them EXACTLY as given. Do NOT recalculate, round, estimate, or paraphrase them. If you reference the composite score anywhere in execSummary or compositeContext, write it as the exact fraction given (e.g. \"5/8\") and use the exact band word given (e.g. \"Medium\"). NEVER use \"Tier\" language and NEVER write a composite out of 16. Any composite number, band, or pillar rating you invent that differs from the given values is an error.",
     "",
     "FORMATTING RULE (strict, non-negotiable): NO EM-DASHES. Ever. Do not use the em-dash character (—) or the en-dash (–) as punctuation anywhere in any field, no matter how natural it feels. Use a period, a comma, or a middot (\u00b7) instead.",
     "",
     "Respond with ONLY a single fenced ```json code block (no prose before or after) containing one JSON object with exactly these keys:",
     '- "execSummary": array of 2-4 short paragraph strings (overall diagnostic summary and investment-relevant framing)',
-    '- "compositeContext": one paragraph contextualizing the composite score/tier for an investment committee',
+    '- "compositeContext": one paragraph contextualizing the PortCo composite score (out of 8) and its Low/Medium/High band for an investment committee',
     '- "existingSystems": one paragraph describing the CS tooling/process stack that IS evidenced (or explicitly noting its absence) — structural, not personal',
-    '- "pathForward": one paragraph on the overall remediation path across pillars',
-    '- "pillarSignals": object with exactly 8 keys "p1".."p8" (in pillar order given), each a single short sentence naming what the signals show for that pillar (blank string "" only if truly no evidence was provided for that pillar)',
-    '- "gapDetails": array of exactly 3 objects, one per gap given to you IN THE SAME ORDER, each with "title" (echo the given title exactly), "impact" (1-2 sentences on investment/value impact), "recommendation" (1-2 sentences, structural/process-level remediation, never targeting a named individual)',
+    '- "pathForward": one paragraph on the overall remediation path across the 4 rubric pillars',
+    '- "pillarSignals": object with exactly 8 keys "p1".."p8" (one per underlying diagnostic signal, in the order given), each a single short sentence naming what the signals show for that diagnostic area (blank string "" only if truly no evidence was provided for it)',
+    '- "gapDetails": array of exactly 3 objects, one per rubric-pillar gap given to you IN THE SAME ORDER, each with "title" (echo the given title exactly), "impact" (1-2 sentences on investment/value impact), "recommendation" (1-2 sentences, structural/process-level remediation, never targeting a named individual)',
     '- "nextSteps": array of 3-5 short, concrete, structural action strings for the first 90 days',
     '- "p6RecommendationRationale": 1-2 sentences justifying the CS-leadership recommendation label you were given, describing ONLY the structural gap (title level, reporting line, mandate scope, board visibility) — never the named individual\'s personal background, prior employers, or career pedigree',
   ].join("\n");
 }
 
 function buildNarrativeUserPrompt(base: BaseReportData, gaps: DiagnosticReportData["gaps"]): string {
-  const pillarLines = PILLARS.map((pillar, index) => {
+  const pillarNameById = Object.fromEntries(PILLARS.map((p) => [p.id, p.name]));
+  const rubricLines = RUBRIC_PILLARS.map((pillar) => {
+    const sources = pillar.sourcePillarIds.map((id) => pillarNameById[id] ?? id).join(" + ");
+    return `- ${pillar.name}: ${base.rubric[pillar.key]} (rolled up from: ${sources})`;
+  }).join("\n");
+
+  const signalLines = PILLARS.map((pillar, index) => {
     const score = base.pillarScores[pillar.id];
     const scoreLabel = score === null ? "Insufficient Data" : score;
     const evidence = base.pillarEvidence[pillar.id] || "(no evidence on file)";
-    return `p${index + 1} — ${pillar.name}: score=${scoreLabel}. Evidence: ${evidence}`;
+    return `p${index + 1} — ${pillar.name}: raw signal score=${scoreLabel}. Evidence: ${evidence}`;
   }).join("\n");
 
   const gapLines = gaps.map((g, i) => `${i + 1}. "${g.title}" — ${g.description}`).join("\n");
@@ -273,13 +328,16 @@ function buildNarrativeUserPrompt(base: BaseReportData, gaps: DiagnosticReportDa
   return [
     `Company: ${base.reportData.companyName}`,
     `Parent fund: ${base.reportData.parentFund}`,
-    `Composite score: ${base.composite}/${base.compositeMax}`,
-    `Tier: ${base.tier}`,
     "",
-    "Pillar scores and evidence:",
-    pillarLines,
+    "Rubric pillar ratings (Low / Medium / High; Insufficient Data = public evidence too thin to rate):",
+    rubricLines,
+    `PortCo composite score: ${base.portcoComposite}/8`,
+    `PortCo band: ${base.portcoBand}`,
     "",
-    "The 3 lowest-scoring pillars (already selected — do not change the titles or add/remove gaps):",
+    "Underlying diagnostic signals and evidence (these feed the rubric pillars above; reference their evidence, never present them as standalone scored pillars):",
+    signalLines,
+    "",
+    "The 3 lowest-rated rubric pillars (already selected — do not change the titles or add/remove gaps):",
     gapLines,
     "",
     `CS-leadership recommendation label (already decided from the p6 score — do not change it, just justify it): "${base.p6Label || "(no label — insufficient data)"}"`,
@@ -353,7 +411,7 @@ async function generateNarrative(base: BaseReportData): Promise<NarrativeResult>
   }
 
   const emSanitized = sanitizeNarrativeEmDashes(parsed);
-  return enforceNarrativeScores(emSanitized, base.composite, base.compositeMax, base.tierId);
+  return enforceNarrativeScores(emSanitized, base.portcoComposite, base.portcoBand);
 }
 
 // The prompt's "NO EM-DASHES" formatting rule (see buildNarrativeSystemPrompt)
@@ -387,40 +445,39 @@ function sanitizeNarrativeEmDashes(narrative: NarrativeResult): NarrativeResult 
   };
 }
 
-// Deterministic backstop that ensures composite-score fractions and tier
-// numbers in execSummary and compositeContext always match the computed
+// Deterministic backstop that ensures composite-score fractions and band
+// references in execSummary and compositeContext always match the computed
 // values, regardless of what the model generated. This prevents hallucinated
-// scores (e.g. "13/16 -- Tier 4") from contradicting the score box (12/16 --
-// Tier 3) that is derived from the same raw pillar data.
+// scores (e.g. "6/8" when the composite is 5) from contradicting the score
+// box (5/8) that is derived from the same raw pillar data.
 //
 // Strategy:
-//   - Any "N/compositeMax" fraction where N != composite is replaced with
-//     the correct "composite/compositeMax". The denominator match is exact
-//     so unrelated fractions (percentages, ratios) are never touched.
-//   - Any "Tier N" where N != tierId is replaced with "Tier {tierId}".
+//   - Any "N/8" fraction where N != portcoComposite is replaced with the
+//     correct "portcoComposite/8". The denominator match is exact so
+//     unrelated fractions (percentages, ratios) are never touched.
+//   - Any "N/16" fraction (the RETIRED legacy composite denominator) is
+//     replaced with the correct "portcoComposite/8" outright.
+//   - Any residual "Tier N" (retired vocabulary the prompt bans) is replaced
+//     with the "{band} band" phrase.
 //
 // Only execSummary and compositeContext are corrected here because those are
-// the only narrative fields where score/tier references are expected. The
+// the only narrative fields where score/band references are expected. The
 // other fields (pathForward, gapDetails, etc.) describe qualitative gaps and
 // should not contain composite fractions.
 function enforceNarrativeScores(
   narrative: NarrativeResult,
-  composite: number,
-  compositeMax: number,
-  tierId: number,
+  portcoComposite: number,
+  portcoBand: RubricBand,
 ): NarrativeResult {
-  const denomStr = String(compositeMax);
-  const correctFraction = `${composite}/${compositeMax}`;
-  // Match "N / compositeMax" with optional whitespace around the slash.
-  const fractionRe = new RegExp(`\\b\\d+\\s*/\\s*${denomStr}\\b`, "g");
+  const correctFraction = `${portcoComposite}/8`;
+  // Match "N / 8" and "N / 16" with optional whitespace around the slash.
+  const fractionRe = /\b\d+\s*\/\s*8\b/g;
+  const legacyFractionRe = /\b\d+\s*\/\s*16\b/g;
 
   const fixText = (text: string): string => {
-    // Fix composite fractions that share the correct denominator.
     text = text.replace(fractionRe, correctFraction);
-    // Fix "Tier N" where N is wrong.
-    text = text.replace(/\bTier\s+(\d+)\b/g, (match, n) =>
-      parseInt(n, 10) !== tierId ? `Tier ${tierId}` : match,
-    );
+    text = text.replace(legacyFractionRe, correctFraction);
+    text = text.replace(/\bTier\s+\d+\b/g, `${portcoBand} band`);
     return text;
   };
 
@@ -462,29 +519,33 @@ function mergeNarrative(base: BaseReportData, narrative: NarrativeResult): Diagn
   };
 }
 
-const LEADERSHIP_PILLAR_NAME = PILLARS.find((p) => p.id === "leadership")?.name ?? "CS Leadership";
+// The rubric-v2 pillar whose gap description carries the raw CS-Leadership
+// evidence: Org Design rolls up the "org" + "leadership" source pillars, so
+// its joined-evidence gap description is where a named individual can leak.
+const ORG_DESIGN_PILLAR_NAME =
+  RUBRIC_PILLARS.find((p) => p.key === "orgDesignScore")?.name ?? "Org Design";
 const LEADERSHIP_PILLAR_KEY = ((): keyof DiagnosticReportData["pillarEvidence"] => {
   const index = PILLARS.findIndex((p) => p.id === "leadership");
   return `p${index + 1}` as keyof DiagnosticReportData["pillarEvidence"];
 })();
 
-// Targeted render-time mitigation (not a data migration): both the
-// CS-Leadership gap's `description` AND `pillarEvidence.p6` are verbatim
-// passthroughs of that pillar's raw assessment evidence (see
-// buildBaseReportData above), which can name a real individual (e.g. "CS is
-// led by Kendra Fromm..."). `pillarEvidence.p6` is part of the client-facing
-// report schema (renders in the exported PDF's pillar-by-pillar narrative),
-// so it carries the same client-facing risk as the gap description. Every
-// OTHER field — every other pillar's `pillarEvidence` (p1-p5, p7, p8), every
-// other gap's description — is left completely untouched; this only ever
-// rewrites these two known fields. The underlying `assessments` row is never
-// modified. See replit.md "CS-Leadership gap description redaction" for the
-// full rationale.
+// Targeted render-time mitigation (not a data migration): both the Org
+// Design gap's `description` (a verbatim join of the org + leadership source
+// evidence, see buildBaseReportData above) AND `pillarEvidence.p6` are
+// passthroughs of raw assessment evidence, which can name a real individual
+// (e.g. "CS is led by Kendra Fromm..."). `pillarEvidence.p6` is part of the
+// client-facing report schema (renders in the exported PDF's
+// pillar-by-pillar narrative), so it carries the same client-facing risk as
+// the gap description. Every OTHER field — every other pillar's
+// `pillarEvidence` (p1-p5, p7, p8), every other gap's description — is left
+// completely untouched; this only ever rewrites these two known fields. The
+// underlying `assessments` row is never modified. See replit.md
+// "CS-Leadership gap description redaction" for the full rationale.
 function sanitizeReportData(reportData: DiagnosticReportData): DiagnosticReportData {
   return {
     ...reportData,
     gaps: reportData.gaps.map((gap) =>
-      gap.title === LEADERSHIP_PILLAR_NAME
+      gap.title === ORG_DESIGN_PILLAR_NAME
         ? { ...gap, description: redactNamedIndividuals(gap.description) }
         : gap,
     ),
@@ -498,7 +559,7 @@ function sanitizeReportData(reportData: DiagnosticReportData): DiagnosticReportD
 function toResponse(
   company: Company,
   assessmentDate: string,
-  base: Pick<BaseReportData, "composite" | "compositeMax" | "tier">,
+  base: Pick<BaseReportData, "rubric" | "portcoComposite" | "portcoBand">,
   reportData: DiagnosticReportData,
   generatedAt: string | null,
   model: string | null,
@@ -508,9 +569,14 @@ function toResponse(
     meta: {
       companyId: company.id,
       assessmentDate,
-      composite: base.composite,
-      compositeMax: base.compositeMax,
-      tier: base.tier,
+      rubric: {
+        orgDesignScore: base.rubric.orgDesignScore,
+        onboardingScore: base.rubric.onboardingScore,
+        healthScoringScore: base.rubric.healthScoringScore,
+        renewalExpansionScore: base.rubric.renewalExpansionScore,
+        portcoComposite: base.portcoComposite,
+        portcoBand: base.portcoBand,
+      },
       generatedAt,
       model,
       // Effective cover metadata (per-company override else the static

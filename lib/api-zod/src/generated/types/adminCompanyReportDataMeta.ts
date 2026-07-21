@@ -5,14 +5,15 @@
  * CS Rescue API specification
  * OpenAPI spec version: 0.1.0
  */
+import type { AdminCompanyReportDataMetaRubric } from "./adminCompanyReportDataMetaRubric";
 
 export type AdminCompanyReportDataMeta = {
   companyId: number;
   /** Date of the source assessment used (ISO date). */
   assessmentDate: string;
-  composite: number;
-  compositeMax: number;
-  tier: string;
+  /** Rubric v2 (4-pillar Low/Medium/High) values for the source assessment, matching computeRubricV2/computePortcoScore in @workspace/portfolio-engine exactly. Stored assessments columns win when the row carries all five; otherwise derived live via computeRubricV2(). portcoComposite is the 0-8 numeric composite (Low=0, Medium=1, High=2, Insufficient Data counts as 1), banded 0-2 Low / 3-5 Medium / 6-8 High.
+   */
+  rubric: AdminCompanyReportDataMetaRubric;
   /**
    * When the AI-generated narrative sections (execSummary, compositeContext, existingSystems, pathForward, pillarSignals, gap impact/recommendation, nextSteps) were produced, or null if this response still carries the blank-placeholder fallback (no report_exports row yet for this assessment).
 
