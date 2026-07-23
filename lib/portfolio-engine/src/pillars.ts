@@ -145,7 +145,7 @@ export const TIERS: Tier[] = [
     range: [0, 5],
     color: "#f43f5e",
     badgeClass: "bg-rose-500/10 text-rose-300 border-rose-500/30",
-    engagement: "Full-scale rebuild: all 8 pillars require intervention. 90–180 day engagement.",
+    engagement: "Full-scale rebuild: all 4 pillars require intervention. 90–180 day engagement.",
     invesqSignal:
       "High-urgency acquisition risk. NRR likely <90%. Immediate value-creation opportunity post-close.",
     arrRisk: ">20% ARR at risk annually",
@@ -157,7 +157,7 @@ export const TIERS: Tier[] = [
     range: [6, 9],
     color: "#fb923c",
     badgeClass: "bg-orange-500/10 text-orange-300 border-orange-500/30",
-    engagement: "Targeted remediation: 2–4 pillar interventions. 60–90 day engagement.",
+    engagement: "Targeted remediation: 1–2 pillar interventions. 60–90 day engagement.",
     invesqSignal:
       "Meaningful structural gaps. Strong INVESQ fit. 10–15pp NRR improvement is achievable.",
     arrRisk: "10–20% ARR at risk annually",

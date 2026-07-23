@@ -1126,3 +1126,20 @@ curl -X POST https://<prod-domain>/api/admin/repair-assessments-dedup \
   - PDF pagination: changed .page from min-height:11in (footer could float to physical page 2 on content-heavy pages) to height:11in; overflow:hidden (each logical page is exactly one physical page; footer always on the same page as its content). CEATI page 1 confirmed: "INVESQ · DRAFT DIAGNOSTIC / PAGE 1 OF 7 / DRAFT · NOT VALIDATED" footer at bottom of page 1.
   - Validation badge: removed from page-1 cover (was next to company name). Now renders only at the very end of page 7 (Methodology & Sources) as a provenance/audit block — red DRAFT for unvalidated exports, orange Validated stamp with signer names and date for validated ones. The diagonal DRAFT watermark and the "Draft · Not Validated" header tag on pages 2-7 are unchanged.
   - Web scorecard/gaps cards: reduced padding from p-6 to p-4 on the PillarScorecard and priority-findings cards in PortfolioReport.tsx so the 4-pillar layout sits tight with no leftover dead space.
+
+---
+
+## Task #43: 4-pillar copy fix and evidence modal consolidation
+- Date: 2026-07-23 16:30 UTC
+- Status: complete in dev
+- Files changed: lib/portfolio-engine/src/pillars.ts, artifacts/cs-rescue/src/data/portfolio/pillars.ts, artifacts/cs-rescue/src/pages/portfolio/PortcoReportWorkflow.tsx, BUILD-LOG.md
+- Validation: typecheck:libs + cs-rescue + api-server typecheck PASS; grep "all 8 pillars require" returns zero hits repo-wide (remaining "all 8 pillars" mentions are pipeline internals -- jobs/scoring.ts, jobs/build.ts, email.ts, engine validation, OpenAPI schema -- intentionally out of scope)
+- Republish needed: yes (user publishes)
+- QA notes:
+  - Tier copy, both TIERS arrays (lib colon variant + frontend em-dash variant):
+    - Tier 1 before: "Full-scale rebuild[:/ --] all 8 pillars require intervention. 90-180 day engagement." / after: "... all 4 pillars require intervention. ..."
+    - Tier 2 before: "Targeted remediation[:/ --] 2-4 pillar interventions. 60-90 day engagement." / after: "... 1-2 pillar interventions. ..." (2-4 of 8 rescaled proportionally to 1-2 of 4; "2-4" overlapped Tier 1's "all 4")
+    - Tiers 3-4 unchanged (no pillar-count wording). tierComposite ranges, arrRisk, band boundaries untouched.
+  - Edit Pillar Evidence modal (PortcoReportWorkflow.tsx): 8 per-pillar fields replaced with 4 consolidated rubric fields plus a standalone "AI Adoption Maturity (informational)" field. Mapping: CS Org Design = p1+p6; Onboarding = p2; Health Scoring = p3+p4; Renewal & Expansion Forecasting = p5+p7; AI = p8 alone. P8 is deliberately NOT folded into Org Design (architect review catch): rubric v2 drops AI from the 4-pillar rubric but the PDF renders p8 evidence as an informational block, so merging would have blanked that block after any Org Design edit and misattributed AI evidence. Each rubric field pre-merges non-empty constituent evidence blank-line separated (no text lost). Save writes merged text to the primary column (p1/p2/p3/p5) and nulls only non-empty secondary columns (p6/p4/p7), and only for edited fields -- untouched pillars stay byte-for-byte (P6 redaction behavior preserved via hint on the Org Design field).
+  - Em-dash cleanup (free fix while touching these lines): all 4 frontend TIERS engagement separators changed from " -- " (em-dash) to ": ", matching the lib variant and the non-negotiable no-em-dash copy policy. The two files' engagement strings are now identical.
+  - Stored-data caveat (out of scope per task, follow-up proposed): 3 Long Arc companies carry the old engagement strings baked into companies.meta at build time (CircleBlack "all 8 pillars", Concertiv + Tinubu "2-4 pillar"); dev DB query confirmed. Same rows likely exist in prod. Copy fix only affects newly built/rebuilt companies until those rows are refreshed.

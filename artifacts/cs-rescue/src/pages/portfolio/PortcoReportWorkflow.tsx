@@ -315,30 +315,70 @@ function PortcoNarrativeEditor({
 }
 
 // ---------------------------------------------------------------------------
-// PillarEvidenceEditor — inline editor for the raw per-pillar evidence text
-// on the company's latest assessment. Saving persists to
-// assessments.p{n}_evidence and mirrors into findings WITHOUT creating a
-// revision or resetting sign-offs (same behavior class as the cover-meta
-// save). Only fields the admin actually changed are sent, so untouched
-// pillars (notably P6, whose display text is name-redacted) keep their
-// stored values byte-for-byte.
+// PillarEvidenceEditor — inline editor for the raw pillar evidence text on
+// the company's latest assessment, presented as the 4 consolidated rubric-v2
+// pillars. Each field pre-merges the evidence text of its constituent v1
+// pillars (blank-line separated) so no stored text is hidden or lost:
+//
+//   CS Org Design                   = P1 (Org Design) + P6 (CS Leadership)
+//   Onboarding                      = P2 (unchanged)
+//   Health Scoring                  = P3 (Health Scoring) + P4 (Escalation & Churn Mgmt)
+//   Renewal & Expansion Forecasting = P5 (Revenue Motion) + P7 (Account Planning)
+//   AI Adoption Maturity            = P8, kept standalone: rubric v2 drops it from
+//                                     the 4-pillar rubric but the PDF renders its
+//                                     evidence as an informational block, so it must
+//                                     never be folded into Org Design storage.
+//
+// Saving persists to assessments.p{n}_evidence and mirrors into findings
+// WITHOUT creating a revision or resetting sign-offs (same behavior class as
+// the cover-meta save). For an EDITED field, the merged text is written to
+// the primary column (p1/p2/p3/p5) and its non-empty secondary columns are
+// cleared, making the consolidation permanent for that pillar. Untouched
+// fields are not sent at all, so their stored values stay byte-for-byte
+// (notably P6, whose display text is name-redacted).
 // ---------------------------------------------------------------------------
-const PILLAR_EVIDENCE_FIELDS: readonly { key: `p${1 | 2 | 3 | 4 | 5 | 6 | 7 | 8}`; label: string; hint?: string }[] = [
-  { key: "p1", label: "P1 CS Org Design" },
-  { key: "p2", label: "P2 Onboarding" },
-  { key: "p3", label: "P3 Health Scoring" },
-  { key: "p4", label: "P4 Escalation & Churn Management" },
-  { key: "p5", label: "P5 Revenue Motion" },
+const CONSOLIDATED_EVIDENCE_FIELDS: readonly {
+  primaryKey: "p1" | "p2" | "p3" | "p5" | "p8";
+  secondaryKeys: readonly ("p4" | "p6" | "p7")[];
+  label: string;
+  hint?: string;
+}[] = [
   {
-    key: "p6",
-    label: "P6 CS Leadership",
-    hint: "Shown here with named individuals redacted. Saving an edit permanently replaces the stored raw evidence with this text.",
+    primaryKey: "p1",
+    secondaryKeys: ["p6"],
+    label: "CS Org Design",
+    hint: "Includes former CS Leadership evidence. Named individuals are shown redacted. Saving an edit permanently replaces the stored raw evidence with this text.",
   },
-  { key: "p7", label: "P7 Account Planning" },
-  { key: "p8", label: "P8 AI Adoption Maturity" },
+  { primaryKey: "p2", secondaryKeys: [], label: "Onboarding" },
+  {
+    primaryKey: "p3",
+    secondaryKeys: ["p4"],
+    label: "Health Scoring",
+    hint: "Includes former Escalation & Churn Management evidence.",
+  },
+  {
+    primaryKey: "p5",
+    secondaryKeys: ["p7"],
+    label: "Renewal & Expansion Forecasting",
+    hint: "Includes former Revenue Motion and Account Planning evidence.",
+  },
+  {
+    primaryKey: "p8",
+    secondaryKeys: [],
+    label: "AI Adoption Maturity (informational)",
+    hint: "Tracked outside the 4-pillar rubric; shown as an informational signal on the report.",
+  },
 ] as const;
 
-type PillarEvidenceKey = (typeof PILLAR_EVIDENCE_FIELDS)[number]["key"];
+type ConsolidatedPillarKey = (typeof CONSOLIDATED_EVIDENCE_FIELDS)[number]["primaryKey"];
+
+/** Merge non-empty evidence strings into one blob, blank-line separated. */
+function mergeEvidence(parts: readonly (string | null | undefined)[]): string {
+  return parts
+    .map((p) => (p ?? "").trim())
+    .filter(Boolean)
+    .join("\n\n");
+}
 
 function PillarEvidenceEditor({
   report,
@@ -351,22 +391,32 @@ function PillarEvidenceEditor({
   onCancel: () => void;
   onSave: (input: UpdatePillarEvidenceInput) => void;
 }) {
-  const [initial] = useState<Record<PillarEvidenceKey, string>>(() =>
-    Object.fromEntries(
-      PILLAR_EVIDENCE_FIELDS.map(({ key }) => [key, report.reportData.pillarEvidence[key] ?? ""]),
-    ) as Record<PillarEvidenceKey, string>,
-  );
+  const [initial] = useState<Record<ConsolidatedPillarKey, string>>(() => {
+    const ev = report.reportData.pillarEvidence;
+    return {
+      p1: mergeEvidence([ev.p1, ev.p6]),
+      p2: mergeEvidence([ev.p2]),
+      p3: mergeEvidence([ev.p3, ev.p4]),
+      p5: mergeEvidence([ev.p5, ev.p7]),
+      p8: mergeEvidence([ev.p8]),
+    };
+  });
   const [values, setValues] = useState(initial);
 
-  const setValue = (key: PillarEvidenceKey, value: string) =>
+  const setValue = (key: ConsolidatedPillarKey, value: string) =>
     setValues((prev) => ({ ...prev, [key]: value }));
 
   const handleSave = () => {
     const input: UpdatePillarEvidenceInput = {};
-    for (const { key } of PILLAR_EVIDENCE_FIELDS) {
-      if (values[key].trim() !== initial[key].trim()) {
-        const trimmed = values[key].trim();
-        input[key] = trimmed === "" ? null : trimmed;
+    const ev = report.reportData.pillarEvidence;
+    for (const { primaryKey, secondaryKeys } of CONSOLIDATED_EVIDENCE_FIELDS) {
+      const trimmed = values[primaryKey].trim();
+      if (trimmed === initial[primaryKey].trim()) continue;
+      input[primaryKey] = trimmed === "" ? null : trimmed;
+      // The merged text now lives in the primary column; clear constituent
+      // columns that had content so a reload doesn't duplicate it.
+      for (const sk of secondaryKeys) {
+        if ((ev[sk] ?? "").trim() !== "") input[sk] = null;
       }
     }
     onSave(input);
@@ -378,8 +428,9 @@ function PillarEvidenceEditor({
         <div>
           <h3 className="text-sm font-semibold text-gray-900">Edit pillar evidence</h3>
           <p className="mt-0.5 text-xs text-slate-500">
-            Evidence is the raw diagnostic source text for each pillar. Edits update the scorecard note
-            and gap description. Scores, tiers, and sign-offs are not affected.
+            Evidence is the raw diagnostic source text for each rubric pillar, plus the informational
+            AI Adoption signal. Edits update the scorecard note and gap description. Scores, tiers,
+            and sign-offs are not affected.
           </p>
         </div>
         <Button variant="ghost" size="sm" onClick={onCancel} disabled={saving} className="text-gray-700">
@@ -387,15 +438,15 @@ function PillarEvidenceEditor({
         </Button>
       </div>
 
-      {PILLAR_EVIDENCE_FIELDS.map(({ key, label, hint }) => (
-        <div key={key} className="space-y-1.5">
-          <Label htmlFor={`pc-evidence-${key}`} className="text-gray-800">{label}</Label>
+      {CONSOLIDATED_EVIDENCE_FIELDS.map(({ primaryKey, label, hint }) => (
+        <div key={primaryKey} className="space-y-1.5">
+          <Label htmlFor={`pc-evidence-${primaryKey}`} className="text-gray-800">{label}</Label>
           {hint && <p className="text-[11px] text-amber-600">{hint}</p>}
           <Textarea
-            id={`pc-evidence-${key}`}
-            value={values[key]}
-            onChange={(e) => setValue(key, e.target.value)}
-            rows={3}
+            id={`pc-evidence-${primaryKey}`}
+            value={values[primaryKey]}
+            onChange={(e) => setValue(primaryKey, e.target.value)}
+            rows={4}
             placeholder="No evidence on file"
             className={TEXTAREA}
           />
