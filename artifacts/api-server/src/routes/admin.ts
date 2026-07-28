@@ -1290,7 +1290,12 @@ router.post("/companies/:id/ship-to-drive", async (req, res) => {
       return;
     }
     req.log.error({ err, companyId: id }, "Failed to ship report to Drive");
-    res.status(502).json({ error: "Failed to ship report to Google Drive" });
+    // Surface the Drive-layer reason (googleDrive.ts crafts admin-safe
+    // messages, e.g. 403 shared-drive membership guidance) so the admin UI
+    // can show the actual cause instead of a generic "check the connection".
+    const detail =
+      err instanceof Error && err.message.startsWith("Drive ") ? ` ${err.message}` : "";
+    res.status(502).json({ error: `Failed to ship report to Google Drive.${detail}` });
   }
 });
 

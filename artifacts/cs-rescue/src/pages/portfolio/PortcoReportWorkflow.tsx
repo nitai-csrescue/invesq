@@ -731,11 +731,21 @@ export function PortcoReportWorkflow({
       },
       onError: (err) => {
         const status = err instanceof ApiError ? err.status : undefined;
+        const serverError =
+          err instanceof ApiError &&
+          err.data != null &&
+          typeof err.data === "object" &&
+          "error" in err.data &&
+          typeof (err.data as { error?: unknown }).error === "string"
+            ? (err.data as { error: string }).error
+            : null;
         toast({
           title: "Delivery failed",
           description:
             status === 412 ? "Report must be fully validated before shipping."
-            : "Google Drive upload failed. Check the Drive connection.",
+            : serverError && serverError.length > "Failed to ship report to Google Drive.".length
+              ? serverError
+              : "Google Drive upload failed. Check the Drive connection.",
           variant: "destructive",
         });
       },

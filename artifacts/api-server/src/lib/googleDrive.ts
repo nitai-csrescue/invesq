@@ -20,6 +20,28 @@ import { logger } from "./logger.js";
 
 const FOLDER_MIME = "application/vnd.google-apps.folder";
 
+// One retry (with a short delay) on transient Drive API failures: network
+// errors and 429/5xx responses. 4xx auth/permission errors are NOT retried —
+// they always mean a human step (shared-drive membership, reconnecting the
+// integration) and retrying just delays the real error message.
+const RETRYABLE_STATUSES = new Set([429, 500, 502, 503, 504]);
+
+async function proxyWithRetry(
+  client: ReplitConnectors,
+  path: string,
+  init: Parameters<ReplitConnectors["proxy"]>[2],
+): Promise<Response> {
+  try {
+    const res = await client.proxy("google-drive", path, init);
+    if (!RETRYABLE_STATUSES.has(res.status)) return res;
+    logger.warn({ path, status: res.status }, "Transient Drive API error; retrying once");
+  } catch (err) {
+    logger.warn({ path, err }, "Drive API network error; retrying once");
+  }
+  await new Promise((r) => setTimeout(r, 1500));
+  return client.proxy("google-drive", path, init);
+}
+
 // The shared-drive folder that serves as the root for all report uploads.
 // Lives in shared drive 0AKg0kCdcXPNiUk9PVA. Never auto-created — it must
 // exist before any upload, and the authenticated identity must have Contributor
@@ -44,8 +66,8 @@ async function findOrCreateFolder(
 ): Promise<string> {
   const escaped = name.replace(/\\/g, "\\\\").replace(/'/g, "\\'");
   const q = `mimeType = '${FOLDER_MIME}' and name = '${escaped}' and '${parentId}' in parents and trashed = false`;
-  const listRes = await client.proxy(
-    "google-drive",
+  const listRes = await proxyWithRetry(
+    client,
     `/drive/v3/files?q=${encodeURIComponent(q)}&fields=files(id,name)&supportsAllDrives=true&includeItemsFromAllDrives=true`,
     { method: "GET" },
   );
@@ -61,8 +83,8 @@ async function findOrCreateFolder(
   const listed = (await listRes.json()) as { files?: Array<{ id: string; name: string }> };
   if (listed.files && listed.files.length > 0) return listed.files[0].id;
 
-  const createRes = await client.proxy(
-    "google-drive",
+  const createRes = await proxyWithRetry(
+    client,
     "/drive/v3/files?fields=id&supportsAllDrives=true",
     {
       method: "POST",
@@ -103,8 +125,8 @@ async function uploadPdf(
   const epilogue = `\r\n--${boundary}--`;
   const body = Buffer.concat([Buffer.from(preamble, "utf8"), pdf, Buffer.from(epilogue, "utf8")]);
 
-  const res = await client.proxy(
-    "google-drive",
+  const res = await proxyWithRetry(
+    client,
     "/upload/drive/v3/files?uploadType=multipart&fields=id,webViewLink&supportsAllDrives=true",
     {
       method: "POST",
