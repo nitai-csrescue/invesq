@@ -126,4 +126,5 @@ Lessons from production incidents. Honor them in every future build.
 
 ## User preferences
 
+- GitHub versioning: `origin` = https://github.com/nitai-csrescue/invesq. Push `main` after each completed task/milestone so the repo stays current.
 - Keep this file lean: durable architecture, conventions, and incident-derived rules only; deep implementation detail belongs in code comments or `.agents/memory/` topic files.
