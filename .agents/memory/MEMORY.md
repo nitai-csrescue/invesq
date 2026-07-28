@@ -30,4 +30,5 @@
 - [FK child tables and delete paths](fk-child-table-delete-paths.md) — a new FK child table breaks every delete path not updated with it; empty-table gates cannot catch the gap.
 - [Stored derived scores go stale](derived-score-staleness.md) — formula changes need stored-row rewrites per environment; fallbacks that prefer stored values keep serving old results.
 - [Drive connector DELETE 404](drive-connector-delete-404.md) — google-drive proxy 404s on DELETE; trash files with PATCH trashed=true instead.
+- [Engagement meta is bespoke copy](engagement-meta-bespoke-copy.md) — meta.engagement is often hand-curated, not TIERS boilerplate; backfills must exact-match retired strings, never recompute-overwrite.
 - [Boot backfill vs response cache](boot-backfill-cache-snapshot.md) — a cache-on-first-request payload can freeze a mid-refresh snapshot; boot backfills must invalidate it, and UI headlines the latest row, not flipped historical ones.
