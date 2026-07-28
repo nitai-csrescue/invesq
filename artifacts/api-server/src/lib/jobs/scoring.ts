@@ -76,11 +76,29 @@ interface FirmContext {
   website: string | null;
 }
 
+// CQ-28: explicit Phase 1 signal checks layered onto specific pillars'
+// prompt lines, in ADDITION to the pillar's baseline `signals` string from
+// the shared PILLARS rubric. Prompt-layer only: signal storage shape,
+// scoring rules, consolidation, and composite math are untouched, and the
+// shared rubric copy (which also renders in tenant-facing UI) is not edited.
+// "revenue" is the P4 raw pillar that consolidates into Renewal & Expansion
+// Forecasting.
+const EXTRA_SIGNAL_CHECKS: Partial<Record<string, string[]>> = {
+  revenue: [
+    "pricing, packaging, or bundling language on the company's product/pricing pages, in case studies, or in press coverage",
+    "discount governance or contract terms-and-conditions mentions in job postings, in contracts referenced in press, or in investor materials",
+    "any public mention of NRR reporting, NRR dashboards, or a QBR/renewal cadence",
+  ],
+};
+
 function buildSystemPrompt(): string {
-  const pillarBlock = PILLARS.map(
-    (p, i) =>
-      `${i + 1}. "${p.id}" — ${p.name}: ${p.measures} Look for signals such as: ${p.signals}.`,
-  ).join("\n");
+  const pillarBlock = PILLARS.map((p, i) => {
+    const extras = EXTRA_SIGNAL_CHECKS[p.id];
+    const extraBlock = extras
+      ? ` Additionally, explicitly check for each of the following and record any real finding as its own structured signal (skip silently when no public signal exists — never fabricate): ${extras.map((e, j) => `(${String.fromCharCode(97 + j)}) ${e}`).join("; ")}.`
+      : "";
+    return `${i + 1}. "${p.id}" — ${p.name}: ${p.measures} Look for signals such as: ${p.signals}.${extraBlock}`;
+  }).join("\n");
 
   return [
     "You are conducting an 8-pillar Customer Success operational diagnostic for INVESQ, an operational due-diligence platform for PE/VC firms assessing a real portfolio company.",
