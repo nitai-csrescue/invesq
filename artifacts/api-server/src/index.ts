@@ -5,6 +5,7 @@ import { resumeQueuedBuildJobs } from "./lib/jobs/build";
 import { backfillCompanyNormalizedNames } from "./lib/backfillNormalizedNames";
 import { backfillIcpMeta } from "./lib/backfillIcpMeta";
 import { backfillRubricV2 } from "./lib/backfillRubricV2";
+import { backfillEngagement } from "./lib/backfillEngagement";
 import { removePamlicoCapitalDuplicate } from "./lib/removePamlicoCapitalDuplicate";
 import { seedStuckFirms } from "./lib/seedStuckFirms";
 import { logSystemHealthOnStartup } from "./lib/systemHealth";
@@ -46,6 +47,7 @@ app.listen(port, (err) => {
   void backfillCompanyNormalizedNames();
   void backfillIcpMeta();
   void backfillRubricV2();
+  void backfillEngagement();
   void removePamlicoCapitalDuplicate();
   void seedStuckFirms();
   void resumeQueuedDiscoveryJobs();
