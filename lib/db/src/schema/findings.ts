@@ -15,6 +15,11 @@ export const findingsTable = pgTable(
     assessmentId: integer("assessment_id")
       .notNull()
       .references(() => assessmentsTable.id),
+    // Canonical rubric version (RUBRIC_VERSION in @workspace/portfolio-engine)
+    // in effect when this finding was written. Additive + nullable: legacy
+    // rows are backfilled from their parent assessment's rubric_version by
+    // the boot backfill; all new writes must stamp it explicitly.
+    rubricVersion: text("rubric_version"),
     // Matches PILLARS[].id in @workspace/portfolio-engine, e.g. "org",
     // "onboarding", "health", "escalation", "revenue", "leadership",
     // "planning", "ai".

@@ -17,13 +17,13 @@
 // six rubric columns. Non-fatal by design: failures are logged, never crash
 // the server on boot.
 // ---------------------------------------------------------------------------
-import { eq } from "drizzle-orm";
-import { db, assessmentsTable } from "@workspace/db";
+import { eq, isNull, sql } from "drizzle-orm";
+import { db, assessmentsTable, findingsTable } from "@workspace/db";
 import {
   PILLAR_IDS,
   textToScore,
   computeRubricV2,
-  RUBRIC_VERSION_V2,
+  RUBRIC_VERSION,
   type PillarScore,
 } from "@workspace/portfolio-engine";
 import { logger } from "./logger.js";
@@ -54,7 +54,7 @@ export async function backfillRubricV2(): Promise<void> {
         row.healthScoringScore !== rubric.healthScoringScore ||
         row.renewalExpansionScore !== rubric.renewalExpansionScore ||
         row.portcoScore !== rubric.portcoScore ||
-        row.rubricVersion !== RUBRIC_VERSION_V2;
+        row.rubricVersion !== RUBRIC_VERSION;
 
       if (!isStale) continue;
 
@@ -70,7 +70,7 @@ export async function backfillRubricV2(): Promise<void> {
           healthScoringScore: rubric.healthScoringScore,
           renewalExpansionScore: rubric.renewalExpansionScore,
           portcoScore: rubric.portcoScore,
-          rubricVersion: RUBRIC_VERSION_V2,
+          rubricVersion: RUBRIC_VERSION,
         })
         .where(eq(assessmentsTable.id, row.id));
       updated += 1;
@@ -86,5 +86,24 @@ export async function backfillRubricV2(): Promise<void> {
     }
   } catch (err) {
     logger.error({ err }, "rubric v2 stored-value refresh failed (non-fatal)");
+  }
+
+  // findings.rubric_version backfill: legacy rows (null) inherit their parent
+  // assessment's rubric_version. Additive and idempotent — only null rows are
+  // touched, so this no-ops once backfilled. New findings writes stamp the
+  // column explicitly at insert time.
+  try {
+    const result = await db
+      .update(findingsTable)
+      .set({
+        rubricVersion: sql`(select a.rubric_version from ${assessmentsTable} a where a.id = ${findingsTable.assessmentId})`,
+      })
+      .where(isNull(findingsTable.rubricVersion))
+      .returning({ id: findingsTable.id });
+    if (result.length > 0) {
+      logger.info({ updated: result.length }, "findings rubric_version backfill complete");
+    }
+  } catch (err) {
+    logger.error({ err }, "findings rubric_version backfill failed (non-fatal)");
   }
 }

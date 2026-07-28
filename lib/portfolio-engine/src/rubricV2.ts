@@ -28,7 +28,8 @@ export type RubricBand = "Low" | "Medium" | "High";
 export type RubricValue = RubricBand | "Insufficient Data";
 
 export const RUBRIC_INSUFFICIENT: RubricValue = "Insufficient Data";
-export const RUBRIC_VERSION_V2 = "v2";
+// The version constant formerly declared here (RUBRIC_VERSION_V2) moved to
+// the single canonical source of truth in rubricVersion.ts (RUBRIC_VERSION).
 
 // Conservative-first ordering (Low < Medium < High) for band sorting/display.
 export const RUBRIC_BAND_ORDER: readonly RubricBand[] = ["Low", "Medium", "High"];

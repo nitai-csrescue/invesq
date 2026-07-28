@@ -42,7 +42,6 @@ export { PILLAR_IDS, scoreToText, textToScore, normalizeCompanyName } from "./ma
 
 export {
   RUBRIC_INSUFFICIENT,
-  RUBRIC_VERSION_V2,
   RUBRIC_BAND_ORDER,
   RUBRIC_PILLARS,
   singleToRubric,
@@ -57,6 +56,14 @@ export {
   type RubricV2Scores,
   type RubricPillarDef,
 } from "./rubricV2";
+
+export {
+  RUBRIC_VERSION,
+  RUBRIC_VERSION_LEGACY,
+  NOTION_RUBRIC_LABEL_V1,
+  NOTION_RUBRIC_LABEL_V2,
+  notionRubricVersionLabel,
+} from "./rubricVersion";
 
 export {
   AS_OF_DATE,

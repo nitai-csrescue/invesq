@@ -1,7 +1,7 @@
 import { eq } from "drizzle-orm";
 import { db as appDb, notionSyncStateTable } from "@workspace/db";
 import { logger } from "./logger.js";
-import { PILLARS } from "@workspace/portfolio-engine";
+import { PILLARS, RUBRIC_VERSION, notionRubricVersionLabel } from "@workspace/portfolio-engine";
 import type { PillarResult } from "./jobs/scoring.js";
 
 const NOTION_VERSION = "2022-06-28";
@@ -294,6 +294,16 @@ export async function writeDiagnosticToNotion(params: {
       }
     } else if (firmProp?.type === "rich_text") {
       properties[firmProp.name] = { rich_text: [{ text: { content: params.firmName } }] };
+    }
+
+    // Stamp the methodology generation automatically on every diagnostic
+    // write — never manual. The canonical RUBRIC_VERSION maps onto the
+    // select's two fixed generation options via notionRubricVersionLabel().
+    const rubricVersionProp = findPropertyByName(db, "Rubric Version");
+    if (rubricVersionProp?.type === "select") {
+      properties[rubricVersionProp.name] = { select: { name: notionRubricVersionLabel(RUBRIC_VERSION) } };
+    } else if (rubricVersionProp?.type === "rich_text") {
+      properties[rubricVersionProp.name] = { rich_text: [{ text: { content: notionRubricVersionLabel(RUBRIC_VERSION) } }] };
     }
 
     const missingPillarProps: string[] = [];

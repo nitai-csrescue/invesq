@@ -91,6 +91,9 @@ async function backfillFindings(): Promise<{ assessmentsScanned: number; finding
           score: normalizedScore,
           evidence,
           source: BACKFILL_SOURCE,
+          // Inherit the parent assessment's stamped version rather than
+          // assuming the current one — this script can re-run over old rows.
+          rubricVersion: row.rubricVersion,
         })
         .onConflictDoNothing({ target: [findingsTable.assessmentId, findingsTable.pillarId] })
         .returning({ id: findingsTable.id });

@@ -24,6 +24,7 @@ import type {
 import {
   PILLARS,
   RUBRIC_PILLARS,
+  RUBRIC_VERSION,
   computePortcoComposite,
   computeRubricV2,
   rubricValueToPoints,
@@ -64,7 +65,9 @@ import { logger } from "./logger.js";
 // rubric pillars (titles changed), the narrative prompt speaks band language,
 // and "Tier"/"/16" vocabulary is retired, superseding v5 rows whose cached
 // narrative still references composite/16 and Tier N.
-const RUBRIC_VERSION = "v6";
+// The canonical version constant now lives in @workspace/portfolio-engine
+// (rubricVersion.ts) — imported below, never re-declared here. The v1-v6
+// changelog above documents what each bump changed.
 const NARRATIVE_MODEL = "claude-sonnet-4-6";
 
 type Company = typeof companiesTable.$inferSelect;

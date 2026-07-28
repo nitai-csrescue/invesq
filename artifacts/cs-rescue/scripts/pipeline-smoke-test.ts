@@ -25,7 +25,7 @@ import {
   findingsTable,
   jobsTable,
 } from "@workspace/db";
-import { normalizeCompanyName, PILLARS, PILLAR_IDS, textToScore } from "@workspace/portfolio-engine";
+import { normalizeCompanyName, PILLARS, PILLAR_IDS, RUBRIC_VERSION, textToScore } from "@workspace/portfolio-engine";
 import { and, eq, inArray, ne } from "drizzle-orm";
 
 const FIXTURE_PREFIX = "__smoke__";
@@ -185,6 +185,7 @@ async function createFindings(assessmentId: number): Promise<void> {
     pillarId,
     score: scores[i] ?? "1",
     evidence: "Smoke test fixture evidence.",
+    rubricVersion: RUBRIC_VERSION,
   }));
   const inserted = await db.insert(findingsTable).values(rows).returning({ id: findingsTable.id });
   for (const f of inserted) fixture.findingIds.push(f.id);

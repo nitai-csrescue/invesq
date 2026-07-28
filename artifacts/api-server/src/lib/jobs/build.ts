@@ -20,7 +20,7 @@ import {
   scoreToText,
   getTier,
   computeRubricV2,
-  RUBRIC_VERSION_V2,
+  RUBRIC_VERSION,
   type CompanyMeta,
   type FirmMeta,
   type PillarScore,
@@ -123,7 +123,7 @@ async function scoreAndPersistCompany(company: Company, firm: Firm): Promise<Com
   assessmentValues.healthScoringScore = rubric.healthScoringScore;
   assessmentValues.renewalExpansionScore = rubric.renewalExpansionScore;
   assessmentValues.portcoScore = rubric.portcoScore;
-  assessmentValues.rubricVersion = RUBRIC_VERSION_V2;
+  assessmentValues.rubricVersion = RUBRIC_VERSION;
 
   // Postgres is the source of truth — this write must succeed for the
   // company's scoring to count as done, regardless of what happens with Notion.

@@ -22,7 +22,7 @@ import {
   PILLAR_IDS,
   textToScore,
   computeRubricV2,
-  RUBRIC_VERSION_V2,
+  RUBRIC_VERSION,
   type PillarScore,
   type RubricV2Scores,
 } from "@workspace/portfolio-engine";
@@ -75,13 +75,13 @@ async function main() {
         healthScoringScore: rubric.healthScoringScore,
         renewalExpansionScore: rubric.renewalExpansionScore,
         portcoScore: rubric.portcoScore,
-        rubricVersion: RUBRIC_VERSION_V2,
+        rubricVersion: RUBRIC_VERSION,
       })
       .where(eq(assessmentsTable.id, row.id));
     updated++;
   }
 
-  console.log(`Updated ${updated}/${rows.length} rows to rubric_version=${RUBRIC_VERSION_V2}.`);
+  console.log(`Updated ${updated}/${rows.length} rows to rubric_version=${RUBRIC_VERSION}.`);
   console.log("Value distributions:");
   for (const [col, dist] of Object.entries(distributions)) {
     const parts = Object.entries(dist)
