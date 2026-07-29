@@ -8,7 +8,6 @@
 // ---------------------------------------------------------------------------
 import { createContext, useContext, useEffect, useState, type ReactNode } from "react";
 import { useLocation } from "wouter";
-import { useAuth } from "@workspace/replit-auth-web";
 import { useGetPortfolioBootstrap } from "@workspace/api-client-react";
 import { hydratePortfolioData } from "./engine";
 import { firmRequiresLogin, registerDynamicFirms } from "./firms";
@@ -121,19 +120,83 @@ export function PortfolioGate({ children }: { children: ReactNode }) {
   // tenant pages make ZERO auth calls (no admin footprint in the anon path).
   const firmSlug = location.split("/")[1] ?? "";
   if (FIRM_SCOPED_RE.test(location) && firmRequiresLogin(firmSlug)) {
-    return <RequireLoginGate>{children}</RequireLoginGate>;
+    return <TenantLoginGate firmSlug={firmSlug}>{children}</TenantLoginGate>;
   }
 
   return <>{children}</>;
 }
 
-// Gates a requireLogin firm's portal behind an authenticated session. Isolated
-// into its own component so useAuth() (which fetches /api/auth/user) is only
-// ever called when a firm actually requires login — public firms never pay it.
-function RequireLoginGate({ children }: { children: ReactNode }) {
-  const { isAuthenticated, isLoading, login } = useAuth();
+// ---------------------------------------------------------------------------
+// TenantLoginGate — magic-link (email OTP) gate for login-required tenant
+// portals (STG-only rollout). No passwords anywhere. Entirely separate from
+// the admin OIDC auth: it talks only to /api/tenant-auth/*, and the session
+// lives in an httpOnly signed cookie — nothing is stored client-side.
+//
+// Flow: (1) if the URL carries ?login_token= (from the emailed link), POST
+// /verify, then strip the token from the URL and hard-reload so the
+// bootstrap is refetched WITH the session cookie (gated firms' data is
+// redacted server-side for anonymous requests). (2) Otherwise check
+// /session; authenticated renders the portal, anonymous gets the
+// request-a-link screen.
+// ---------------------------------------------------------------------------
+function TenantLoginGate({ firmSlug, children }: { firmSlug: string; children: ReactNode }) {
+  const [phase, setPhase] = useState<"checking" | "anonymous" | "authenticated">("checking");
+  const [verifyError, setVerifyError] = useState<string | null>(null);
 
-  if (isLoading) {
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      const params = new URLSearchParams(window.location.search);
+      const loginToken = params.get("login_token");
+      if (loginToken) {
+        try {
+          const res = await fetch("/api/tenant-auth/verify", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            credentials: "include",
+            body: JSON.stringify({ token: loginToken }),
+          });
+          if (res.ok) {
+            // Strip the one-time token from the URL, then hard-reload so the
+            // bootstrap refetches with the new session cookie attached.
+            params.delete("login_token");
+            const clean =
+              window.location.pathname + (params.size ? `?${params.toString()}` : "");
+            window.history.replaceState(null, "", clean);
+            window.location.reload();
+            return;
+          }
+          const body = (await res.json().catch(() => null)) as { error?: string } | null;
+          if (!cancelled) {
+            setVerifyError(body?.error ?? "This sign-in link is invalid or has expired.");
+            setPhase("anonymous");
+          }
+          return;
+        } catch {
+          if (!cancelled) {
+            setVerifyError("Could not verify the sign-in link. Please request a new one.");
+            setPhase("anonymous");
+          }
+          return;
+        }
+      }
+
+      try {
+        const res = await fetch("/api/tenant-auth/session", { credentials: "include" });
+        const body = (await res.json()) as { authenticated?: boolean; firmSlug?: string };
+        if (!cancelled) {
+          setPhase(body.authenticated && body.firmSlug === firmSlug ? "authenticated" : "anonymous");
+        }
+      } catch {
+        if (!cancelled) setPhase("anonymous");
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [firmSlug]);
+
+  if (phase === "checking") {
     return (
       <div className="flex min-h-screen items-center justify-center text-sm text-muted-foreground">
         Checking access…
@@ -141,22 +204,95 @@ function RequireLoginGate({ children }: { children: ReactNode }) {
     );
   }
 
-  if (!isAuthenticated) {
-    return (
-      <div className="flex min-h-screen flex-col items-center justify-center gap-4 px-6 text-center">
-        <div className="text-sm text-muted-foreground">
-          This portal requires sign-in.
-        </div>
-        <button
-          type="button"
-          onClick={login}
-          className="rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:opacity-90"
-        >
-          Sign in
-        </button>
-      </div>
-    );
+  if (phase === "anonymous") {
+    return <TenantLoginScreen firmSlug={firmSlug} initialError={verifyError} />;
   }
 
   return <>{children}</>;
+}
+
+function TenantLoginScreen({ firmSlug, initialError }: { firmSlug: string; initialError: string | null }) {
+  const [email, setEmail] = useState("");
+  const [state, setState] = useState<"idle" | "sending" | "sent">("idle");
+  const [error, setError] = useState<string | null>(initialError);
+
+  async function requestLink(e: React.FormEvent) {
+    e.preventDefault();
+    if (!email.trim() || state === "sending") return;
+    setState("sending");
+    setError(null);
+    try {
+      const res = await fetch("/api/tenant-auth/request-link", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({ email: email.trim(), firmSlug }),
+      });
+      if (!res.ok) {
+        const body = (await res.json().catch(() => null)) as { error?: string } | null;
+        setError(body?.error ?? "Could not send the sign-in link. Please try again.");
+        setState("idle");
+        return;
+      }
+      setState("sent");
+    } catch {
+      setError("Could not send the sign-in link. Please try again.");
+      setState("idle");
+    }
+  }
+
+  return (
+    <div className="flex min-h-screen items-center justify-center bg-background px-6">
+      <div className="w-full max-w-sm">
+        <div className="mb-8 text-center">
+          <div className="text-xl font-semibold tracking-tight">INVESQ</div>
+          <div className="mt-1 text-sm text-muted-foreground">Portfolio portal sign-in</div>
+        </div>
+
+        {state === "sent" ? (
+          <div className="rounded-lg border border-border bg-card p-6 text-center">
+            <div className="text-sm font-medium">Check your email</div>
+            <p className="mt-2 text-sm text-muted-foreground">
+              If that address has access, a one-time sign-in link is on its way. The link
+              expires in 15 minutes.
+            </p>
+            <button
+              type="button"
+              onClick={() => setState("idle")}
+              className="mt-4 text-sm text-muted-foreground underline underline-offset-4 hover:text-foreground"
+            >
+              Use a different email
+            </button>
+          </div>
+        ) : (
+          <form onSubmit={requestLink} className="rounded-lg border border-border bg-card p-6">
+            <label htmlFor="tenant-login-email" className="block text-sm font-medium">
+              Work email
+            </label>
+            <input
+              id="tenant-login-email"
+              type="email"
+              required
+              autoComplete="email"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              placeholder="you@yourfirm.com"
+              className="mt-2 w-full rounded-md border border-input bg-background px-3 py-2 text-sm outline-none ring-offset-background focus-visible:ring-2 focus-visible:ring-ring"
+            />
+            {error ? <p className="mt-2 text-sm text-destructive">{error}</p> : null}
+            <button
+              type="submit"
+              disabled={state === "sending"}
+              className="mt-4 w-full rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:opacity-90 disabled:opacity-60"
+            >
+              {state === "sending" ? "Sending…" : "Email me a sign-in link"}
+            </button>
+            <p className="mt-3 text-center text-xs text-muted-foreground">
+              No password needed — we email you a one-time link.
+            </p>
+          </form>
+        )}
+      </div>
+    </div>
+  );
 }

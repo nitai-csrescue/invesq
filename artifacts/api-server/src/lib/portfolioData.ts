@@ -28,6 +28,8 @@ import {
 } from "@workspace/portfolio-engine";
 import { LEGACY_FIRMS_META } from "@workspace/portfolio-engine/data";
 import { logger } from "./logger.js";
+import { LOGIN_GATED_SLUGS, type TenantSession } from "./tenantAuth.js";
+import { withTenantDb } from "./tenantDb.js";
 
 // The 5 hand-authored demo tenants. These are the source-of-truth demo data;
 // any problem with their DB rows must "fail loud" (fail the whole bootstrap)
@@ -138,7 +140,10 @@ async function load(): Promise<PortfolioLoadResult> {
           displayName: firm.name,
           statusLabel: firmMeta.statusLabel,
           internalOnly: firmMeta.internalOnly,
-          requireLogin: firmMeta.requireLogin ?? false,
+          // Login gating is a CODE-level boundary (LOGIN_GATED_SLUGS), not a
+          // DB flag — so dev and prod are gated identically with no data
+          // migration, and no admin edit can accidentally un-gate STG.
+          requireLogin: LOGIN_GATED_SLUGS.has(firm.slug) || (firmMeta.requireLogin ?? false),
           companies: rawCompanies,
         });
         continue;
@@ -182,7 +187,7 @@ async function load(): Promise<PortfolioLoadResult> {
           displayName: firm.name,
           statusLabel: firmMeta.statusLabel,
           internalOnly: firmMeta.internalOnly,
-          requireLogin: firmMeta.requireLogin ?? false,
+          requireLogin: LOGIN_GATED_SLUGS.has(firm.slug) || (firmMeta.requireLogin ?? false),
           companies: rawCompanies,
         });
       } catch (firmErr) {
@@ -222,6 +227,91 @@ export async function getPortfolioBootstrap(): Promise<PortfolioLoadResult> {
   return inflight;
 }
 
+// ---------------------------------------------------------------------------
+// Login-gated tenant slices (STG-only pass).
+//
+// The globally cached payload above is what anonymous requests see — except
+// that every LOGIN_GATED_SLUGS firm has its companies REDACTED to []. An
+// authenticated tenant session gets its own firm's companies spliced back
+// in, and those rows are fetched through withTenantDb (SET LOCAL ROLE
+// tenant_reader + app.firm_id), so Postgres RLS — not just this code —
+// guarantees the slice can only ever contain that firm's rows.
+// ---------------------------------------------------------------------------
+const gatedSliceCache = new Map<number, RawCompany[]>();
+
+async function loadGatedFirmCompanies(firmId: number): Promise<RawCompany[]> {
+  const cachedSlice = gatedSliceCache.get(firmId);
+  if (cachedSlice) return cachedSlice;
+
+  const rawCompanies = await withTenantDb(firmId, async (tdb) => {
+    // Sequential on purpose: all three run on the SAME checked-out client
+    // (that's what carries the SET LOCAL role/setting), and a single pg
+    // client cannot pipeline concurrent queries.
+    const firmRows = await tdb.select().from(firmsTable).orderBy(asc(firmsTable.id));
+    const companyRows = await tdb.select().from(companiesTable).orderBy(asc(companiesTable.id));
+    const assessmentRows = await tdb
+      .select()
+      .from(assessmentsTable)
+      .orderBy(asc(assessmentsTable.date), asc(assessmentsTable.id));
+    // Under RLS these unfiltered selects can only see the session firm's
+    // rows — assert that invariant loudly rather than assume it.
+    const firm = firmRows[0];
+    if (!firm || firmRows.length !== 1 || firm.id !== firmId) {
+      throw new Error(`RLS invariant violated: expected exactly firm ${firmId}, saw [${firmRows.map((f) => f.id).join(",")}]`);
+    }
+    if (companyRows.some((c) => c.firmId !== firmId)) {
+      throw new Error(`RLS invariant violated: cross-tenant company row visible under firm ${firmId}`);
+    }
+
+    const byCompany = new Map<number, Assessment[]>();
+    for (const row of assessmentRows) {
+      const list = byCompany.get(row.companyId) ?? [];
+      list.push(rowToAssessment(row));
+      byCompany.set(row.companyId, list);
+    }
+    // Gated tenants in this pass are legacy (hand-authored) firms: strict
+    // mapping, fail loud — identical to the legacy branch in load().
+    const companies: RawCompany[] = companyRows.map((c) => {
+      if (!c.slug) throw new Error(`companies.slug is missing for company "${c.name}" (id ${c.id})`);
+      const companyMeta = c.meta as CompanyMeta | null;
+      if (!companyMeta) throw new Error(`companies.meta is missing for company "${c.name}" (id ${c.id})`);
+      return { ...companyMeta, id: c.slug, name: c.name, assessments: byCompany.get(c.id) ?? [] };
+    });
+    buildFirmPortfolio(firm.slug, companies);
+    return companies;
+  });
+
+  gatedSliceCache.set(firmId, rawCompanies);
+  return rawCompanies;
+}
+
+// The session-aware bootstrap every request goes through. Anonymous (or
+// other-firm) requests get gated firms with companies: []; a matching
+// authenticated session gets its firm's RLS-fetched slice. Non-gated firms
+// are passed through from the shared cache untouched.
+export async function getPortfolioBootstrapForSession(
+  session: TenantSession | null,
+): Promise<PortfolioLoadResult> {
+  const result = await getPortfolioBootstrap();
+  if (!result.ok) return result;
+  const anyGated = result.data.firms.some((f) => LOGIN_GATED_SLUGS.has(f.slug));
+  if (!anyGated) return result;
+
+  const firms: PortfolioBootstrapFirm[] = [];
+  for (const firm of result.data.firms) {
+    if (!LOGIN_GATED_SLUGS.has(firm.slug)) {
+      firms.push(firm);
+      continue;
+    }
+    if (session && session.firmSlug === firm.slug) {
+      firms.push({ ...firm, companies: await loadGatedFirmCompanies(session.firmId) });
+    } else {
+      firms.push({ ...firm, companies: [] });
+    }
+  }
+  return { ok: true, data: { ...result.data, firms } };
+}
+
 // Forces the next getPortfolioBootstrap() call to reload from the DB instead
 // of serving the cached payload. Must be called after any direct DB write
 // that changes firms/companies/assessments outside the normal /admin
@@ -229,4 +319,5 @@ export async function getPortfolioBootstrap(): Promise<PortfolioLoadResult> {
 // production would keep serving the pre-write bootstrap until a restart.
 export function invalidatePortfolioCache(): void {
   cached = null;
+  gatedSliceCache.clear();
 }

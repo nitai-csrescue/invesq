@@ -6,6 +6,7 @@ import { backfillCompanyNormalizedNames } from "./lib/backfillNormalizedNames";
 import { backfillIcpMeta } from "./lib/backfillIcpMeta";
 import { backfillRubricV2 } from "./lib/backfillRubricV2";
 import { backfillEngagement } from "./lib/backfillEngagement";
+import { ensureRlsPolicies } from "./lib/rlsPolicies";
 import { removePamlicoCapitalDuplicate } from "./lib/removePamlicoCapitalDuplicate";
 import { seedStuckFirms } from "./lib/seedStuckFirms";
 import { logSystemHealthOnStartup } from "./lib/systemHealth";
@@ -48,6 +49,7 @@ app.listen(port, (err) => {
   void backfillIcpMeta();
   void backfillRubricV2();
   void backfillEngagement();
+  void ensureRlsPolicies();
   void removePamlicoCapitalDuplicate();
   void seedStuckFirms();
   void resumeQueuedDiscoveryJobs();

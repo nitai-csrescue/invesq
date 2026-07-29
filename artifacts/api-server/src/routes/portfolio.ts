@@ -2,7 +2,8 @@ import { Router, type IRouter } from "express";
 import { and, asc, eq, isNotNull } from "drizzle-orm";
 import { db, companiesTable, firmsTable, signalsTable } from "@workspace/db";
 import { GetPortfolioBootstrapResponse, GetRavigaSignalsResponse } from "@workspace/api-zod";
-import { getPortfolioBootstrap } from "../lib/portfolioData.js";
+import { getPortfolioBootstrapForSession } from "../lib/portfolioData.js";
+import { getTenantSession } from "../lib/tenantAuth.js";
 import {
   getCompanyWebsite,
   loadEffectiveReport,
@@ -18,7 +19,10 @@ const router: IRouter = Router();
 
 router.get("/bootstrap", async (req, res) => {
   try {
-    const result = await getPortfolioBootstrap();
+    // Session-aware: login-gated firms (STG) ship companies: [] unless the
+    // request carries a valid tenant session for that firm — see
+    // portfolioData.ts. All other firms are served exactly as before.
+    const result = await getPortfolioBootstrapForSession(getTenantSession(req));
     if (!result.ok) {
       res.status(500).json({ error: "Portfolio data failed to load or validate" });
       return;
@@ -99,7 +103,10 @@ router.get("/:firmSlug/companies/:companySlug/report-pdf", async (req, res) => {
 
     // internalOnly still gates tenant VISIBILITY (validation is the export
     // control, but an internal-only firm's reports are never tenant-facing).
-    if (!resolved.sendable || resolved.requireLogin) {
+    // requireLogin firms: allow download only for an authenticated tenant
+    // session of the SAME firm (magic-link login); anonymous stays 403.
+    const tenantOk = !resolved.requireLogin || getTenantSession(req)?.firmSlug === firmSlug;
+    if (!resolved.sendable || !tenantOk) {
       res.status(403).json({ error: "This report is not available for download" });
       return;
     }
