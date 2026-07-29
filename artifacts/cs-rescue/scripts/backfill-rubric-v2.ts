@@ -4,7 +4,7 @@
 // For EVERY existing assessments row, computes the 4-pillar Low/Medium/High
 // rubric fields (org_design_score, onboarding_score, health_scoring_score,
 // renewal_expansion_score, portco_score) from the row's stored p1..p8 values
-// and stamps rubric_version = "v2". Matching is by pillar CONCEPT via
+// and stamps the canonical rubric_version (RUBRIC_VERSION). Matching is by pillar CONCEPT via
 // PILLAR_IDS (p1..p8 map 1:1 to PILLARS order), and ALL bucketing math lives
 // in the single shared computeRubricV2() implementation in
 // @workspace/portfolio-engine — never duplicated here.
