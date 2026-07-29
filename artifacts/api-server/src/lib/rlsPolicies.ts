@@ -23,6 +23,7 @@ import { pool } from "@workspace/db";
 import { logger } from "./logger.js";
 
 const DDL = `
+BEGIN;
 DO $$
 BEGIN
   IF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'tenant_reader') THEN
@@ -80,13 +81,34 @@ CREATE POLICY tenant_isolation_select ON report_exports FOR SELECT TO tenant_rea
   USING (company_id IN (
     SELECT id FROM companies WHERE firm_id = current_setting('app.firm_id', true)::int
   ));
+COMMIT;
 `;
+
+// Startup self-check: assert the role and every expected policy actually
+// exist before the tenant-gated data path is considered healthy.
+const EXPECTED_POLICY_TABLES = [
+  "firms",
+  "companies",
+  "ingestion_sources",
+  "assessments",
+  "findings",
+  "signals",
+  "report_exports",
+];
 
 export async function ensureRlsPolicies(): Promise<void> {
   const client = await pool.connect();
   try {
     await client.query(DDL);
-    logger.info("RLS tenant-isolation policies ensured (role tenant_reader)");
+    const { rows } = await client.query(
+      `SELECT tablename FROM pg_policies WHERE policyname = 'tenant_isolation_select' AND schemaname = 'public'`,
+    );
+    const present = new Set(rows.map((r: { tablename: string }) => r.tablename));
+    const missing = EXPECTED_POLICY_TABLES.filter((t) => !present.has(t));
+    if (missing.length > 0) {
+      throw new Error(`RLS self-check failed: missing tenant_isolation_select on [${missing.join(", ")}]`);
+    }
+    logger.info("RLS tenant-isolation policies ensured and self-checked (role tenant_reader)");
   } catch (err) {
     // Fail loud in logs but never take the server down: existing tenants are
     // served by the owner role and are unaffected; only the login-gated

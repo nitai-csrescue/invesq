@@ -3,7 +3,7 @@ import { and, asc, eq, isNotNull } from "drizzle-orm";
 import { db, companiesTable, firmsTable, signalsTable } from "@workspace/db";
 import { GetPortfolioBootstrapResponse, GetRavigaSignalsResponse } from "@workspace/api-zod";
 import { getPortfolioBootstrapForSession } from "../lib/portfolioData.js";
-import { getTenantSession } from "../lib/tenantAuth.js";
+import { getTenantSession, LOGIN_GATED_SLUGS } from "../lib/tenantAuth.js";
 import {
   getCompanyWebsite,
   loadEffectiveReport,
@@ -103,9 +103,14 @@ router.get("/:firmSlug/companies/:companySlug/report-pdf", async (req, res) => {
 
     // internalOnly still gates tenant VISIBILITY (validation is the export
     // control, but an internal-only firm's reports are never tenant-facing).
-    // requireLogin firms: allow download only for an authenticated tenant
+    // Login-gated firms: allow download only for an authenticated tenant
     // session of the SAME firm (magic-link login); anonymous stays 403.
-    const tenantOk = !resolved.requireLogin || getTenantSession(req)?.firmSlug === firmSlug;
+    // The gate is the union of the CODE-level scope boundary
+    // (LOGIN_GATED_SLUGS — same source bootstrap gating uses) and the DB
+    // meta flag, so a missing/edited firms.meta.requireLogin can never
+    // silently un-gate STG.
+    const loginRequired = resolved.requireLogin || LOGIN_GATED_SLUGS.has(firmSlug);
+    const tenantOk = !loginRequired || getTenantSession(req)?.firmSlug === firmSlug;
     if (!resolved.sendable || !tenantOk) {
       res.status(403).json({ error: "This report is not available for download" });
       return;
