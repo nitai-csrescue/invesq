@@ -37,6 +37,17 @@ NOT an AI copilot. Use "Recommended Actions"; avoid copilot/automation language
 ("AI Recommendations", "automated decisions", etc.). Keep it to 4 screens (Overview,
 Portfolio table, Account drilldown, Methodology) and keep the DARK theme (user confirmed).
 
+## Exception: client-facing diagnostic PDF export (api-server lib/pdf)
+The 7-page diagnostic report PDF carries the **CS RESCUE** mark (navy CS + orange
+RESCUE), NOT INVESQ — wordmark, header/footer brand stamps, page-6 "Prepared by"
+block, and the cover Organization line. **Why:** Nitai explicitly signed off
+(2026-07-30) on matching the handmade client PDFs. **How to apply:** the swap is
+PDF-render-time ONLY — `PREPARED_BY.org` stays "INVESQ" (it feeds meta shown in
+the portal report-workflow UI); the cover maps the un-overridden default via
+`PDF_PREPARED_BY_ORG`. Narrative prose and portal/web chrome still say INVESQ.
+Do not "correct" the PDF marks back to INVESQ, and do not let CS Rescue leak
+into portal UI via shared constants.
+
 ## Exception: cs-rescue-video artifact (Techstars demo)
 The `artifacts/cs-rescue-video` artifact ("CS Rescue Product Demo Video") is
 intentionally branded **CS Rescue**, NOT INVESQ. **Why:** it was built for a
