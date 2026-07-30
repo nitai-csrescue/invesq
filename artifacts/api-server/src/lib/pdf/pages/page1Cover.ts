@@ -1,5 +1,6 @@
 import { COLORS, FONTS, bandStatusFor } from "../theme.js";
 import { esc, pageShell, eyebrow } from "../components.js";
+import { PREPARED_BY, PDF_PREPARED_BY_ORG } from "../staticCopy.js";
 import type { ReportContext } from "../types.js";
 
 function preparedCard(title: string, lines: Array<{ label: string; value: string }>): string {
@@ -133,7 +134,16 @@ export function renderPage1(ctx: ReportContext): string {
       ])}
       ${preparedCard("Prepared By", [
         { label: "Name", value: ctx.meta.preparedByName },
-        { label: "Organization", value: ctx.meta.preparedByOrg },
+        // PDF-only brand mapping: the un-overridden INVESQ default renders as
+        // CS Rescue on the PDF cover (portal UI keeps INVESQ); real
+        // per-company overrides pass through untouched.
+        {
+          label: "Organization",
+          value:
+            ctx.meta.preparedByOrg === PREPARED_BY.org
+              ? PDF_PREPARED_BY_ORG
+              : ctx.meta.preparedByOrg,
+        },
         { label: "Date", value: reportData.reportDate },
       ])}
     </div>

@@ -45,12 +45,17 @@ export const INITIATIVES: Array<{ initiative: string; outcome: string }> = [
 export const METHODOLOGY_PARAGRAPH =
   "This diagnostic is built entirely from public, verifiable signals: company websites, job postings, product and pricing pages, and other publicly observable operational evidence. It does not rely on internal data access, customer interviews, or vendor-provided metrics. Eight underlying diagnostic signals are collected against a fixed rubric and rolled up into four rubric pillars (Org Design, Onboarding, Health Scoring, and Renewal & Expansion), each rated Low, Medium, or High, or Insufficient Data where public signal is too thin to rate responsibly. The company-level PortCo Score is the numeric composite of the four pillar ratings (Low = 0, Medium = 1, High = 2, with Insufficient Data counted as 1 point), banded 0-2 Low, 3-5 Medium, 6-8 High, so results are comparable across companies and over time.";
 
-// PDF-EXPORT EXCEPTION (Nitai sign-off, 2026-07-30): the client-facing
-// diagnostic PDF carries the CS RESCUE brand, matching the handmade PDFs.
-// Portal/web UI chrome still says INVESQ (the INVESQ-branding rule remains in
-// force everywhere else). No email is included: no established public contact
-// address exists in this app, and fabricating one would be worse than omitting.
+// Org default stays INVESQ: this value feeds meta.preparedByOrg, which the
+// PORTAL report-workflow UI renders too — so it must obey the INVESQ-branding
+// rule. The PDF-export exception (Nitai sign-off, 2026-07-30: client-facing
+// PDFs carry the CS RESCUE brand) is applied AT PDF RENDER TIME only, via
+// PDF_PREPARED_BY_ORG below. No email is included: no established public
+// contact address exists in this app; fabricating one would be worse.
 export const PREPARED_BY = {
   name: "Nitai Vinitzky",
-  org: "CS Rescue",
+  org: "INVESQ",
 };
+
+// PDF-only brand mapping: when the org is the un-overridden INVESQ default,
+// the PDF cover renders CS Rescue instead (per-company overrides win as-is).
+export const PDF_PREPARED_BY_ORG = "CS Rescue";
