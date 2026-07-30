@@ -45,11 +45,12 @@ export const INITIATIVES: Array<{ initiative: string; outcome: string }> = [
 export const METHODOLOGY_PARAGRAPH =
   "This diagnostic is built entirely from public, verifiable signals: company websites, job postings, product and pricing pages, and other publicly observable operational evidence. It does not rely on internal data access, customer interviews, or vendor-provided metrics. Eight underlying diagnostic signals are collected against a fixed rubric and rolled up into four rubric pillars (Org Design, Onboarding, Health Scoring, and Renewal & Expansion), each rated Low, Medium, or High, or Insufficient Data where public signal is too thin to rate responsibly. The company-level PortCo Score is the numeric composite of the four pillar ratings (Low = 0, Medium = 1, High = 2, with Insufficient Data counted as 1 point), banded 0-2 Low, 3-5 Medium, 6-8 High, so results are comparable across companies and over time.";
 
-// Org is INVESQ per the mandatory INVESQ-branding rule (replit.md + spec):
-// all user-visible chrome says INVESQ, never the legacy "CS Rescue". No email
-// is included: INVESQ has no established public contact address in this app,
-// and fabricating a domain/inbox would be worse than omitting it.
+// PDF-EXPORT EXCEPTION (Nitai sign-off, 2026-07-30): the client-facing
+// diagnostic PDF carries the CS RESCUE brand, matching the handmade PDFs.
+// Portal/web UI chrome still says INVESQ (the INVESQ-branding rule remains in
+// force everywhere else). No email is included: no established public contact
+// address exists in this app, and fabricating one would be worse than omitting.
 export const PREPARED_BY = {
   name: "Nitai Vinitzky",
-  org: "INVESQ",
+  org: "CS Rescue",
 };

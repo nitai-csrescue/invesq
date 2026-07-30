@@ -60,7 +60,7 @@ export function renderPage6(ctx: ReportContext): string {
 
     <div class="rounded-lg" style="background:${COLORS.navy500}; color:${COLORS.white}; padding:22px 26px; margin-top:22px; text-align:center;">
       <div class="eyebrow" style="color:${COLORS.orange500}; margin-bottom:8px;">Prepared by</div>
-      <div style="font-size:22px; font-weight:800; letter-spacing:-0.01em;">INVESQ</div>
+      <div style="font-size:22px; font-weight:800; letter-spacing:-0.01em;">CS<span style="color:${COLORS.orange500};">RESCUE</span></div>
       <div style="font-size:9px; opacity:0.8; margin-top:4px; letter-spacing:0.04em;">Operational Value Creation for PE Firms and Portfolio Companies</div>
     </div>
   `;

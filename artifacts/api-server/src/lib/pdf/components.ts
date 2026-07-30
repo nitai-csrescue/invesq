@@ -12,11 +12,12 @@ export function esc(value: string | null | undefined): string {
     .replace(/'/g, "&#39;");
 }
 
-// INVESQ wordmark. Rendered in brand navy (the real INVESQ mark is a dark-navy
-// wordmark; the report's orange accent lives in eyebrows/rules/sparkles, not
-// the logotype). NEVER the legacy "CS Rescue" per the INVESQ-branding rule.
+// CS RESCUE wordmark (navy "CS" + orange "RESCUE"), matching the handmade
+// client PDFs. PDF-EXPORT EXCEPTION to the INVESQ-branding rule: Nitai
+// explicitly signed off (2026-07-30) on the client-facing diagnostic PDF
+// carrying the CS RESCUE mark; all portal/web UI chrome still says INVESQ.
 export function wordmark(): string {
-  return `<span class="wordmark"><span class="cs">INVESQ</span></span>`;
+  return `<span class="wordmark"><span class="cs">CS</span><span class="rescue">RESCUE</span></span>`;
 }
 
 // Page 1 shows the tagline top-right; pages 2-7 show the confidentiality tag.
@@ -42,8 +43,8 @@ export function pageHeader(pageNumber: number, ctx: ReportContext): string {
 // so an admin-only draft export can't be mistaken for a client deliverable.
 export function pageFooter(pageNumber: number, ctx: ReportContext): string {
   const left = ctx.validation.validated
-    ? "INVESQ &middot; Customer Success Diagnostic"
-    : "INVESQ &middot; Draft Diagnostic";
+    ? "CS RESCUE &middot; Customer Success Diagnostic"
+    : "CS RESCUE &middot; Draft Diagnostic";
   const right = ctx.validation.validated
     ? `${esc(ctx.reportData.companyName)} &middot; Confidential`
     : `Draft &middot; Not Validated`;

@@ -1239,3 +1239,17 @@ curl -X POST https://<prod-domain>/api/admin/repair-assessments-dedup \
   - VALIDATION: cs-rescue + api-server typecheck PASS; startup validation engine ran clean in browser (only pre-existing ICP advisory warnings, no errors); desktop + 390x844 screenshots taken (mobile renders with horizontal-scroll grid).
   - QA SCAFFOLDING REMOVED: the temporary /api/dev/test-login route used to screenshot authenticated Admin Lens views was deleted from source (rg confirms zero references), its 5 synthetic session rows deleted, api-server restarted.
   - REVIEW-ROUND FIXES: (1) em-dashes removed from all user-visible Journey Map copy (title, preview badge, body text, Actions Log callout formatting) per project copy convention; (2) visualization refactored to exactly ONE solid pin - a dedicated PortCo Score journey row carries the single filled map pin with the composite badge, and the 4 pillar swimlanes now render flat band chips (context, not pins). Re-verified on-screen (TaxCalc: single pin, Low 2/8, at Renewal & Expansion given its 2023 investment date) and typecheck PASS. QA scaffolding removed again after the re-verification round.
+
+---
+
+## Client-facing PDF wordmark swap: INVESQ -> CS RESCUE (PDF export only)
+- Date: 2026-07-30 (UTC)
+- Status: complete in dev; branding-only, no data/scoring/layout/validation-gate changes; explicit Nitai sign-off recorded (PDF-export exception to the INVESQ-branding rule; portal/web UI unchanged, still INVESQ)
+- Files touched (exact): artifacts/api-server/src/lib/pdf/components.ts (wordmark() now renders CS RESCUE navy+orange spans; footer brand stamp "CS RESCUE - Customer Success Diagnostic"/"CS RESCUE - Draft Diagnostic"), artifacts/api-server/src/lib/pdf/pages/page6Roadmap.ts (Prepared-by block wordmark), artifacts/api-server/src/lib/pdf/staticCopy.ts (PREPARED_BY.org fallback -> "CS Rescue" + exception comment)
+- Deliberately untouched: validator-attribution fallback strings in page1Cover.ts/page7Sources.ts (validation attribution, not a brand stamp); all portal/web UI branding; report data, scoring, layout, validation gating
+- QA notes:
+  - Existing .wordmark .cs/.rescue CSS (navy/orange) already present in baseStyles.ts from the original handmade-template build; no style changes needed.
+  - Cached reportData JSON holds narrative only; branding renders at request time, so no cache-version bump required. (Cadmium/Profisee needed fresh narrative generation because their cached rows were pre-v6 rubric - regenerated via the normal report-export flow, not a branding side effect.)
+  - VERIFIED: exported /api/admin report-pdf for stg/cadmium and pamlico/profisee post-change. Both: 7 pages (unchanged count), pdftotext shows 15 CS RESCUE occurrences and 0 INVESQ, page-1 and page-6 raster renders confirm the navy CS + orange RESCUE mark in header, footer, and Prepared-by block. Drafts carry the DRAFT watermark (both companies not yet validated - expected, gate behavior unchanged).
+  - Typecheck (api-server) PASS; no console errors in workflow logs.
+  - QA scaffolding (temp /api/dev/test-login) removed from source (rg CLEAN), synthetic session row deleted, server restarted.
