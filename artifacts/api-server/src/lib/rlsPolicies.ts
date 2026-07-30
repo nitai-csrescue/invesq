@@ -18,6 +18,15 @@
 // diff manage columns and tables, but NOT roles or policies — this routine
 // is the only path that also provisions production, and it no-ops after the
 // first run.
+//
+// PUBLISH-COMPAT (do not "fix" back): policies are deliberately created
+// WITHOUT `TO tenant_reader` (i.e. TO PUBLIC). Publish copies the dev DB to
+// prod via pg_dump/pg_restore, and roles are cluster-level — they are not
+// part of the dump — so a policy naming tenant_reader fails the restore with
+// `role "tenant_reader" does not exist` (this broke a publish on 2026-07-30).
+// TO PUBLIC is equivalent for us: the owner connection bypasses RLS anyway
+// (owns the tables, RLS not FORCEd), so the policy only ever binds under
+// SET LOCAL ROLE tenant_reader.
 // ---------------------------------------------------------------------------
 import { pool } from "@workspace/db";
 import { logger } from "./logger.js";
@@ -45,25 +54,25 @@ ALTER TABLE report_exports ENABLE ROW LEVEL SECURITY;
 ALTER TABLE ingestion_sources ENABLE ROW LEVEL SECURITY;
 
 DROP POLICY IF EXISTS tenant_isolation_select ON firms;
-CREATE POLICY tenant_isolation_select ON firms FOR SELECT TO tenant_reader
+CREATE POLICY tenant_isolation_select ON firms FOR SELECT
   USING (id = current_setting('app.firm_id', true)::int);
 
 DROP POLICY IF EXISTS tenant_isolation_select ON companies;
-CREATE POLICY tenant_isolation_select ON companies FOR SELECT TO tenant_reader
+CREATE POLICY tenant_isolation_select ON companies FOR SELECT
   USING (firm_id = current_setting('app.firm_id', true)::int);
 
 DROP POLICY IF EXISTS tenant_isolation_select ON ingestion_sources;
-CREATE POLICY tenant_isolation_select ON ingestion_sources FOR SELECT TO tenant_reader
+CREATE POLICY tenant_isolation_select ON ingestion_sources FOR SELECT
   USING (firm_id = current_setting('app.firm_id', true)::int);
 
 DROP POLICY IF EXISTS tenant_isolation_select ON assessments;
-CREATE POLICY tenant_isolation_select ON assessments FOR SELECT TO tenant_reader
+CREATE POLICY tenant_isolation_select ON assessments FOR SELECT
   USING (company_id IN (
     SELECT id FROM companies WHERE firm_id = current_setting('app.firm_id', true)::int
   ));
 
 DROP POLICY IF EXISTS tenant_isolation_select ON findings;
-CREATE POLICY tenant_isolation_select ON findings FOR SELECT TO tenant_reader
+CREATE POLICY tenant_isolation_select ON findings FOR SELECT
   USING (assessment_id IN (
     SELECT a.id FROM assessments a
     JOIN companies c ON c.id = a.company_id
@@ -71,13 +80,13 @@ CREATE POLICY tenant_isolation_select ON findings FOR SELECT TO tenant_reader
   ));
 
 DROP POLICY IF EXISTS tenant_isolation_select ON signals;
-CREATE POLICY tenant_isolation_select ON signals FOR SELECT TO tenant_reader
+CREATE POLICY tenant_isolation_select ON signals FOR SELECT
   USING (company_id IN (
     SELECT id FROM companies WHERE firm_id = current_setting('app.firm_id', true)::int
   ));
 
 DROP POLICY IF EXISTS tenant_isolation_select ON report_exports;
-CREATE POLICY tenant_isolation_select ON report_exports FOR SELECT TO tenant_reader
+CREATE POLICY tenant_isolation_select ON report_exports FOR SELECT
   USING (company_id IN (
     SELECT id FROM companies WHERE firm_id = current_setting('app.firm_id', true)::int
   ));
