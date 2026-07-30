@@ -12,6 +12,7 @@ import {
   Info,
   Mail,
   XCircle,
+  Map as MapIcon,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -151,7 +152,7 @@ function CompanyReportPill({
 // (not a second bar/drawer).
 // ---------------------------------------------------------------------------
 export default function TenantAdminBar({ firm }: { firm: Firm }) {
-  const [location] = useLocation();
+  const [location, navigate] = useLocation();
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
@@ -386,6 +387,17 @@ export default function TenantAdminBar({ firm }: { firm: Firm }) {
             >
               <RefreshCw className="h-4 w-4" /> Re-run diagnostic
             </DropdownMenuItem>
+
+            {/* STG-only Admin Lens sandbox — Journey Map look-and-feel test.
+                Deliberately absent from all public tenant nav. */}
+            {isCompanyPage && firm.slug === "stg" && (
+              <DropdownMenuItem
+                onSelect={() => navigate(`/stg/portfolio/${companySlug}/journey`)}
+                data-testid="menu-admin-journey-map"
+              >
+                <MapIcon className="h-4 w-4" /> Journey Map (preview)
+              </DropdownMenuItem>
+            )}
 
             {!isCompanyPage && (
               <>

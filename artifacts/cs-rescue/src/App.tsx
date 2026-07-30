@@ -31,6 +31,7 @@ import PrenaxCustomerDetail from "@/pages/prenax/CustomerDetail";
 import PrenaxMethodology from "@/pages/prenax/Methodology";
 import PortfolioDashboard from "@/pages/portfolio/PortfolioDashboard";
 import PortfolioCompany from "@/pages/portfolio/PortfolioCompany";
+import StgJourneyMap from "@/pages/portfolio/StgJourneyMap";
 import PortfolioReport from "@/pages/portfolio/PortfolioReport";
 import RavigaGameplan from "@/pages/portfolio/RavigaGameplan";
 import RavigaFindings from "@/pages/portfolio/RavigaFindings";
@@ -181,6 +182,9 @@ function Router() {
           {/* Firm-scoped portfolio portals — /:firmSlug/portfolio/... */}
           <Route path="/:firmSlug/portfolio" component={PortfolioDashboard} />
           <Route path="/:firmSlug/portfolio/:companyId/gameplan" component={RavigaGameplan} />
+          {/* STG-only Admin Lens sandbox (Journey Map look-and-feel test);
+              component redirects non-STG firms and non-admin sessions. */}
+          <Route path="/:firmSlug/portfolio/:companyId/journey" component={StgJourneyMap} />
           <Route path="/:firmSlug/portfolio/:companyId/report" component={PortfolioReport} />
           <Route path="/:firmSlug/portfolio/:companyId" component={PortfolioCompany} />
 
