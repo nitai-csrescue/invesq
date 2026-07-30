@@ -121,7 +121,7 @@ export default function StgJourneyMap() {
   if (company.calloutNote) callouts.push({ source: "Manual", text: company.calloutNote });
   if (company.topGap?.note) callouts.push({ source: "Manual", text: company.topGap.note });
   for (const entry of (company.actionsLog ?? []).slice(-3)) {
-    callouts.push({ source: "Actions Log", text: `${formatDate(entry.date)} — ${entry.label}` });
+    callouts.push({ source: "Actions Log", text: `${formatDate(entry.date)}: ${entry.label}` });
   }
 
   return (
@@ -137,16 +137,16 @@ export default function StgJourneyMap() {
             <ArrowLeft className="h-3.5 w-3.5" /> {company.name}
           </Link>
           <span className="rounded border border-purple-500/30 bg-purple-500/10 px-1.5 py-0.5 text-[10px] font-medium text-purple-300">
-            Admin Lens preview — internal look &amp; feel test, not client-facing
+            Admin Lens preview: internal look &amp; feel test, not client-facing
           </span>
         </div>
         <h1 className="text-lg font-semibold text-foreground">
-          Journey Map — Acquisition to Exit
+          Journey Map: Acquisition to Exit
         </h1>
         <p className="mb-4 max-w-3xl text-xs text-muted-foreground">
           One diagnostic exists for {company.name} (assessed {formatDate(company.lastDiagnostic)}
           ), rendered as the single current-state pin below. Earlier and later phases show as
-          unrecorded until additional diagnostics are run — no trajectory is projected.
+          unrecorded until additional diagnostics are run. No trajectory is projected.
         </p>
 
         {/* Current-state summary strip */}
@@ -193,7 +193,39 @@ export default function StgJourneyMap() {
               ))}
             </div>
 
-            {/* Swimlanes */}
+            {/* Journey pin row — the ONE real solid pin (composite PortCo Score) */}
+            <div
+              className="grid grid-cols-[160px_repeat(5,1fr)] border-b border-border"
+              data-testid="lane-portco-pin"
+            >
+              <div className="flex items-center px-3 py-2 text-xs font-semibold text-foreground">
+                PortCo Score
+              </div>
+              {PHASES.map((ph) =>
+                ph.id === pinPhase ? (
+                  <div
+                    key={ph.id}
+                    className="flex min-h-[64px] flex-col items-center justify-center gap-1 border-l border-border bg-primary/5 px-1 py-2"
+                  >
+                    <MapPin
+                      className="h-5 w-5"
+                      fill={bandMeta.color}
+                      style={{ color: bandMeta.color }}
+                      data-testid="journey-pin"
+                    />
+                    <span className={`text-[10px] font-semibold ${bandMeta.textClass}`}>
+                      {bandMeta.label} · {composite}/8
+                    </span>
+                  </div>
+                ) : (
+                  <div key={ph.id} className="border-l border-border">
+                    <EmptyNode />
+                  </div>
+                ),
+              )}
+            </div>
+
+            {/* Pillar swimlanes — band chips (context for the single pin above) */}
             {RUBRIC_PILLARS.map((pillar) => {
               const value = company.rubric[pillar.key];
               const meta = rubricBandMeta(value);
@@ -213,10 +245,8 @@ export default function StgJourneyMap() {
                         className="flex min-h-[64px] flex-col items-center justify-center gap-1 border-l border-border bg-primary/5 px-1 py-2"
                       >
                         <span
-                          className="h-3 w-3 rounded-full ring-2 ring-offset-1 ring-offset-card"
-                          style={{ backgroundColor: meta.color, ["--tw-ring-color" as string]: meta.color }}
-                        />
-                        <span className={`text-[10px] font-semibold ${meta.textClass}`}>
+                          className={`rounded border px-1.5 py-0.5 text-[10px] font-semibold ${meta.badgeClass}`}
+                        >
                           {meta.label}
                         </span>
                       </div>
