@@ -120,12 +120,18 @@ export async function runSupplementalEnrichment(ctx: EnrichmentContext): Promise
     }
   }
 
-  if (Object.keys(companyUpdate).length > 0) {
-    await db.update(companiesTable).set(companyUpdate).where(eq(companiesTable.id, ctx.company.id));
-  }
-  if (signalRows.length > 0) {
-    await db.insert(signalsTable).values(signalRows);
-  }
+  // Atomic: the supplemental company columns and their provenance/divergence
+  // signal rows commit together or not at all — supplemental data must never
+  // exist without the signals that surface where it came from (and any
+  // conflict with the legacy scrape).
+  await db.transaction(async (tx) => {
+    if (Object.keys(companyUpdate).length > 0) {
+      await tx.update(companiesTable).set(companyUpdate).where(eq(companiesTable.id, ctx.company.id));
+    }
+    if (signalRows.length > 0) {
+      await tx.insert(signalsTable).values(signalRows);
+    }
+  });
   logger.info(
     {
       companyId: ctx.company.id,

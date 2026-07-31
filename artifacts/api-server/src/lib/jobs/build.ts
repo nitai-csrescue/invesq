@@ -231,20 +231,20 @@ async function scoreAndPersistCompany(company: Company, firm: Firm): Promise<Com
   // CQ-15: supplemental third-party enrichment (funding history + country
   // headcount split, plus a headcount divergence check against the legacy
   // scrape). Strictly additive and best-effort: adapter data never overwrites
-  // anything the legacy scrape produced, and a failure here never fails the
-  // build (assessment + signals are already committed above).
-  try {
-    await runSupplementalEnrichment({
-      company,
-      assessmentId: newAssessmentId,
-      legacyEmployeesDisplay: profile.employeesDisplay ?? null,
-    });
-  } catch (err) {
+  // anything the legacy scrape produced. Deliberately NOT awaited — the
+  // assessment + signals are already committed above, and a slow or failing
+  // adapter must never delay or fail the build job. Persistence inside is
+  // atomic (single transaction), so a failure leaves no half-written state.
+  void runSupplementalEnrichment({
+    company,
+    assessmentId: newAssessmentId,
+    legacyEmployeesDisplay: profile.employeesDisplay ?? null,
+  }).catch((err) => {
     logger.warn(
       { companyId: company.id, err },
-      "Supplemental enrichment step failed; continuing (legacy scrape output unaffected)",
+      "Supplemental enrichment step failed in background (legacy scrape output unaffected)",
     );
-  }
+  });
 
   const notion = await writeDiagnosticToNotion({
     assessmentId: newAssessmentId,
