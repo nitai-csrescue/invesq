@@ -11,7 +11,14 @@ import {
   Plug,
   X,
   Percent,
+  BookOpen,
+  Copy,
+  Check,
 } from "lucide-react";
+import {
+  getRecommendedPlaybooks,
+  type PillarPlaybook,
+} from "@workspace/portfolio-engine";
 import {
   LineChart,
   Line,
@@ -339,6 +346,72 @@ function Phase2Integrations({ company, isRaviga }: { company: Company; isRaviga:
   );
 }
 
+// Raviga-pilot card: diagnostic-aligned playbooks recommended from real
+// pillar-score gaps (Low/Medium). Rendered ONLY for the raviga tenant —
+// every other firm's page must be byte-identical to pre-pilot.
+function RecommendedPlaybooksCard({ company }: { company: Company }) {
+  const recommended = getRecommendedPlaybooks(company);
+  const [copiedId, setCopiedId] = useState<string | null>(null);
+
+  const copyPrompt = async (pb: PillarPlaybook) => {
+    try {
+      await navigator.clipboard.writeText(pb.masterPrompt);
+      setCopiedId(pb.id);
+      setTimeout(() => setCopiedId((cur) => (cur === pb.id ? null : cur)), 2000);
+    } catch {
+      // Clipboard unavailable (permissions/insecure context) — leave state unchanged.
+    }
+  };
+
+  return (
+    <div className="rounded-xl border border-border bg-card p-6">
+      <h2 className="flex items-center gap-1.5 text-sm font-semibold text-foreground">
+        <BookOpen className="h-4 w-4 text-primary/80" /> Recommended playbooks
+      </h2>
+      <p className="mt-0.5 text-[11px] text-muted-foreground">
+        Surfaced from pillar scores below High · pilot preview
+      </p>
+      {recommended.length === 0 ? (
+        <p className="mt-3 text-xs text-muted-foreground">
+          No pillar gaps below High — no playbook recommendations right now
+        </p>
+      ) : (
+        <div className="mt-3 space-y-3">
+          {recommended.map((pb) => (
+            <div key={pb.id} className="rounded-lg border border-border bg-background/40 p-3">
+              <div className="text-xs font-medium text-foreground">{pb.title}</div>
+              <p className="mt-1 text-xs text-muted-foreground">{pb.tagline}</p>
+              <ul className="mt-2 space-y-1">
+                {pb.whatItProduces.map((item) => (
+                  <li key={item} className="flex gap-1.5 text-[11px] text-muted-foreground">
+                    <span className="mt-[3px] h-1 w-1 shrink-0 rounded-full bg-primary/60" />
+                    <span>{item}</span>
+                  </li>
+                ))}
+              </ul>
+              <button
+                type="button"
+                onClick={() => copyPrompt(pb)}
+                className="mt-2.5 inline-flex items-center gap-1.5 rounded-md border border-border bg-card px-2.5 py-1 text-[11px] font-medium text-foreground transition-colors hover:border-primary/40"
+              >
+                {copiedId === pb.id ? (
+                  <>
+                    <Check className="h-3 w-3 text-emerald-500" /> Copied
+                  </>
+                ) : (
+                  <>
+                    <Copy className="h-3 w-3" /> Copy Master Prompt
+                  </>
+                )}
+              </button>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
 function CompanyNotFound({ firm }: { firm: Firm }) {
   return (
     <TenantShell firm={firm}>
@@ -616,6 +689,8 @@ export default function PortfolioCompany() {
               )}
             </div>
           </div>
+
+          {isRaviga && <RecommendedPlaybooksCard company={company} />}
 
           <div className="rounded-xl border border-border bg-card p-6">
             <div className="flex items-center justify-between">

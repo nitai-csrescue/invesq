@@ -58,6 +58,16 @@ export {
 } from "./rubricV2";
 
 export {
+  pillarPlaybooks,
+  type PillarPlaybook,
+  type PillarPlaybookPillar,
+  type PillarPlaybookTriggerBand,
+  type PillarPlaybookDimension,
+} from "./data/pillarPlaybooks";
+
+export { getRecommendedPlaybooks } from "./recommendPlaybooks";
+
+export {
   RUBRIC_VERSION,
   RUBRIC_VERSION_LEGACY,
   NOTION_RUBRIC_LABEL_V1,
