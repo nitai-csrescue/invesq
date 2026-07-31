@@ -138,6 +138,72 @@ async function findFundProfilePageId(apiKey: string, firmName: string): Promise<
   }
 }
 
+function normalizeName(name: string): string {
+  return name.trim().replace(/\s+/g, " ").toLowerCase();
+}
+
+// Live pre-write existence check against the Portfolio Company Diagnostics
+// database itself (NOT the local notion_sync_state table, which is keyed by
+// assessmentId and therefore misses every earlier assessment's page).
+// Dedup key is (Company Name + Parent Fund): the title must match after
+// trimming/whitespace-collapsing/case-folding AND the fund relation must
+// match, so legitimate multi-owner rows (same company under two funds, e.g.
+// Appfire under both TA Associates and Silversmith) are never collapsed.
+export async function findExistingDiagnosticPage(
+  apiKey: string,
+  db: NotionDatabase,
+  titleProp: NotionProperty,
+  firmProp: NotionProperty | undefined,
+  fundPageId: string | null,
+  firmName: string,
+  companyName: string,
+): Promise<string | null> {
+  const wanted = normalizeName(companyName);
+  let cursor: string | undefined;
+  do {
+    const result = await notionFetch<{
+      results: Array<{ id: string; properties: Record<string, unknown> }>;
+      has_more: boolean;
+      next_cursor: string | null;
+    }>(apiKey, `/databases/${db.id}/query`, {
+      method: "POST",
+      body: JSON.stringify({
+        // "contains" is used (not "equals") so trailing/leading whitespace or
+        // case differences in existing rows still come back; the authoritative
+        // match is the normalized client-side comparison below. The query term
+        // itself must be whitespace-collapsed too, or an input like
+        // "Nomis   Solutions" never returns "Nomis Solutions" candidates.
+        filter: { property: titleProp.name, title: { contains: companyName.trim().replace(/\s+/g, " ") } },
+        page_size: 100,
+        ...(cursor ? { start_cursor: cursor } : {}),
+      }),
+    });
+
+    for (const page of result.results) {
+      const title = page.properties[titleProp.name] as { title?: Array<{ plain_text: string }> } | undefined;
+      if (normalizeName(notionPlainText(title?.title)) !== wanted) continue;
+
+      if (firmProp?.type === "relation") {
+        const rel = page.properties[firmProp.name] as { relation?: Array<{ id: string }> } | undefined;
+        const relIds = (rel?.relation ?? []).map((r) => r.id);
+        // Same company under a different fund is a legitimate separate row.
+        if (fundPageId) {
+          if (!relIds.includes(fundPageId)) continue;
+        } else if (relIds.length > 0) {
+          continue;
+        }
+      } else if (firmProp?.type === "rich_text") {
+        const rt = page.properties[firmProp.name] as { rich_text?: Array<{ plain_text: string }> } | undefined;
+        if (normalizeName(notionPlainText(rt?.rich_text)) !== normalizeName(firmName)) continue;
+      }
+      return page.id;
+    }
+
+    cursor = result.has_more && result.next_cursor ? result.next_cursor : undefined;
+  } while (cursor);
+  return null;
+}
+
 async function findPageByTitle(apiKey: string, titleContains: string): Promise<string | null> {
   const result = await notionFetch<{
     results: Array<{ id: string; object: string; properties?: Record<string, NotionProperty>; url?: string }>;
@@ -287,8 +353,9 @@ export async function writeDiagnosticToNotion(params: {
     }
 
     const firmProp = findPropertyByName(db, "Fund", "Firm", "Parent Fund");
+    let fundPageId: string | null = null;
     if (firmProp?.type === "relation") {
-      const fundPageId = await findFundProfilePageId(apiKey, params.firmName);
+      fundPageId = await findFundProfilePageId(apiKey, params.firmName);
       if (fundPageId) {
         properties[firmProp.name] = { relation: [{ id: fundPageId }] };
       }
@@ -368,20 +435,52 @@ export async function writeDiagnosticToNotion(params: {
         "Notion diagnostic page updated (PATCH) successfully",
       );
     } else {
-      const created = await notionFetch<{ id: string }>(apiKey, "/pages", {
-        method: "POST",
-        body: JSON.stringify({ parent: { database_id: db.id }, properties }),
-      });
-      await appDb.insert(notionSyncStateTable).values({
-        assessmentId: params.assessmentId,
-        notionPageId: created.id,
-        lastSyncedAt: new Date(),
-        lastSyncStatus: "success",
-      });
-      logger.info(
-        { companyName: params.companyName, notionPageId: created.id },
-        "Notion diagnostic page created (POST) successfully",
+      // No local sync-state row for this assessment (fresh assessment id, or
+      // the row was removed by a same-day re-score). Before creating a page,
+      // query Notion live for an existing row with the same (Company Name +
+      // Parent Fund) — this is what stops repeated onboarding/add-company
+      // runs from stacking duplicate diagnostics rows.
+      const existingPageId = await findExistingDiagnosticPage(
+        apiKey,
+        db,
+        titleProp,
+        firmProp,
+        fundPageId,
+        params.firmName,
+        params.companyName,
       );
+
+      if (existingPageId) {
+        await notionFetch(apiKey, `/pages/${existingPageId}`, {
+          method: "PATCH",
+          body: JSON.stringify({ properties }),
+        });
+        await appDb.insert(notionSyncStateTable).values({
+          assessmentId: params.assessmentId,
+          notionPageId: existingPageId,
+          lastSyncedAt: new Date(),
+          lastSyncStatus: "success",
+        });
+        logger.info(
+          { companyName: params.companyName, notionPageId: existingPageId },
+          "Notion diagnostic page matched by live (Company Name + Parent Fund) lookup — updated in place (PATCH), no duplicate created",
+        );
+      } else {
+        const created = await notionFetch<{ id: string }>(apiKey, "/pages", {
+          method: "POST",
+          body: JSON.stringify({ parent: { database_id: db.id }, properties }),
+        });
+        await appDb.insert(notionSyncStateTable).values({
+          assessmentId: params.assessmentId,
+          notionPageId: created.id,
+          lastSyncedAt: new Date(),
+          lastSyncStatus: "success",
+        });
+        logger.info(
+          { companyName: params.companyName, notionPageId: created.id },
+          "Notion diagnostic page created (POST) successfully",
+        );
+      }
     }
 
     return { attempted: true, success: true };

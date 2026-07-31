@@ -353,3 +353,18 @@ curl -X POST "$REPLIT_DOMAINS/api/admin/firms/<firmId>/refresh" \
 ```
 
 The backfill response lists exactly which firms were changed, so a second backfill call returning all-zeros confirms the firm-meta / de-dup repair is complete and idempotent. After a firm's re-run job reaches `ready`, confirm its portal renders at `/<firmSlug>/portfolio`.
+
+## Notion sync — duplicate protection (pre-write existence checks)
+
+Pipeline builds best-effort mirror each company's diagnostic into the shared **Portfolio Company Diagnostics** Notion database (`api-server/src/lib/notion.ts`, called from the build job). Two distinct existence checks run before any write, at two levels:
+
+1. **PE Fund Profile level** — `findFundProfilePageId()` resolves the firm against the existing **fund profiles** database (trimmed, case-insensitive title match). It only ever *reads*; the fund page is linked/stamped, never re-created.
+2. **Portfolio Company Diagnostics level** — before creating a page, `writeDiagnosticToNotion()`:
+   - first checks the local `notion_sync_state` row for **this assessment id** (re-syncs of the same assessment PATCH the same page);
+   - if none exists (every new assessment: fresh onboarding, add-company run, or same-day re-score), it runs a **live query against the Notion database itself** via `findExistingDiagnosticPage()`, matching on **(Company Name + Parent Fund)** — title compared trimmed, whitespace-collapsed, and case-insensitive. A hit is PATCHed in place; only a true miss POSTs a new page.
+
+Both entry points ("onboard new firm" and "add company to existing tenant") funnel through this single code path, so the live check covers both.
+
+**The dedup key is (Company Name + Parent Fund), never Company Name alone** — legitimate multi-owner/co-investment rows (e.g. Appfire under both TA Associates and Silversmith Capital Partners) remain separate rows.
+
+> History: before Jul 31 2026 the only check was the `notion_sync_state` lookup keyed by assessment id, so every new assessment POSTed a fresh page — the source of the blank/stub duplicates created Jul 16–30. This fix is forward-only: it does **not** clean up duplicates already in Notion (tracked as a separate, hard-gated deletion task).

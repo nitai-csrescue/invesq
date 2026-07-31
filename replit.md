@@ -92,6 +92,7 @@ Async two-job pipeline (`api-server/src/lib/jobs/{discovery,build}.ts`) backed b
 - **Startup resume**: boot re-executes ANY `queued`/`running` jobs row — including stray test rows, which re-fire real Claude calls. Clean scratch `jobs`/`companies`/`firms` rows before restarting the api-server.
 - Progress bars are wall-clock tickers (cosmetic only). Build-complete email via Resend is best-effort and never fails the build.
 - **Dedup guard**: partial unique index `companies_firm_normalized_name_active_uq` on `(firmId, normalizedName)` where status <> 'excluded'; all insert paths must set `normalizedName`; a boot-time backfill (`backfillNormalizedNames.ts`) fills NULL rows idempotently.
+- **Notion duplicate guard** (`notion.ts`): before POSTing a Portfolio Company Diagnostics page, `writeDiagnosticToNotion` checks `notion_sync_state` by assessment id, then runs a live Notion query matching **(Company Name + Parent Fund)** — trimmed, whitespace-collapsed, case-insensitive — and PATCHes a hit instead of creating a duplicate. Dedup is never on name alone (multi-owner rows like Appfire stay separate). Forward-only: pre-existing duplicates in Notion are untouched (separate hard-gated cleanup task). See FIRM-ONBOARDING.md "Notion sync — duplicate protection".
 
 ## Database
 
