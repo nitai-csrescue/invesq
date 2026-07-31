@@ -15,8 +15,11 @@ function bandRank(v: RubricValue): number {
 }
 
 /**
- * Structural parameter (anything with a 4-pillar rubric) so both the engine's
- * Company and the frontend's locally-typed Company are accepted.
+ * Structural parameter: any object carrying a resolved 4-pillar rubric
+ * (RubricV2Scores). Note the engine's own Company type does NOT carry a
+ * rubric field — callers holding one must resolve it first (stored
+ * assessment rubric, else computeRubricV2), exactly as the cs-rescue
+ * frontend's resolveRubric() does before its Company reaches this function.
  */
 export function getRecommendedPlaybooks(company: { rubric: RubricV2Scores }): PillarPlaybook[] {
   return pillarPlaybooks
