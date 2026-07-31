@@ -1,4 +1,4 @@
-import { index, integer, pgTable, serial, text, timestamp } from "drizzle-orm/pg-core";
+import { boolean, index, integer, pgTable, serial, text, timestamp } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod/v4";
 import { assessmentsTable } from "./assessments";
@@ -43,6 +43,31 @@ export const signalsTable = pgTable(
     // Short plain-English note (target ≤ 2 sentences). Copy policy applies:
     // no em-dashes, no named individuals.
     note: text("note").notNull(),
+    // ---- CQ-15 additive columns (all nullable or defaulted: existing rows
+    // are untouched by this migration; only NEW writes populate them). ----
+    // Which collection SYSTEM produced the record: "legacy_scrape" (the
+    // Claude web-research pipeline, authoritative for CS-specific qualitative
+    // signals and total headcount) | "pdl" | "revelio" | future supplemental
+    // adapters. Distinct from `source`, which is the artifact kind
+    // (linkedin/job_posting/...). Text, not a pg enum, so adding an adapter
+    // never needs a migration.
+    sourceSystem: text("source_system").notNull().default("legacy_scrape"),
+    // Machine-readable field name for structured signals (e.g.
+    // "total_headcount", "funding_history", "country_headcount"). Null for
+    // narrative pillar-evidence signals, whose content lives in `note`.
+    field: text("field"),
+    // Normalized value for structured signals (stringified number or compact
+    // JSON). Null for narrative signals.
+    value: text("value"),
+    // Rubric version in force when this signal was collected (RUBRIC_VERSION
+    // from @workspace/portfolio-engine). Null on rows written before CQ-15.
+    rubricVersion: text("rubric_version"),
+    // True when a SUPPLEMENTAL source disagreed with the legacy scrape by
+    // more than 20% on an overlapping field (today: total_headcount). The
+    // legacy value stays authoritative and is never overwritten; this flag
+    // surfaces the conflict for human review instead of silently resolving it.
+    divergenceFlag: boolean("divergence_flag").notNull().default(false),
+    // `createdAt` doubles as the "date pulled" timestamp for the record.
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   },
   (table) => [

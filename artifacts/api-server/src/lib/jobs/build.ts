@@ -31,6 +31,7 @@ import { scoreCompanyPillars, type CompanyProfile, type PillarResult } from "./s
 import { claimJob, createJobTicker } from "./common.js";
 import { sendBuildCompleteEmail } from "../email.js";
 import { invalidatePortfolioCache } from "../portfolioData.js";
+import { runSupplementalEnrichment } from "../enrichment/run.js";
 
 const PER_COMPANY_TARGET_MS = 90_000;
 
@@ -198,6 +199,13 @@ async function scoreAndPersistCompany(company: Company, firm: Firm): Promise<Com
         direction: s.direction,
         confidence: s.confidence,
         note: s.note,
+        // CQ-15: signal-level provenance. The web-research pipeline is the
+        // "legacy_scrape" source system; every new signal is stamped with the
+        // rubric version it was scored against. `field`/`value` stay null for
+        // narrative pillar-evidence signals (structured field/value pairs
+        // come from the supplemental enrichment adapters).
+        sourceSystem: "legacy_scrape",
+        rubricVersion: RUBRIC_VERSION,
       })),
     );
     if (signalRows.length > 0) {
@@ -219,6 +227,24 @@ async function scoreAndPersistCompany(company: Company, firm: Firm): Promise<Com
     .update(companiesTable)
     .set({ meta: { ...existingMeta, ...companyMeta } })
     .where(eq(companiesTable.id, company.id));
+
+  // CQ-15: supplemental third-party enrichment (funding history + country
+  // headcount split, plus a headcount divergence check against the legacy
+  // scrape). Strictly additive and best-effort: adapter data never overwrites
+  // anything the legacy scrape produced, and a failure here never fails the
+  // build (assessment + signals are already committed above).
+  try {
+    await runSupplementalEnrichment({
+      company,
+      assessmentId: newAssessmentId,
+      legacyEmployeesDisplay: profile.employeesDisplay ?? null,
+    });
+  } catch (err) {
+    logger.warn(
+      { companyId: company.id, err },
+      "Supplemental enrichment step failed; continuing (legacy scrape output unaffected)",
+    );
+  }
 
   const notion = await writeDiagnosticToNotion({
     assessmentId: newAssessmentId,

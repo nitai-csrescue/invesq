@@ -54,6 +54,20 @@ export const companiesTable = pgTable(
     // Overrides reportData.reportDate (the Prepared By card's Date line).
     // Calendar day, stored as YYYY-MM-DD.
     preparedByDate: date("prepared_by_date", { mode: "string" }),
+    // ---- CQ-15: supplemental-enrichment-only fields. Populated EXCLUSIVELY
+    // by third-party enrichment adapters (PDL now, Revelio later) — the
+    // legacy web-research scrape never writes these two columns, and the
+    // adapters never write anything the legacy scrape owns (headcount
+    // display, ratings, leadership, job-posting evidence). A matching
+    // "Funding History" / "Country Headcount" pair should exist on the Notion
+    // diagnostic database when Notion sync (Phase 5) is wired; noted here so
+    // that mapping isn't forgotten. ----
+    // Array of funding rounds: { amountUsd: number|null, round: string|null,
+    //   stage: string|null, date: string|null } plus a summary object
+    //   { totalRaisedUsd, roundCount, latestStage, source, pulledAt }.
+    fundingHistory: jsonb("funding_history"),
+    // Country -> employee-count map plus { source, pulledAt } metadata.
+    countryHeadcount: jsonb("country_headcount"),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   },
   (table) => [
