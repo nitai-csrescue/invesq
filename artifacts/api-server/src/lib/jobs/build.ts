@@ -26,7 +26,7 @@ import {
   type PillarScore,
 } from "@workspace/portfolio-engine";
 import { logger } from "../logger.js";
-import { writeDiagnosticToNotion } from "../notion.js";
+import { asCountryHeadcount, asFundingHistory, patchDiagnosticSupplementalFields, writeDiagnosticToNotion } from "../notion.js";
 import { scoreCompanyPillars, type CompanyProfile, type PillarResult } from "./scoring.js";
 import { claimJob, createJobTicker } from "./common.js";
 import { sendBuildCompleteEmail } from "../email.js";
@@ -235,7 +235,7 @@ async function scoreAndPersistCompany(company: Company, firm: Firm): Promise<Com
   // assessment + signals are already committed above, and a slow or failing
   // adapter must never delay or fail the build job. Persistence inside is
   // atomic (single transaction), so a failure leaves no half-written state.
-  void runSupplementalEnrichment({
+  const enrichmentDone = runSupplementalEnrichment({
     company,
     assessmentId: newAssessmentId,
     legacyEmployeesDisplay: profile.employeesDisplay ?? null,
@@ -253,6 +253,10 @@ async function scoreAndPersistCompany(company: Company, firm: Firm): Promise<Com
     firmName: firm.name,
     assessmentDate,
     pillarResults,
+    // Supplemental-only fields from a previous enrichment run, if any —
+    // freshly enriched values are patched in after enrichmentDone below.
+    fundingHistory: asFundingHistory(company.fundingHistory),
+    countryHeadcount: asCountryHeadcount(company.countryHeadcount),
   });
 
   if (!notion.success) {
@@ -261,6 +265,22 @@ async function scoreAndPersistCompany(company: Company, firm: Firm): Promise<Com
       "Notion write did not succeed for this company (Postgres assessment was still written)",
     );
   }
+
+  // Only after the main Notion write has settled (so the notion_sync_state
+  // row exists when it succeeded) do we chain the supplemental-field patch
+  // onto the still-running enrichment. This closes the race where enrichment
+  // commits before the sync-state row exists, which would silently drop the
+  // fields until the next re-score. Still fire-and-forget: never blocks or
+  // fails the build, and a Notion failure above just means the patch finds
+  // no sync-state row and soft-skips (next re-score carries the fields).
+  void enrichmentDone
+    .then(() => patchDiagnosticSupplementalFields(newAssessmentId, company.id))
+    .catch((err) => {
+      logger.warn(
+        { companyId: company.id, err },
+        "Notion supplemental-field patch failed in background (Postgres data unaffected)",
+      );
+    });
 
   return { companyId: company.id, companyName: company.name, pillarResults, notion };
 }

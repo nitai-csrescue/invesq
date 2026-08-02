@@ -1,8 +1,9 @@
 import { eq } from "drizzle-orm";
-import { db as appDb, notionSyncStateTable } from "@workspace/db";
+import { db as appDb, companiesTable, notionSyncStateTable } from "@workspace/db";
 import { logger } from "./logger.js";
 import { PILLARS, RUBRIC_VERSION, notionRubricVersionLabel } from "@workspace/portfolio-engine";
 import type { PillarResult } from "./jobs/scoring.js";
+import type { CountryHeadcount, FundingHistory } from "./enrichment/index.js";
 
 const NOTION_VERSION = "2022-06-28";
 const DIAGNOSTICS_DB_TITLE = "Portfolio Company Diagnostics";
@@ -315,6 +316,9 @@ export async function writeDiagnosticToNotion(params: {
   firmName: string;
   assessmentDate: string;
   pillarResults: Record<string, PillarResult>;
+  /** CQ-15 supplemental-only fields; never produced by the legacy scrape. */
+  fundingHistory?: FundingHistory | null;
+  countryHeadcount?: CountryHeadcount | null;
 }): Promise<NotionWriteResult> {
   const apiKey = getApiKey();
   if (!apiKey) {
@@ -368,6 +372,11 @@ export async function writeDiagnosticToNotion(params: {
     // Stamp the methodology generation automatically on every diagnostic
     // write — never manual. The canonical RUBRIC_VERSION maps onto the
     // select's two fixed generation options via notionRubricVersionLabel().
+    // CQ-15: supplemental-only fields (populated exclusively by third-party
+    // enrichment adapters — the legacy scrape never writes them). Only set
+    // when data exists so pages for un-enriched companies are untouched.
+    setSupplementalProperties(db, properties, params.fundingHistory ?? null, params.countryHeadcount ?? null);
+
     const rubricVersionProp = findPropertyByName(db, "Rubric Version");
     if (rubricVersionProp?.type === "select") {
       properties[rubricVersionProp.name] = { select: { name: notionRubricVersionLabel(RUBRIC_VERSION) } };
@@ -502,5 +511,136 @@ export async function writeDiagnosticToNotion(params: {
     const reason = err instanceof Error ? err.message : String(err);
     logger.error({ err, companyName: params.companyName }, "Notion write failed (Postgres write is unaffected)");
     return { attempted: true, success: false, reason: reason.slice(0, 1000) };
+  }
+}
+
+// ---------------------------------------------------------------------------
+// CQ-15: supplemental-only Notion fields (funding history + country headcount)
+
+const FUNDING_HISTORY_PROP = "Funding History";
+const COUNTRY_HEADCOUNT_PROP = "Country-Level Headcount Distribution";
+const NOTION_RICH_TEXT_LIMIT = 2000;
+
+function formatUsd(amount: number | null): string {
+  if (amount === null || !Number.isFinite(amount)) return "undisclosed";
+  if (amount >= 1_000_000_000) return `$${(amount / 1_000_000_000).toFixed(1)}B`;
+  if (amount >= 1_000_000) return `$${(amount / 1_000_000).toFixed(1)}M`;
+  if (amount >= 1_000) return `$${(amount / 1_000).toFixed(0)}K`;
+  return `$${amount}`;
+}
+
+export function formatFundingHistoryText(fh: FundingHistory): string {
+  const parts: string[] = [];
+  parts.push(`Total raised ${formatUsd(fh.totalRaisedUsd)}`);
+  if (fh.roundCount !== null) parts.push(`${fh.roundCount} round${fh.roundCount === 1 ? "" : "s"}`);
+  if (fh.latestStage) parts.push(`latest stage ${fh.latestStage}`);
+  const rounds = fh.rounds
+    .filter((r) => r.round || r.stage || r.amountUsd !== null || r.date)
+    .map((r) => {
+      const label = r.round || r.stage || "round";
+      const amt = r.amountUsd !== null ? ` ${formatUsd(r.amountUsd)}` : "";
+      const when = r.date ? ` (${r.date})` : "";
+      return `${label}${amt}${when}`;
+    });
+  const head = parts.join(" · ");
+  const detail = rounds.length > 0 ? ` — ${rounds.join("; ")}` : "";
+  const tail = ` [source: ${fh.source}, pulled ${fh.pulledAt.slice(0, 10)}]`;
+  return `${head}${detail}${tail}`.slice(0, NOTION_RICH_TEXT_LIMIT);
+}
+
+export function formatCountryHeadcountText(ch: CountryHeadcount): string {
+  const entries = Object.entries(ch.byCountry)
+    .filter(([, n]) => Number.isFinite(n) && n > 0)
+    .sort((a, b) => b[1] - a[1]);
+  const shown = entries.slice(0, 15).map(([c, n]) => `${c} ${n}`);
+  const rest = entries.length > 15 ? ` · +${entries.length - 15} more` : "";
+  const tail = ` [source: ${ch.source}, pulled ${ch.pulledAt.slice(0, 10)}]`;
+  return `${shown.join(" · ")}${rest}${tail}`.slice(0, NOTION_RICH_TEXT_LIMIT);
+}
+
+// Runtime guards for the jsonb companies columns — historic or manually
+// edited rows must never crash a Notion write or produce garbage text.
+// Invalid shapes are treated as absent (with a bounded warning).
+export function asFundingHistory(value: unknown): FundingHistory | null {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return null;
+  const v = value as Record<string, unknown>;
+  if (!Array.isArray(v.rounds) || typeof v.source !== "string" || typeof v.pulledAt !== "string") {
+    logger.warn({ keys: Object.keys(v).slice(0, 10) }, "companies.funding_history has an unexpected shape; treating as absent");
+    return null;
+  }
+  return value as FundingHistory;
+}
+
+export function asCountryHeadcount(value: unknown): CountryHeadcount | null {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return null;
+  const v = value as Record<string, unknown>;
+  if (!v.byCountry || typeof v.byCountry !== "object" || typeof v.source !== "string" || typeof v.pulledAt !== "string") {
+    logger.warn({ keys: Object.keys(v).slice(0, 10) }, "companies.country_headcount has an unexpected shape; treating as absent");
+    return null;
+  }
+  return value as CountryHeadcount;
+}
+
+function setSupplementalProperties(
+  db: NotionDatabase,
+  properties: Record<string, unknown>,
+  fundingHistory: FundingHistory | null,
+  countryHeadcount: CountryHeadcount | null,
+): void {
+  if (fundingHistory) {
+    const prop = findPropertyByName(db, FUNDING_HISTORY_PROP);
+    if (prop?.type === "rich_text") {
+      properties[prop.name] = { rich_text: [{ text: { content: formatFundingHistoryText(fundingHistory) } }] };
+    }
+  }
+  if (countryHeadcount) {
+    const prop = findPropertyByName(db, COUNTRY_HEADCOUNT_PROP);
+    if (prop?.type === "rich_text") {
+      properties[prop.name] = { rich_text: [{ text: { content: formatCountryHeadcountText(countryHeadcount) } }] };
+    }
+  }
+}
+
+/**
+ * Best-effort PATCH of ONLY the two supplemental fields onto an already
+ * synced diagnostics page. Called after the background enrichment step
+ * finishes (which runs concurrently with — usually after — the main
+ * writeDiagnosticToNotion call), so first-run enrichment data reaches the
+ * Notion page in the same build instead of waiting for the next re-score.
+ * Reads the freshly persisted companies columns; never throws.
+ */
+export async function patchDiagnosticSupplementalFields(assessmentId: number, companyId: number): Promise<void> {
+  const apiKey = getApiKey();
+  if (!apiKey) return;
+  try {
+    const [company] = await appDb
+      .select({ fundingHistory: companiesTable.fundingHistory, countryHeadcount: companiesTable.countryHeadcount })
+      .from(companiesTable)
+      .where(eq(companiesTable.id, companyId))
+      .limit(1);
+    const fundingHistory = asFundingHistory(company?.fundingHistory ?? null);
+    const countryHeadcount = asCountryHeadcount(company?.countryHeadcount ?? null);
+    if (!fundingHistory && !countryHeadcount) return;
+
+    const [syncState] = await appDb
+      .select({ notionPageId: notionSyncStateTable.notionPageId })
+      .from(notionSyncStateTable)
+      .where(eq(notionSyncStateTable.assessmentId, assessmentId))
+      .limit(1);
+    if (!syncState) return; // page not synced (Notion disabled or write failed) — next re-score carries the fields
+
+    const db = await findDatabaseByTitle(apiKey, DIAGNOSTICS_DB_TITLE);
+    if (!db) return;
+    const properties: Record<string, unknown> = {};
+    setSupplementalProperties(db, properties, fundingHistory, countryHeadcount);
+    if (Object.keys(properties).length === 0) return; // target props missing in the Notion DB
+
+    await notionFetch(apiKey, `/pages/${syncState.notionPageId}`, {
+      method: "PATCH",
+      body: JSON.stringify({ properties }),
+    });
+    logger.info({ companyId, notionPageId: syncState.notionPageId }, "Notion supplemental fields patched (funding history / country headcount)");
+  } catch (err) {
+    logger.warn({ err, companyId }, "Notion supplemental-field patch failed (Postgres data unaffected; next re-score will carry the fields)");
   }
 }
