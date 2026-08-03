@@ -199,8 +199,21 @@ function buildBaseReportData(company: Company, firm: Firm, assessment: Assessmen
   const leadershipIndex = PILLARS.findIndex((p) => p.id === "leadership");
   const p6Score = leadershipIndex >= 0 ? pillarScores[PILLARS[leadershipIndex].id] : null;
   const p6Evidence = leadershipIndex >= 0 ? evidence[pillarKeys[leadershipIndex]] : null;
-  const p6Label = p6Score === 2 ? "Retain and Develop" : p6Score === 1 ? "Augment" : p6Score === 0 ? "Replace" : "";
-  const p6Recommendation = p6Label ? (p6Evidence ? `${p6Label}: ${p6Evidence}` : p6Label) : "";
+  // Per-company override: companies.meta.leadershipRecOverride replaces the
+  // automatic score->label mapping entirely (e.g. founder-operated companies
+  // where a Low org score does NOT imply a "Replace" leadership rec). When
+  // set, the label machinery is bypassed and the note is used verbatim —
+  // including through the narrative overlay below.
+  const leadershipRecOverride = ((): string | null => {
+    const meta = company.meta as Record<string, unknown> | null;
+    const v = meta?.leadershipRecOverride;
+    return typeof v === "string" && v.trim() !== "" ? v : null;
+  })();
+  const p6Label = leadershipRecOverride
+    ? ""
+    : p6Score === 2 ? "Retain and Develop" : p6Score === 1 ? "Augment" : p6Score === 0 ? "Replace" : "";
+  const p6Recommendation =
+    leadershipRecOverride ?? (p6Label ? (p6Evidence ? `${p6Label}: ${p6Evidence}` : p6Label) : "");
 
   // Gaps = the 3 lowest-rated rubric-v2 pillars, ranked by band points
   // ascending (Low=0, Medium=1, High=2; Insufficient Data counts as Medium,
@@ -518,7 +531,10 @@ function mergeNarrative(base: BaseReportData, narrative: NarrativeResult): Diagn
       ? narrative.p6RecommendationRationale
         ? `${base.p6Label}: ${narrative.p6RecommendationRationale}`
         : base.p6Label
-      : "",
+      : // No label means either no leadership score or an explicit
+        // meta.leadershipRecOverride — preserve the base verbatim so the
+        // override survives the narrative overlay.
+        base.reportData.p6Recommendation,
   };
 }
 

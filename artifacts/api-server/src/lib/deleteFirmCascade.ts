@@ -32,6 +32,7 @@ import {
   signalsTable,
   tierAuditLogTable,
   tierDisputesTable,
+  backengineAccountsTable,
 } from "@workspace/db";
 
 export interface DeleteFirmCascadeResult {
@@ -100,6 +101,11 @@ export async function deleteFirmCascade(firmId: number): Promise<DeleteFirmCasca
       await tx.delete(assessmentsTable).where(inArray(assessmentsTable.id, assessmentIds));
     }
     if (companyIds.length > 0) {
+      // Dogfood BackEngine children (anonymized rows only; the admin-only
+      // name map is firm-independent and intentionally NOT cascaded here).
+      await tx
+        .delete(backengineAccountsTable)
+        .where(inArray(backengineAccountsTable.companyId, companyIds));
       // CQ-37 tier-model children: audit log first (it FKs tier_disputes),
       // then disputes, then the companies rows they reference.
       await tx

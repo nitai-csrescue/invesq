@@ -30,6 +30,9 @@ import type {
   ArchitectureNode,
   ArchitectureSummary,
   AuthUserEnvelope,
+  BackengineEvidence,
+  BackengineImportInput,
+  BackengineImportResult,
   BackfillPipelineMetaResult,
   BeginBrowserLoginParams,
   Company,
@@ -49,6 +52,7 @@ import type {
   HealthStatus,
   Job,
   LifecycleMotion,
+  ListAdminBackengineNameMap200,
   ListAdminTierDisputesParams,
   ListAdminTierSummaryParams,
   ListArchitectureNodesParams,
@@ -4895,6 +4899,255 @@ export function useListAdminTierAudit<
   },
 ): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
   const queryOptions = getListAdminTierAuditQueryOptions(companyId, options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * Returns ONLY anonymized data — deterministic "Prospect N" placeholders plus engagement metrics (accounts shape) and anonymized signal text (monitor/feed shape). Real account names never appear in this payload; the real-name mapping is Admin-Lens-only. Literal-slug route like /portfolio/raviga/signals: no other tenant has it.
+
+ * @summary Anonymized BackEngine evidence for the CS Rescue Internal dogfood tenant
+ */
+export const getGetCsRescueInternalBackengineUrl = () => {
+  return `/api/portfolio/cs-rescue-internal/backengine`;
+};
+
+export const getCsRescueInternalBackengine = async (
+  options?: RequestInit,
+): Promise<BackengineEvidence> => {
+  return customFetch<BackengineEvidence>(
+    getGetCsRescueInternalBackengineUrl(),
+    {
+      ...options,
+      method: "GET",
+    },
+  );
+};
+
+export const getGetCsRescueInternalBackengineQueryKey = () => {
+  return [`/api/portfolio/cs-rescue-internal/backengine`] as const;
+};
+
+export const getGetCsRescueInternalBackengineQueryOptions = <
+  TData = Awaited<ReturnType<typeof getCsRescueInternalBackengine>>,
+  TError = ErrorType<ErrorEnvelope>,
+>(options?: {
+  query?: UseQueryOptions<
+    Awaited<ReturnType<typeof getCsRescueInternalBackengine>>,
+    TError,
+    TData
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey =
+    queryOptions?.queryKey ?? getGetCsRescueInternalBackengineQueryKey();
+
+  const queryFn: QueryFunction<
+    Awaited<ReturnType<typeof getCsRescueInternalBackengine>>
+  > = ({ signal }) =>
+    getCsRescueInternalBackengine({ signal, ...requestOptions });
+
+  return { queryKey, queryFn, ...queryOptions } as UseQueryOptions<
+    Awaited<ReturnType<typeof getCsRescueInternalBackengine>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type GetCsRescueInternalBackengineQueryResult = NonNullable<
+  Awaited<ReturnType<typeof getCsRescueInternalBackengine>>
+>;
+export type GetCsRescueInternalBackengineQueryError = ErrorType<ErrorEnvelope>;
+
+/**
+ * @summary Anonymized BackEngine evidence for the CS Rescue Internal dogfood tenant
+ */
+
+export function useGetCsRescueInternalBackengine<
+  TData = Awaited<ReturnType<typeof getCsRescueInternalBackengine>>,
+  TError = ErrorType<ErrorEnvelope>,
+>(options?: {
+  query?: UseQueryOptions<
+    Awaited<ReturnType<typeof getCsRescueInternalBackengine>>,
+    TError,
+    TData
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getGetCsRescueInternalBackengineQueryOptions(options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * Accepts either the Accounts-tab shape or the Monitor/Feed-tab shape (auto-detected from headers). Every real account name is replaced with a stable "Prospect N" placeholder (keyed by sha256 of the normalized name, never row order) BEFORE anything is persisted to any tenant-visible table. Null engagement metrics are a valid shape.
+
+ * @summary Import a BackEngine CSV/XLSX export with mandatory anonymization
+ */
+export const getImportAdminBackengineUrl = () => {
+  return `/api/admin/backengine/import`;
+};
+
+export const importAdminBackengine = async (
+  backengineImportInput: BackengineImportInput,
+  options?: RequestInit,
+): Promise<BackengineImportResult> => {
+  return customFetch<BackengineImportResult>(getImportAdminBackengineUrl(), {
+    ...options,
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(backengineImportInput),
+  });
+};
+
+export const getImportAdminBackengineMutationOptions = <
+  TError = ErrorType<ErrorEnvelope>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof importAdminBackengine>>,
+    TError,
+    { data: BodyType<BackengineImportInput> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof importAdminBackengine>>,
+  TError,
+  { data: BodyType<BackengineImportInput> },
+  TContext
+> => {
+  const mutationKey = ["importAdminBackengine"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof importAdminBackengine>>,
+    { data: BodyType<BackengineImportInput> }
+  > = (props) => {
+    const { data } = props ?? {};
+
+    return importAdminBackengine(data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type ImportAdminBackengineMutationResult = NonNullable<
+  Awaited<ReturnType<typeof importAdminBackengine>>
+>;
+export type ImportAdminBackengineMutationBody = BodyType<BackengineImportInput>;
+export type ImportAdminBackengineMutationError = ErrorType<ErrorEnvelope>;
+
+/**
+ * @summary Import a BackEngine CSV/XLSX export with mandatory anonymization
+ */
+export const useImportAdminBackengine = <
+  TError = ErrorType<ErrorEnvelope>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof importAdminBackengine>>,
+    TError,
+    { data: BodyType<BackengineImportInput> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof importAdminBackengine>>,
+  TError,
+  { data: BodyType<BackengineImportInput> },
+  TContext
+> => {
+  return useMutation(getImportAdminBackengineMutationOptions(options));
+};
+
+/**
+ * @summary Admin-only real-name → placeholder mapping (never tenant-visible)
+ */
+export const getListAdminBackengineNameMapUrl = () => {
+  return `/api/admin/backengine/name-map`;
+};
+
+export const listAdminBackengineNameMap = async (
+  options?: RequestInit,
+): Promise<ListAdminBackengineNameMap200> => {
+  return customFetch<ListAdminBackengineNameMap200>(
+    getListAdminBackengineNameMapUrl(),
+    {
+      ...options,
+      method: "GET",
+    },
+  );
+};
+
+export const getListAdminBackengineNameMapQueryKey = () => {
+  return [`/api/admin/backengine/name-map`] as const;
+};
+
+export const getListAdminBackengineNameMapQueryOptions = <
+  TData = Awaited<ReturnType<typeof listAdminBackengineNameMap>>,
+  TError = ErrorType<unknown>,
+>(options?: {
+  query?: UseQueryOptions<
+    Awaited<ReturnType<typeof listAdminBackengineNameMap>>,
+    TError,
+    TData
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey =
+    queryOptions?.queryKey ?? getListAdminBackengineNameMapQueryKey();
+
+  const queryFn: QueryFunction<
+    Awaited<ReturnType<typeof listAdminBackengineNameMap>>
+  > = ({ signal }) => listAdminBackengineNameMap({ signal, ...requestOptions });
+
+  return { queryKey, queryFn, ...queryOptions } as UseQueryOptions<
+    Awaited<ReturnType<typeof listAdminBackengineNameMap>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type ListAdminBackengineNameMapQueryResult = NonNullable<
+  Awaited<ReturnType<typeof listAdminBackengineNameMap>>
+>;
+export type ListAdminBackengineNameMapQueryError = ErrorType<unknown>;
+
+/**
+ * @summary Admin-only real-name → placeholder mapping (never tenant-visible)
+ */
+
+export function useListAdminBackengineNameMap<
+  TData = Awaited<ReturnType<typeof listAdminBackengineNameMap>>,
+  TError = ErrorType<unknown>,
+>(options?: {
+  query?: UseQueryOptions<
+    Awaited<ReturnType<typeof listAdminBackengineNameMap>>,
+    TError,
+    TData
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getListAdminBackengineNameMapQueryOptions(options);
 
   const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
     queryKey: QueryKey;

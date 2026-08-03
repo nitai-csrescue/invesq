@@ -1,6 +1,6 @@
 import { Router, type IRouter } from "express";
 import { and, asc, eq, isNotNull } from "drizzle-orm";
-import { db, companiesTable, firmsTable, signalsTable } from "@workspace/db";
+import { db, backengineAccountsTable, companiesTable, firmsTable, signalsTable } from "@workspace/db";
 import { GetPortfolioBootstrapResponse, GetRavigaSignalsResponse } from "@workspace/api-zod";
 import { getPortfolioBootstrapForSession } from "../lib/portfolioData.js";
 import { getTenantSession, LOGIN_GATED_SLUGS } from "../lib/tenantAuth.js";
@@ -85,6 +85,60 @@ router.get("/raviga/signals", async (req, res) => {
   } catch (err) {
     req.log.error({ err }, "Failed to load Raviga diagnostic signals");
     res.status(500).json({ error: "Failed to load signals" });
+  }
+});
+
+// Anonymized BackEngine evidence for the CS Rescue Internal dogfood tenant
+// ONLY. Literal-slug route like /raviga/signals above. This payload contains
+// EXCLUSIVELY anonymized data: "Prospect N" placeholders and already-scrubbed
+// signal text. Real account names live only in the admin-gated
+// backengine_name_map table and can never appear here by construction —
+// backengine_accounts.placeholder is the only identity column selected, and
+// signals written by the import route are scrubbed before persist.
+router.get("/cs-rescue-internal/backengine", async (req, res) => {
+  try {
+    const [company] = await db
+      .select({ id: companiesTable.id })
+      .from(companiesTable)
+      .innerJoin(firmsTable, eq(companiesTable.firmId, firmsTable.id))
+      .where(eq(firmsTable.slug, "cs-rescue-internal"))
+      .orderBy(asc(companiesTable.id))
+      .limit(1);
+    if (!company) {
+      res.json({ accounts: [], signals: [] });
+      return;
+    }
+    const accounts = await db
+      .select({
+        placeholder: backengineAccountsTable.placeholder,
+        quarterlySentiment: backengineAccountsTable.quarterlySentiment,
+        monthlySentiment: backengineAccountsTable.monthlySentiment,
+        emailsReceived: backengineAccountsTable.emailsReceived,
+        emailsSent: backengineAccountsTable.emailsSent,
+        meetings: backengineAccountsTable.meetings,
+        importedAt: backengineAccountsTable.importedAt,
+      })
+      .from(backengineAccountsTable)
+      .where(eq(backengineAccountsTable.companyId, company.id))
+      .orderBy(asc(backengineAccountsTable.placeholder));
+    const signals = await db
+      .select({
+        id: signalsTable.id,
+        pillarId: signalsTable.pillarId,
+        field: signalsTable.field,
+        value: signalsTable.value,
+        dateObserved: signalsTable.dateObserved,
+      })
+      .from(signalsTable)
+      .where(and(eq(signalsTable.companyId, company.id), eq(signalsTable.sourceSystem, "backengine")))
+      .orderBy(asc(signalsTable.id));
+    res.json({
+      accounts: accounts.map((a) => ({ ...a, importedAt: a.importedAt.toISOString() })),
+      signals,
+    });
+  } catch (err) {
+    req.log.error({ err }, "Failed to load BackEngine evidence");
+    res.status(500).json({ error: "Failed to load BackEngine evidence" });
   }
 });
 

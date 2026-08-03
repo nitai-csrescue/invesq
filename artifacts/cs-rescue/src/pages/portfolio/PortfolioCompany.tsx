@@ -32,7 +32,10 @@ import {
 import {
   useGetRavigaSignals,
   getGetRavigaSignalsQueryKey,
+  useGetCsRescueInternalBackengine,
+  getGetCsRescueInternalBackengineQueryKey,
   type SignalRecord,
+  type BackengineEvidence,
 } from "@workspace/api-client-react";
 import { ConfidenceBadge } from "@/components/portfolio/ConfidenceBadge";
 import { TenantShell } from "@/components/portfolio/TenantShell";
@@ -443,10 +446,102 @@ function FirmNotFound() {
   );
 }
 
+// ---------------------------------------------------------------------------
+// CS Rescue Internal dogfood — anonymized BackEngine evidence section.
+// Renders ONLY deterministic "Prospect N" placeholders; real account names
+// never reach this payload (they live solely in the Admin-Lens-gated name
+// map). Accounts-tab rows render as a relationship list; Monitor/Feed rows
+// render grouped by category.
+// ---------------------------------------------------------------------------
+function BackengineEvidenceSection({ data }: { data: BackengineEvidence }) {
+  const { accounts, signals } = data;
+  if (accounts.length === 0 && signals.length === 0) return null;
+  const byCategory = new Map<string, typeof signals>();
+  for (const s of signals) {
+    const key = s.field ?? "Uncategorized";
+    byCategory.set(key, [...(byCategory.get(key) ?? []), s]);
+  }
+  return (
+    <div className="mt-4 rounded-xl border border-border bg-card p-6">
+      <div className="flex items-center justify-between gap-3">
+        <div>
+          <h2 className="text-sm font-semibold text-foreground">
+            BackEngine telemetry — anonymized account relationships
+          </h2>
+          <p className="mt-0.5 text-xs text-muted-foreground">
+            Tier 2 evidence (Telemetry Integration). Account identities are anonymized at import;
+            placeholders are stable across re-imports.
+          </p>
+        </div>
+        <span className="shrink-0 rounded-full border border-border px-2 py-0.5 text-[11px] text-muted-foreground">
+          {accounts.length} accounts
+        </span>
+      </div>
+      {accounts.length > 0 && (
+        <div className="mt-4 overflow-x-auto">
+          <table className="w-full min-w-[560px] text-left text-xs">
+            <thead>
+              <tr className="border-b border-border text-[11px] uppercase tracking-wide text-muted-foreground">
+                <th className="py-2 pr-3 font-medium">Account</th>
+                <th className="py-2 pr-3 font-medium">Quarterly sentiment</th>
+                <th className="py-2 pr-3 font-medium">Monthly sentiment</th>
+                <th className="py-2 pr-3 font-medium">Emails recv (12w)</th>
+                <th className="py-2 pr-3 font-medium">Emails sent (12w)</th>
+                <th className="py-2 font-medium">Meetings (12w)</th>
+              </tr>
+            </thead>
+            <tbody>
+              {accounts.map((a) => (
+                <tr key={a.placeholder} className="border-b border-border/60 last:border-0">
+                  <td className="py-2 pr-3 font-medium text-foreground">{a.placeholder}</td>
+                  <td className="py-2 pr-3 text-muted-foreground">{a.quarterlySentiment ?? "—"}</td>
+                  <td className="py-2 pr-3 text-muted-foreground">{a.monthlySentiment ?? "—"}</td>
+                  <td className="py-2 pr-3 text-muted-foreground">{a.emailsReceived ?? "—"}</td>
+                  <td className="py-2 pr-3 text-muted-foreground">{a.emailsSent ?? "—"}</td>
+                  <td className="py-2 text-muted-foreground">{a.meetings ?? "—"}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+          <p className="mt-2 text-[11px] text-muted-foreground">
+            Engagement metrics show "—" until BackEngine backfills quantitative history — a valid
+            zero-metrics state, not an import error.
+          </p>
+        </div>
+      )}
+      {byCategory.size > 0 && (
+        <div className="mt-4 space-y-3">
+          {[...byCategory.entries()].map(([category, rows]) => (
+            <div key={category}>
+              <div className="text-xs font-medium text-foreground">{category}</div>
+              <div className="mt-1.5 space-y-1.5">
+                {rows.map((s) => (
+                  <div key={s.id} className="rounded-lg border border-border bg-background/40 p-2.5">
+                    <p className="text-xs text-muted-foreground">{s.value}</p>
+                    {s.dateObserved && (
+                      <p className="mt-1 text-[10px] text-muted-foreground/70">{s.dateObserved}</p>
+                    )}
+                  </div>
+                ))}
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
 export default function PortfolioCompany() {
   const [, params] = useRoute("/:firmSlug/portfolio/:companyId");
   const firmSlug = params?.firmSlug ?? "";
   const isRaviga = firmSlug === "raviga";
+  const isDogfood = firmSlug === "cs-rescue-internal";
+  // Anonymized BackEngine evidence — dogfood tenant only; the query never
+  // fires for any other firm, so every other tenant renders unchanged.
+  const { data: backengineData } = useGetCsRescueInternalBackengine({
+    query: { queryKey: getGetCsRescueInternalBackengineQueryKey(), enabled: isDogfood },
+  });
   // DB-backed structured evidence signals — Raviga demo tenant only. The
   // query never fires for any other firm (enabled: isRaviga), so
   // stg/pamlico/longarc/solen make zero extra requests and render unchanged.
@@ -713,6 +808,9 @@ export default function PortfolioCompany() {
           </div>
         </div>
       </div>
+
+      {/* Anonymized BackEngine evidence — dogfood tenant only */}
+      {isDogfood && backengineData && <BackengineEvidenceSection data={backengineData} />}
 
       {/* Phase 2 integrations */}
       <Phase2Integrations company={company} isRaviga={isRaviga} />

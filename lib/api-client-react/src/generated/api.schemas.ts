@@ -1594,6 +1594,76 @@ export interface PortfolioBootstrap {
   firms: PortfolioBootstrapFirm[];
 }
 
+export interface BackengineAccountRecord {
+  placeholder: string;
+  /** @nullable */
+  quarterlySentiment: string | null;
+  /** @nullable */
+  monthlySentiment: string | null;
+  /** @nullable */
+  emailsReceived: number | null;
+  /** @nullable */
+  emailsSent: number | null;
+  /** @nullable */
+  meetings: number | null;
+  importedAt: string;
+}
+
+export interface BackengineSignalRecord {
+  id: number;
+  pillarId: string;
+  /** @nullable */
+  field: string | null;
+  /** @nullable */
+  value: string | null;
+  /** @nullable */
+  dateObserved: string | null;
+}
+
+export interface BackengineEvidence {
+  accounts: BackengineAccountRecord[];
+  signals: BackengineSignalRecord[];
+}
+
+export type BackengineImportInputFormat =
+  (typeof BackengineImportInputFormat)[keyof typeof BackengineImportInputFormat];
+
+export const BackengineImportInputFormat = {
+  csv: "csv",
+  xlsx: "xlsx",
+} as const;
+
+export interface BackengineImportInput {
+  format: BackengineImportInputFormat;
+  /** Raw CSV text, or base64-encoded XLSX bytes. */
+  content: string;
+}
+
+export type BackengineImportResultShape =
+  (typeof BackengineImportResultShape)[keyof typeof BackengineImportResultShape];
+
+export const BackengineImportResultShape = {
+  accounts: "accounts",
+  signals: "signals",
+} as const;
+
+export interface BackengineImportResult {
+  shape: BackengineImportResultShape;
+  rowsRead: number;
+  uniqueAccounts: number;
+  duplicatesCollapsed: number;
+  newPlaceholders: number;
+  accountsUpserted: number;
+  signalsInserted: number;
+}
+
+export interface BackengineNameMapRow {
+  id: number;
+  realName: string;
+  placeholder: string;
+  createdAt: string;
+}
+
 export type Tier2ConnectorValue =
   (typeof Tier2ConnectorValue)[keyof typeof Tier2ConnectorValue];
 
@@ -1837,3 +1907,7 @@ export const ListAdminTierDisputesStatus = {
   applied: "applied",
   rejected: "rejected",
 } as const;
+
+export type ListAdminBackengineNameMap200 = {
+  rows: BackengineNameMapRow[];
+};

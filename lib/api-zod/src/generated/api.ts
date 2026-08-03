@@ -3709,3 +3709,65 @@ export const ListAdminTierAuditResponseItem = zod.object({
 export const ListAdminTierAuditResponse = zod.array(
   ListAdminTierAuditResponseItem,
 );
+
+/**
+ * Returns ONLY anonymized data — deterministic "Prospect N" placeholders plus engagement metrics (accounts shape) and anonymized signal text (monitor/feed shape). Real account names never appear in this payload; the real-name mapping is Admin-Lens-only. Literal-slug route like /portfolio/raviga/signals: no other tenant has it.
+
+ * @summary Anonymized BackEngine evidence for the CS Rescue Internal dogfood tenant
+ */
+export const GetCsRescueInternalBackengineResponse = zod.object({
+  accounts: zod.array(
+    zod.object({
+      placeholder: zod.string(),
+      quarterlySentiment: zod.string().nullable(),
+      monthlySentiment: zod.string().nullable(),
+      emailsReceived: zod.number().nullable(),
+      emailsSent: zod.number().nullable(),
+      meetings: zod.number().nullable(),
+      importedAt: zod.string(),
+    }),
+  ),
+  signals: zod.array(
+    zod.object({
+      id: zod.number(),
+      pillarId: zod.string(),
+      field: zod.string().nullable(),
+      value: zod.string().nullable(),
+      dateObserved: zod.string().nullable(),
+    }),
+  ),
+});
+
+/**
+ * Accepts either the Accounts-tab shape or the Monitor/Feed-tab shape (auto-detected from headers). Every real account name is replaced with a stable "Prospect N" placeholder (keyed by sha256 of the normalized name, never row order) BEFORE anything is persisted to any tenant-visible table. Null engagement metrics are a valid shape.
+
+ * @summary Import a BackEngine CSV/XLSX export with mandatory anonymization
+ */
+export const ImportAdminBackengineBody = zod.object({
+  format: zod.enum(["csv", "xlsx"]),
+  content: zod.string().describe("Raw CSV text, or base64-encoded XLSX bytes."),
+});
+
+export const ImportAdminBackengineResponse = zod.object({
+  shape: zod.enum(["accounts", "signals"]),
+  rowsRead: zod.number(),
+  uniqueAccounts: zod.number(),
+  duplicatesCollapsed: zod.number(),
+  newPlaceholders: zod.number(),
+  accountsUpserted: zod.number(),
+  signalsInserted: zod.number(),
+});
+
+/**
+ * @summary Admin-only real-name → placeholder mapping (never tenant-visible)
+ */
+export const ListAdminBackengineNameMapResponse = zod.object({
+  rows: zod.array(
+    zod.object({
+      id: zod.number(),
+      realName: zod.string(),
+      placeholder: zod.string(),
+      createdAt: zod.string(),
+    }),
+  ),
+});

@@ -1538,6 +1538,79 @@ paths:
                   $ref: "#/components/schemas/TierAuditRecord"
 
 
+  /portfolio/cs-rescue-internal/backengine:
+    get:
+      operationId: getCsRescueInternalBackengine
+      tags: [portfolio]
+      summary: Anonymized BackEngine evidence for the CS Rescue Internal dogfood tenant
+      description: >
+        Returns ONLY anonymized data — deterministic "Prospect N" placeholders
+        plus engagement metrics (accounts shape) and anonymized signal text
+        (monitor/feed shape). Real account names never appear in this payload;
+        the real-name mapping is Admin-Lens-only. Literal-slug route like
+        /portfolio/raviga/signals: no other tenant has it.
+      responses:
+        "200":
+          description: Anonymized BackEngine accounts and signals
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/BackengineEvidence"
+        "500":
+          description: Failed to load BackEngine evidence
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+  /admin/backengine/import:
+    post:
+      operationId: importAdminBackengine
+      tags: [admin]
+      summary: Import a BackEngine CSV/XLSX export with mandatory anonymization
+      description: >
+        Accepts either the Accounts-tab shape or the Monitor/Feed-tab shape
+        (auto-detected from headers). Every real account name is replaced with
+        a stable "Prospect N" placeholder (keyed by sha256 of the normalized
+        name, never row order) BEFORE anything is persisted to any
+        tenant-visible table. Null engagement metrics are a valid shape.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/BackengineImportInput"
+      responses:
+        "200":
+          description: Import summary
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/BackengineImportResult"
+        "422":
+          description: Unrecognized file shape or unparseable content
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+  /admin/backengine/name-map:
+    get:
+      operationId: listAdminBackengineNameMap
+      tags: [admin]
+      summary: Admin-only real-name → placeholder mapping (never tenant-visible)
+      responses:
+        "200":
+          description: Full mapping table
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [rows]
+                properties:
+                  rows:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/BackengineNameMapRow"
+
 components:
   parameters:
     AuthorizationSessionHeader:
@@ -3451,6 +3524,72 @@ components:
       required:
         - asOfDate
         - firms
+
+    # ---- CS Rescue Internal dogfood: anonymized BackEngine import ----
+    BackengineAccountRecord:
+      type: object
+      required: [placeholder, quarterlySentiment, monthlySentiment, emailsReceived, emailsSent, meetings, importedAt]
+      properties:
+        placeholder: { type: string }
+        quarterlySentiment: { type: [string, "null"] }
+        monthlySentiment: { type: [string, "null"] }
+        emailsReceived: { type: [integer, "null"] }
+        emailsSent: { type: [integer, "null"] }
+        meetings: { type: [integer, "null"] }
+        importedAt: { type: string }
+    BackengineSignalRecord:
+      type: object
+      required: [id, pillarId, field, value, dateObserved]
+      properties:
+        id: { type: integer }
+        pillarId: { type: string }
+        field: { type: [string, "null"] }
+        value: { type: [string, "null"] }
+        dateObserved: { type: [string, "null"] }
+    BackengineEvidence:
+      type: object
+      required: [accounts, signals]
+      properties:
+        accounts:
+          type: array
+          items:
+            $ref: "#/components/schemas/BackengineAccountRecord"
+        signals:
+          type: array
+          items:
+            $ref: "#/components/schemas/BackengineSignalRecord"
+    BackengineImportInput:
+      type: object
+      required: [format, content]
+      properties:
+        format:
+          type: string
+          enum: [csv, xlsx]
+        content:
+          type: string
+          description: Raw CSV text, or base64-encoded XLSX bytes.
+      additionalProperties: false
+    BackengineImportResult:
+      type: object
+      required: [shape, rowsRead, uniqueAccounts, duplicatesCollapsed, newPlaceholders, accountsUpserted, signalsInserted]
+      properties:
+        shape:
+          type: string
+          enum: [accounts, signals]
+        rowsRead: { type: integer }
+        uniqueAccounts: { type: integer }
+        duplicatesCollapsed: { type: integer }
+        newPlaceholders: { type: integer }
+        accountsUpserted: { type: integer }
+        signalsInserted: { type: integer }
+    BackengineNameMapRow:
+      type: object
+      required: [id, realName, placeholder, createdAt]
+      properties:
+        id: { type: integer }
+        realName: { type: string }
+        placeholder: { type: string }
+        createdAt: { type: string }
 
     # ---- CQ-37 tier model ----
     Tier2ConnectorValue:

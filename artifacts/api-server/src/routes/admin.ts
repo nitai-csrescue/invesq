@@ -37,6 +37,7 @@ import { getOrigin } from "../lib/http.js";
 import { invalidatePortfolioCache } from "../lib/portfolioData.js";
 import { requireAdminAuth } from "../middlewares/authMiddleware.js";
 import adminTiersRouter from "./adminTiers.js";
+import adminBackengineRouter from "./adminBackengine.js";
 import {
   getOrGenerateReportExport,
   getCompanyWebsite,
@@ -70,6 +71,10 @@ router.use(requireAdminAuth);
 // dispute queue, audit log). Mounted after requireAdminAuth so every tier
 // route is Admin-Lens-gated.
 router.use(adminTiersRouter);
+
+// Dogfood BackEngine import + real-name mapping (CS Rescue Internal tenant).
+// Mounted after requireAdminAuth: the name map is NEVER tenant-reachable.
+router.use(adminBackengineRouter);
 
 // The 5 hand-authored tenant slugs. They are not pipeline-managed, so the
 // on-demand re-run endpoint refuses to touch them (a rebuild would append a
