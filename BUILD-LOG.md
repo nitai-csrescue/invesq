@@ -1330,6 +1330,10 @@ curl -X POST https://<prod-domain>/api/admin/repair-assessments-dedup \
 
 ## CQ-36: /admin Firms index can read STG's rollup again (admin-scoped un-redacted bootstrap)
 - Date: 2026-08-03 (UTC)
+- Status: complete in dev; Republish required to reach prod
+- Files changed: artifacts/api-server/src/lib/portfolioData.ts, artifacts/api-server/src/routes/portfolio.ts, BUILD-LOG.md
+- Validation: typecheck pass; RLS boot self-check pass; CQ-14-style psql RLS proof re-run pass; anonymous vs admin vs tenant bootstrap behavior verified
+- Republish needed: yes (to fix the /admin index against prod data)
 - Problem: since CQ-14, the internal /admin Firms index showed STG at 0.0/16 avg composite and N/A disclosed ARR. Root cause was NOT Postgres RLS blocking the admin query (the owner connection bypasses RLS): the admin page derives its rollups from /api/portfolio/bootstrap, and the session-aware bootstrap redacted STG's companies to [] for ANY request without an STG tenant session - including validated Admin Lens sessions.
 - Fix (additive, admin surface only, 2 files): getPortfolioBootstrapForSession() gained an adminUnredacted option; the bootstrap route sets it if and only if req.user is populated. req.user only ever exists when authMiddleware has validated a Google OIDC session whose email passes isAllowedAdminEmail (the exact same gate requireAdminAuth enforces on all /api/admin routes), so this is keyed to the existing Admin Lens auth, not a new mechanism. Un-redacted data comes straight from the shared owner-connection bootstrap cache; no RLS policy, role, grant, or withTenantDb path was touched.
 - Not changed: tenant_reader role + tenant_isolation_select policies, withTenantDb, LOGIN_GATED_SLUGS gating, the STG magic-link flow, and every non-gated tenant's bootstrap/admin behavior (payload byte-identical for them).
