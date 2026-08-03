@@ -3433,3 +3433,279 @@ export const LogoutMobileSessionHeader = zod.object({
 export const LogoutMobileSessionResponse = zod.object({
   success: zod.boolean(),
 });
+
+/**
+ * @summary Paginated cross-tenant tier confidence summary (Tier 1/2/3 per company)
+ */
+export const listAdminTierSummaryQueryLimitDefault = 25;
+export const listAdminTierSummaryQueryLimitMax = 100;
+
+export const listAdminTierSummaryQueryOffsetDefault = 0;
+export const listAdminTierSummaryQueryOffsetMin = 0;
+
+export const listAdminTierSummaryQuerySortByDefault = `company`;
+export const listAdminTierSummaryQuerySortDirDefault = `asc`;
+
+export const ListAdminTierSummaryQueryParams = zod.object({
+  limit: zod.coerce
+    .number()
+    .min(1)
+    .max(listAdminTierSummaryQueryLimitMax)
+    .default(listAdminTierSummaryQueryLimitDefault),
+  offset: zod.coerce
+    .number()
+    .min(listAdminTierSummaryQueryOffsetMin)
+    .default(listAdminTierSummaryQueryOffsetDefault),
+  sortBy: zod
+    .enum(["company", "tenant", "tier2", "tier3", "disputes"])
+    .default(listAdminTierSummaryQuerySortByDefault),
+  sortDir: zod
+    .enum(["asc", "desc"])
+    .default(listAdminTierSummaryQuerySortDirDefault),
+  firmSlug: zod.coerce.string().optional(),
+  tier3Status: zod
+    .enum(["unconfirmed", "portco_confirmed", "pe_confirmed"])
+    .optional(),
+});
+
+export const ListAdminTierSummaryResponse = zod.object({
+  total: zod.number(),
+  limit: zod.number(),
+  offset: zod.number(),
+  rows: zod.array(
+    zod.object({
+      companyId: zod.number(),
+      companyName: zod.string(),
+      companySlug: zod.string().nullable(),
+      companyStatus: zod.string(),
+      firmName: zod.string(),
+      firmSlug: zod.string(),
+      tier1Complete: zod
+        .boolean()
+        .describe(
+          "Derived — true when the company has at least one Phase 1 assessment row.",
+        ),
+      tier2: zod.object({
+        backengine: zod.enum(["not_connected", "partial", "connected"]),
+        crm: zod.enum(["not_connected", "partial", "connected"]),
+        conversation_intelligence: zod.enum([
+          "not_connected",
+          "partial",
+          "connected",
+        ]),
+        product_telemetry: zod.enum(["not_connected", "partial", "connected"]),
+        connectedCount: zod
+          .number()
+          .describe(
+            'Connectors with status \"connected\" (partial does not count).',
+          ),
+        totalCount: zod.number(),
+      }),
+      tier3Status: zod.enum([
+        "unconfirmed",
+        "portco_confirmed",
+        "pe_confirmed",
+      ]),
+      pendingDisputes: zod.number(),
+    }),
+  ),
+});
+
+/**
+ * @summary Set one Tier 2 connector's status (writes a tier audit-log row)
+ */
+export const UpdateAdminCompanyTier2Params = zod.object({
+  companyId: zod.coerce.number(),
+});
+
+export const UpdateAdminCompanyTier2Body = zod.object({
+  connector: zod.enum([
+    "backengine",
+    "crm",
+    "conversation_intelligence",
+    "product_telemetry",
+  ]),
+  status: zod.enum(["not_connected", "partial", "connected"]),
+  note: zod.string().nullish(),
+});
+
+export const UpdateAdminCompanyTier2Response = zod.object({
+  companyId: zod.number(),
+  tier2: zod.object({
+    backengine: zod.enum(["not_connected", "partial", "connected"]),
+    crm: zod.enum(["not_connected", "partial", "connected"]),
+    conversation_intelligence: zod.enum([
+      "not_connected",
+      "partial",
+      "connected",
+    ]),
+    product_telemetry: zod.enum(["not_connected", "partial", "connected"]),
+    connectedCount: zod
+      .number()
+      .describe(
+        'Connectors with status \"connected\" (partial does not count).',
+      ),
+    totalCount: zod.number(),
+  }),
+  tier3Status: zod.enum(["unconfirmed", "portco_confirmed", "pe_confirmed"]),
+  auditRowId: zod
+    .number()
+    .nullable()
+    .describe(
+      "The audit-log row this mutation wrote (null only for reject resolutions).",
+    ),
+});
+
+/**
+ * @summary Set the Tier 3 validation status directly (writes a tier audit-log row)
+ */
+export const UpdateAdminCompanyTier3Params = zod.object({
+  companyId: zod.coerce.number(),
+});
+
+export const UpdateAdminCompanyTier3Body = zod.object({
+  status: zod.enum(["unconfirmed", "portco_confirmed", "pe_confirmed"]),
+  note: zod.string().nullish(),
+});
+
+export const UpdateAdminCompanyTier3Response = zod.object({
+  companyId: zod.number(),
+  tier2: zod.object({
+    backengine: zod.enum(["not_connected", "partial", "connected"]),
+    crm: zod.enum(["not_connected", "partial", "connected"]),
+    conversation_intelligence: zod.enum([
+      "not_connected",
+      "partial",
+      "connected",
+    ]),
+    product_telemetry: zod.enum(["not_connected", "partial", "connected"]),
+    connectedCount: zod
+      .number()
+      .describe(
+        'Connectors with status \"connected\" (partial does not count).',
+      ),
+    totalCount: zod.number(),
+  }),
+  tier3Status: zod.enum(["unconfirmed", "portco_confirmed", "pe_confirmed"]),
+  auditRowId: zod
+    .number()
+    .nullable()
+    .describe(
+      "The audit-log row this mutation wrote (null only for reject resolutions).",
+    ),
+});
+
+/**
+ * @summary Flag a Tier 3 dispute for review (never mutates the disputed value)
+ */
+export const CreateAdminTierDisputeParams = zod.object({
+  companyId: zod.coerce.number(),
+});
+
+export const createAdminTierDisputeBodyFieldDefault = `tier3_status`;
+export const createAdminTierDisputeBodyReasonMin = 3;
+
+export const CreateAdminTierDisputeBody = zod.object({
+  field: zod
+    .string()
+    .default(createAdminTierDisputeBodyFieldDefault)
+    .describe(
+      "Disputed field; defaults to tier3_status (the only auto-applicable field today).",
+    ),
+  reason: zod.string().min(createAdminTierDisputeBodyReasonMin),
+  proposedValue: zod.string().nullish(),
+});
+
+/**
+ * @summary List tier disputes (filterable by status/company)
+ */
+export const ListAdminTierDisputesQueryParams = zod.object({
+  status: zod.enum(["pending", "applied", "rejected"]).optional(),
+  companyId: zod.coerce.number().optional(),
+});
+
+export const ListAdminTierDisputesResponseItem = zod.object({
+  id: zod.number(),
+  companyId: zod.number(),
+  companyName: zod.string(),
+  firmSlug: zod.string(),
+  field: zod.string(),
+  reason: zod.string(),
+  proposedValue: zod.string().nullable(),
+  status: zod.enum(["pending", "applied", "rejected"]),
+  createdAt: zod.string(),
+  resolvedAt: zod.string().nullable(),
+  resolvedBy: zod.string().nullable(),
+  resolutionNote: zod.string().nullable(),
+});
+export const ListAdminTierDisputesResponse = zod.array(
+  ListAdminTierDisputesResponseItem,
+);
+
+/**
+ * @summary Apply or reject a pending dispute (apply mutates + audit-logs atomically)
+ */
+export const ResolveAdminTierDisputeParams = zod.object({
+  disputeId: zod.coerce.number(),
+});
+
+export const ResolveAdminTierDisputeBody = zod.object({
+  action: zod.enum(["apply", "reject"]),
+  newValue: zod
+    .union([
+      zod.enum(["unconfirmed", "portco_confirmed", "pe_confirmed"]),
+      zod.null(),
+    ])
+    .optional()
+    .describe("Required for apply when the dispute has no proposedValue."),
+  note: zod.string().nullish(),
+});
+
+export const ResolveAdminTierDisputeResponse = zod.object({
+  companyId: zod.number(),
+  tier2: zod.object({
+    backengine: zod.enum(["not_connected", "partial", "connected"]),
+    crm: zod.enum(["not_connected", "partial", "connected"]),
+    conversation_intelligence: zod.enum([
+      "not_connected",
+      "partial",
+      "connected",
+    ]),
+    product_telemetry: zod.enum(["not_connected", "partial", "connected"]),
+    connectedCount: zod
+      .number()
+      .describe(
+        'Connectors with status \"connected\" (partial does not count).',
+      ),
+    totalCount: zod.number(),
+  }),
+  tier3Status: zod.enum(["unconfirmed", "portco_confirmed", "pe_confirmed"]),
+  auditRowId: zod
+    .number()
+    .nullable()
+    .describe(
+      "The audit-log row this mutation wrote (null only for reject resolutions).",
+    ),
+});
+
+/**
+ * @summary Append-only tier audit-log rows for one company, newest first
+ */
+export const ListAdminTierAuditParams = zod.object({
+  companyId: zod.coerce.number(),
+});
+
+export const ListAdminTierAuditResponseItem = zod.object({
+  id: zod.number(),
+  companyId: zod.number(),
+  field: zod.string(),
+  oldValue: zod.string().nullable(),
+  newValue: zod.string().nullable(),
+  editor: zod.string(),
+  note: zod.string().nullable(),
+  disputeId: zod.number().nullable(),
+  createdAt: zod.string(),
+});
+export const ListAdminTierAuditResponse = zod.array(
+  ListAdminTierAuditResponseItem,
+);

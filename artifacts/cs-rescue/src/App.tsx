@@ -41,6 +41,7 @@ import RavigaDataSources from "@/pages/portfolio/RavigaDataSources";
 import AdminFirmsIndex from "@/pages/admin/AdminFirmsIndex";
 import AdminPipeline from "@/pages/admin/AdminPipeline";
 import AdminInsights from "@/pages/admin/AdminInsights";
+import AdminTiers from "@/pages/admin/AdminTiers";
 import AdminHealth from "@/pages/admin/AdminHealth";
 import AdminFirmReviewRedirect from "@/pages/admin/FirmReviewRedirect";
 import AdminJobStatus from "@/pages/admin/JobStatus";
@@ -132,6 +133,13 @@ function Router() {
             {() => (
               <ProtectedRoute>
                 <AdminPipeline />
+              </ProtectedRoute>
+            )}
+          </Route>
+          <Route path="/admin/tiers">
+            {() => (
+              <ProtectedRoute>
+                <AdminTiers />
               </ProtectedRoute>
             )}
           </Route>

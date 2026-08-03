@@ -68,6 +68,20 @@ export const companiesTable = pgTable(
     fundingHistory: jsonb("funding_history"),
     // Country -> employee-count map plus { source, pulledAt } metadata.
     countryHeadcount: jsonb("country_headcount"),
+    // ---- CQ-37: tiered confidence model. Tiers are INDEPENDENT, never
+    // cumulative (design locked by Nitai, Aug 3 2026) — any combination is
+    // valid. Tier 1 (INVESQ Initial Scan) has NO column: it is derived from
+    // the company having Phase 1 assessment rows. ----
+    // Tier 2 (Portco Telemetry Integration): per-connector-type status map,
+    // shape Tier2Status below. null = no connector has ever been set =
+    // every connector "not_connected" (matches today's Phase 2 placeholder
+    // cards). Admin-editable only; nothing tenant-facing writes this.
+    tier2Status: jsonb("tier2_status"),
+    // Tier 3 (Portco Validation), CQ-12 locked vocabulary:
+    // "unconfirmed" | "portco_confirmed" | "pe_confirmed". Default backfills
+    // every existing row to unconfirmed. Mutations MUST go through the admin
+    // tier routes, which write a tier_audit_log row in the same transaction.
+    tier3Status: text("tier3_status").notNull().default("unconfirmed"),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   },
   (table) => [
@@ -80,6 +94,22 @@ export const companiesTable = pgTable(
       .where(sql`${table.status} <> 'excluded'`),
   ],
 );
+
+// CQ-37 tier-model vocabularies. Kept here (next to the columns) so every
+// consumer — api-server routes, admin UI via api-zod — shares one source.
+export const TIER2_CONNECTOR_TYPES = [
+  "backengine",
+  "crm",
+  "conversation_intelligence",
+  "product_telemetry",
+] as const;
+export type Tier2ConnectorType = (typeof TIER2_CONNECTOR_TYPES)[number];
+export const TIER2_CONNECTOR_STATUSES = ["not_connected", "partial", "connected"] as const;
+export type Tier2ConnectorStatus = (typeof TIER2_CONNECTOR_STATUSES)[number];
+// Shape of companies.tier2_status. Missing keys mean "not_connected".
+export type Tier2Status = Partial<Record<Tier2ConnectorType, Tier2ConnectorStatus>>;
+export const TIER3_STATUSES = ["unconfirmed", "portco_confirmed", "pe_confirmed"] as const;
+export type Tier3Status = (typeof TIER3_STATUSES)[number];
 
 export const insertCompanySchema = createInsertSchema(companiesTable).omit({ id: true, createdAt: true });
 export type InsertCompany = z.infer<typeof insertCompanySchema>;

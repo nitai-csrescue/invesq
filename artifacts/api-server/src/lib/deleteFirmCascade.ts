@@ -30,6 +30,8 @@ import {
   ingestionSourcesTable,
   jobsTable,
   signalsTable,
+  tierAuditLogTable,
+  tierDisputesTable,
 } from "@workspace/db";
 
 export interface DeleteFirmCascadeResult {
@@ -98,6 +100,14 @@ export async function deleteFirmCascade(firmId: number): Promise<DeleteFirmCasca
       await tx.delete(assessmentsTable).where(inArray(assessmentsTable.id, assessmentIds));
     }
     if (companyIds.length > 0) {
+      // CQ-37 tier-model children: audit log first (it FKs tier_disputes),
+      // then disputes, then the companies rows they reference.
+      await tx
+        .delete(tierAuditLogTable)
+        .where(inArray(tierAuditLogTable.companyId, companyIds));
+      await tx
+        .delete(tierDisputesTable)
+        .where(inArray(tierDisputesTable.companyId, companyIds));
       await tx.delete(companiesTable).where(inArray(companiesTable.id, companyIds));
     }
     await tx.delete(jobsTable).where(inArray(jobsTable.targetId, jobTargetIds));

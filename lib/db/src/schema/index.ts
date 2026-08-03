@@ -31,3 +31,5 @@ export * from "./notionSyncState";
 export * from "./ingestionSources";
 export * from "./signals";
 export * from "./tenantLoginTokens";
+export * from "./tierDisputes";
+export * from "./tierAuditLog";

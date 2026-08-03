@@ -39,6 +39,7 @@ import type {
   CreateAdminFirmInput,
   CreateAdminFirmResponse,
   CreateManualAdminFirmInput,
+  CreateTierDisputeInput,
   DeleteAdminFirmResult,
   Deployment,
   ErrorEnvelope,
@@ -48,6 +49,8 @@ import type {
   HealthStatus,
   Job,
   LifecycleMotion,
+  ListAdminTierDisputesParams,
+  ListAdminTierSummaryParams,
   ListArchitectureNodesParams,
   ListDeploymentsParams,
   ListResourcesParams,
@@ -65,12 +68,19 @@ import type {
   ReorderAdminFirmsInput,
   ReportRevisionInput,
   ReportValidateInput,
+  ResolveTierDisputeInput,
   Resource,
   SetFirmClearanceInput,
   SystemHealthReport,
+  TierAuditRecord,
+  TierDisputeRecord,
+  TierMutationResult,
+  TierSummaryPage,
   UpdateAdminFirmInput,
   UpdatePillarEvidenceInput,
   UpdateReportMetaInput,
+  UpdateTier2Input,
+  UpdateTier3Input,
 } from "./api.schemas";
 
 import { customFetch } from "../custom-fetch";
@@ -4241,3 +4251,654 @@ export const useLogoutMobileSession = <
 > => {
   return useMutation(getLogoutMobileSessionMutationOptions(options));
 };
+
+/**
+ * @summary Paginated cross-tenant tier confidence summary (Tier 1/2/3 per company)
+ */
+export const getListAdminTierSummaryUrl = (
+  params?: ListAdminTierSummaryParams,
+) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? "null" : value.toString());
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0
+    ? `/api/admin/tier-summary?${stringifiedParams}`
+    : `/api/admin/tier-summary`;
+};
+
+export const listAdminTierSummary = async (
+  params?: ListAdminTierSummaryParams,
+  options?: RequestInit,
+): Promise<TierSummaryPage> => {
+  return customFetch<TierSummaryPage>(getListAdminTierSummaryUrl(params), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getListAdminTierSummaryQueryKey = (
+  params?: ListAdminTierSummaryParams,
+) => {
+  return [`/api/admin/tier-summary`, ...(params ? [params] : [])] as const;
+};
+
+export const getListAdminTierSummaryQueryOptions = <
+  TData = Awaited<ReturnType<typeof listAdminTierSummary>>,
+  TError = ErrorType<unknown>,
+>(
+  params?: ListAdminTierSummaryParams,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof listAdminTierSummary>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey =
+    queryOptions?.queryKey ?? getListAdminTierSummaryQueryKey(params);
+
+  const queryFn: QueryFunction<
+    Awaited<ReturnType<typeof listAdminTierSummary>>
+  > = ({ signal }) =>
+    listAdminTierSummary(params, { signal, ...requestOptions });
+
+  return { queryKey, queryFn, ...queryOptions } as UseQueryOptions<
+    Awaited<ReturnType<typeof listAdminTierSummary>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type ListAdminTierSummaryQueryResult = NonNullable<
+  Awaited<ReturnType<typeof listAdminTierSummary>>
+>;
+export type ListAdminTierSummaryQueryError = ErrorType<unknown>;
+
+/**
+ * @summary Paginated cross-tenant tier confidence summary (Tier 1/2/3 per company)
+ */
+
+export function useListAdminTierSummary<
+  TData = Awaited<ReturnType<typeof listAdminTierSummary>>,
+  TError = ErrorType<unknown>,
+>(
+  params?: ListAdminTierSummaryParams,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof listAdminTierSummary>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getListAdminTierSummaryQueryOptions(params, options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * @summary Set one Tier 2 connector's status (writes a tier audit-log row)
+ */
+export const getUpdateAdminCompanyTier2Url = (companyId: number) => {
+  return `/api/admin/companies/${companyId}/tier2`;
+};
+
+export const updateAdminCompanyTier2 = async (
+  companyId: number,
+  updateTier2Input: UpdateTier2Input,
+  options?: RequestInit,
+): Promise<TierMutationResult> => {
+  return customFetch<TierMutationResult>(
+    getUpdateAdminCompanyTier2Url(companyId),
+    {
+      ...options,
+      method: "PATCH",
+      headers: { "Content-Type": "application/json", ...options?.headers },
+      body: JSON.stringify(updateTier2Input),
+    },
+  );
+};
+
+export const getUpdateAdminCompanyTier2MutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof updateAdminCompanyTier2>>,
+    TError,
+    { companyId: number; data: BodyType<UpdateTier2Input> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof updateAdminCompanyTier2>>,
+  TError,
+  { companyId: number; data: BodyType<UpdateTier2Input> },
+  TContext
+> => {
+  const mutationKey = ["updateAdminCompanyTier2"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof updateAdminCompanyTier2>>,
+    { companyId: number; data: BodyType<UpdateTier2Input> }
+  > = (props) => {
+    const { companyId, data } = props ?? {};
+
+    return updateAdminCompanyTier2(companyId, data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type UpdateAdminCompanyTier2MutationResult = NonNullable<
+  Awaited<ReturnType<typeof updateAdminCompanyTier2>>
+>;
+export type UpdateAdminCompanyTier2MutationBody = BodyType<UpdateTier2Input>;
+export type UpdateAdminCompanyTier2MutationError = ErrorType<unknown>;
+
+/**
+ * @summary Set one Tier 2 connector's status (writes a tier audit-log row)
+ */
+export const useUpdateAdminCompanyTier2 = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof updateAdminCompanyTier2>>,
+    TError,
+    { companyId: number; data: BodyType<UpdateTier2Input> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof updateAdminCompanyTier2>>,
+  TError,
+  { companyId: number; data: BodyType<UpdateTier2Input> },
+  TContext
+> => {
+  return useMutation(getUpdateAdminCompanyTier2MutationOptions(options));
+};
+
+/**
+ * @summary Set the Tier 3 validation status directly (writes a tier audit-log row)
+ */
+export const getUpdateAdminCompanyTier3Url = (companyId: number) => {
+  return `/api/admin/companies/${companyId}/tier3`;
+};
+
+export const updateAdminCompanyTier3 = async (
+  companyId: number,
+  updateTier3Input: UpdateTier3Input,
+  options?: RequestInit,
+): Promise<TierMutationResult> => {
+  return customFetch<TierMutationResult>(
+    getUpdateAdminCompanyTier3Url(companyId),
+    {
+      ...options,
+      method: "PATCH",
+      headers: { "Content-Type": "application/json", ...options?.headers },
+      body: JSON.stringify(updateTier3Input),
+    },
+  );
+};
+
+export const getUpdateAdminCompanyTier3MutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof updateAdminCompanyTier3>>,
+    TError,
+    { companyId: number; data: BodyType<UpdateTier3Input> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof updateAdminCompanyTier3>>,
+  TError,
+  { companyId: number; data: BodyType<UpdateTier3Input> },
+  TContext
+> => {
+  const mutationKey = ["updateAdminCompanyTier3"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof updateAdminCompanyTier3>>,
+    { companyId: number; data: BodyType<UpdateTier3Input> }
+  > = (props) => {
+    const { companyId, data } = props ?? {};
+
+    return updateAdminCompanyTier3(companyId, data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type UpdateAdminCompanyTier3MutationResult = NonNullable<
+  Awaited<ReturnType<typeof updateAdminCompanyTier3>>
+>;
+export type UpdateAdminCompanyTier3MutationBody = BodyType<UpdateTier3Input>;
+export type UpdateAdminCompanyTier3MutationError = ErrorType<unknown>;
+
+/**
+ * @summary Set the Tier 3 validation status directly (writes a tier audit-log row)
+ */
+export const useUpdateAdminCompanyTier3 = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof updateAdminCompanyTier3>>,
+    TError,
+    { companyId: number; data: BodyType<UpdateTier3Input> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof updateAdminCompanyTier3>>,
+  TError,
+  { companyId: number; data: BodyType<UpdateTier3Input> },
+  TContext
+> => {
+  return useMutation(getUpdateAdminCompanyTier3MutationOptions(options));
+};
+
+/**
+ * @summary Flag a Tier 3 dispute for review (never mutates the disputed value)
+ */
+export const getCreateAdminTierDisputeUrl = (companyId: number) => {
+  return `/api/admin/companies/${companyId}/tier3-disputes`;
+};
+
+export const createAdminTierDispute = async (
+  companyId: number,
+  createTierDisputeInput: CreateTierDisputeInput,
+  options?: RequestInit,
+): Promise<TierDisputeRecord> => {
+  return customFetch<TierDisputeRecord>(
+    getCreateAdminTierDisputeUrl(companyId),
+    {
+      ...options,
+      method: "POST",
+      headers: { "Content-Type": "application/json", ...options?.headers },
+      body: JSON.stringify(createTierDisputeInput),
+    },
+  );
+};
+
+export const getCreateAdminTierDisputeMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof createAdminTierDispute>>,
+    TError,
+    { companyId: number; data: BodyType<CreateTierDisputeInput> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof createAdminTierDispute>>,
+  TError,
+  { companyId: number; data: BodyType<CreateTierDisputeInput> },
+  TContext
+> => {
+  const mutationKey = ["createAdminTierDispute"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof createAdminTierDispute>>,
+    { companyId: number; data: BodyType<CreateTierDisputeInput> }
+  > = (props) => {
+    const { companyId, data } = props ?? {};
+
+    return createAdminTierDispute(companyId, data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type CreateAdminTierDisputeMutationResult = NonNullable<
+  Awaited<ReturnType<typeof createAdminTierDispute>>
+>;
+export type CreateAdminTierDisputeMutationBody =
+  BodyType<CreateTierDisputeInput>;
+export type CreateAdminTierDisputeMutationError = ErrorType<unknown>;
+
+/**
+ * @summary Flag a Tier 3 dispute for review (never mutates the disputed value)
+ */
+export const useCreateAdminTierDispute = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof createAdminTierDispute>>,
+    TError,
+    { companyId: number; data: BodyType<CreateTierDisputeInput> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof createAdminTierDispute>>,
+  TError,
+  { companyId: number; data: BodyType<CreateTierDisputeInput> },
+  TContext
+> => {
+  return useMutation(getCreateAdminTierDisputeMutationOptions(options));
+};
+
+/**
+ * @summary List tier disputes (filterable by status/company)
+ */
+export const getListAdminTierDisputesUrl = (
+  params?: ListAdminTierDisputesParams,
+) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? "null" : value.toString());
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0
+    ? `/api/admin/tier-disputes?${stringifiedParams}`
+    : `/api/admin/tier-disputes`;
+};
+
+export const listAdminTierDisputes = async (
+  params?: ListAdminTierDisputesParams,
+  options?: RequestInit,
+): Promise<TierDisputeRecord[]> => {
+  return customFetch<TierDisputeRecord[]>(getListAdminTierDisputesUrl(params), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getListAdminTierDisputesQueryKey = (
+  params?: ListAdminTierDisputesParams,
+) => {
+  return [`/api/admin/tier-disputes`, ...(params ? [params] : [])] as const;
+};
+
+export const getListAdminTierDisputesQueryOptions = <
+  TData = Awaited<ReturnType<typeof listAdminTierDisputes>>,
+  TError = ErrorType<unknown>,
+>(
+  params?: ListAdminTierDisputesParams,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof listAdminTierDisputes>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey =
+    queryOptions?.queryKey ?? getListAdminTierDisputesQueryKey(params);
+
+  const queryFn: QueryFunction<
+    Awaited<ReturnType<typeof listAdminTierDisputes>>
+  > = ({ signal }) =>
+    listAdminTierDisputes(params, { signal, ...requestOptions });
+
+  return { queryKey, queryFn, ...queryOptions } as UseQueryOptions<
+    Awaited<ReturnType<typeof listAdminTierDisputes>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type ListAdminTierDisputesQueryResult = NonNullable<
+  Awaited<ReturnType<typeof listAdminTierDisputes>>
+>;
+export type ListAdminTierDisputesQueryError = ErrorType<unknown>;
+
+/**
+ * @summary List tier disputes (filterable by status/company)
+ */
+
+export function useListAdminTierDisputes<
+  TData = Awaited<ReturnType<typeof listAdminTierDisputes>>,
+  TError = ErrorType<unknown>,
+>(
+  params?: ListAdminTierDisputesParams,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof listAdminTierDisputes>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getListAdminTierDisputesQueryOptions(params, options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * @summary Apply or reject a pending dispute (apply mutates + audit-logs atomically)
+ */
+export const getResolveAdminTierDisputeUrl = (disputeId: number) => {
+  return `/api/admin/tier-disputes/${disputeId}/resolve`;
+};
+
+export const resolveAdminTierDispute = async (
+  disputeId: number,
+  resolveTierDisputeInput: ResolveTierDisputeInput,
+  options?: RequestInit,
+): Promise<TierMutationResult> => {
+  return customFetch<TierMutationResult>(
+    getResolveAdminTierDisputeUrl(disputeId),
+    {
+      ...options,
+      method: "POST",
+      headers: { "Content-Type": "application/json", ...options?.headers },
+      body: JSON.stringify(resolveTierDisputeInput),
+    },
+  );
+};
+
+export const getResolveAdminTierDisputeMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof resolveAdminTierDispute>>,
+    TError,
+    { disputeId: number; data: BodyType<ResolveTierDisputeInput> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof resolveAdminTierDispute>>,
+  TError,
+  { disputeId: number; data: BodyType<ResolveTierDisputeInput> },
+  TContext
+> => {
+  const mutationKey = ["resolveAdminTierDispute"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof resolveAdminTierDispute>>,
+    { disputeId: number; data: BodyType<ResolveTierDisputeInput> }
+  > = (props) => {
+    const { disputeId, data } = props ?? {};
+
+    return resolveAdminTierDispute(disputeId, data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type ResolveAdminTierDisputeMutationResult = NonNullable<
+  Awaited<ReturnType<typeof resolveAdminTierDispute>>
+>;
+export type ResolveAdminTierDisputeMutationBody =
+  BodyType<ResolveTierDisputeInput>;
+export type ResolveAdminTierDisputeMutationError = ErrorType<unknown>;
+
+/**
+ * @summary Apply or reject a pending dispute (apply mutates + audit-logs atomically)
+ */
+export const useResolveAdminTierDispute = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof resolveAdminTierDispute>>,
+    TError,
+    { disputeId: number; data: BodyType<ResolveTierDisputeInput> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof resolveAdminTierDispute>>,
+  TError,
+  { disputeId: number; data: BodyType<ResolveTierDisputeInput> },
+  TContext
+> => {
+  return useMutation(getResolveAdminTierDisputeMutationOptions(options));
+};
+
+/**
+ * @summary Append-only tier audit-log rows for one company, newest first
+ */
+export const getListAdminTierAuditUrl = (companyId: number) => {
+  return `/api/admin/companies/${companyId}/tier-audit`;
+};
+
+export const listAdminTierAudit = async (
+  companyId: number,
+  options?: RequestInit,
+): Promise<TierAuditRecord[]> => {
+  return customFetch<TierAuditRecord[]>(getListAdminTierAuditUrl(companyId), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getListAdminTierAuditQueryKey = (companyId: number) => {
+  return [`/api/admin/companies/${companyId}/tier-audit`] as const;
+};
+
+export const getListAdminTierAuditQueryOptions = <
+  TData = Awaited<ReturnType<typeof listAdminTierAudit>>,
+  TError = ErrorType<unknown>,
+>(
+  companyId: number,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof listAdminTierAudit>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey =
+    queryOptions?.queryKey ?? getListAdminTierAuditQueryKey(companyId);
+
+  const queryFn: QueryFunction<
+    Awaited<ReturnType<typeof listAdminTierAudit>>
+  > = ({ signal }) =>
+    listAdminTierAudit(companyId, { signal, ...requestOptions });
+
+  return {
+    queryKey,
+    queryFn,
+    enabled: !!companyId,
+    ...queryOptions,
+  } as UseQueryOptions<
+    Awaited<ReturnType<typeof listAdminTierAudit>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type ListAdminTierAuditQueryResult = NonNullable<
+  Awaited<ReturnType<typeof listAdminTierAudit>>
+>;
+export type ListAdminTierAuditQueryError = ErrorType<unknown>;
+
+/**
+ * @summary Append-only tier audit-log rows for one company, newest first
+ */
+
+export function useListAdminTierAudit<
+  TData = Awaited<ReturnType<typeof listAdminTierAudit>>,
+  TError = ErrorType<unknown>,
+>(
+  companyId: number,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof listAdminTierAudit>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getListAdminTierAuditQueryOptions(companyId, options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}

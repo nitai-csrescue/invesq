@@ -36,6 +36,7 @@ import { checkSystemHealth } from "../lib/systemHealth.js";
 import { getOrigin } from "../lib/http.js";
 import { invalidatePortfolioCache } from "../lib/portfolioData.js";
 import { requireAdminAuth } from "../middlewares/authMiddleware.js";
+import adminTiersRouter from "./adminTiers.js";
 import {
   getOrGenerateReportExport,
   getCompanyWebsite,
@@ -64,6 +65,11 @@ const router: IRouter = Router();
 // gated client-side, but that alone does not protect these API routes from
 // being called directly.
 router.use(requireAdminAuth);
+
+// CQ-37 tiered confidence model routes (tier summary, tier 2/3 mutations,
+// dispute queue, audit log). Mounted after requireAdminAuth so every tier
+// route is Admin-Lens-gated.
+router.use(adminTiersRouter);
 
 // The 5 hand-authored tenant slugs. They are not pipeline-managed, so the
 // on-demand re-run endpoint refuses to touch them (a rebuild would append a

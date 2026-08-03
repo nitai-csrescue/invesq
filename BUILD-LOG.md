@@ -1342,3 +1342,23 @@ curl -X POST https://<prod-domain>/api/admin/repair-assessments-dedup \
   - Anonymous bootstrap: STG still companies: [] with requireLogin: true; pamlico/raviga/longarc/solen counts unchanged (3/10/3/6). /stg/portfolio login gate therefore behaves exactly as before.
   - CQ-14-style RLS proof re-run in psql: under SET LOCAL ROLE tenant_reader with app.firm_id = raviga, STG companies AND the STG firm row both return 0 rows while raviga returns its own 10; with app.firm_id unset the select fails closed (integer cast error on empty setting). Customer-facing isolation is provably unweakened.
   - Typecheck passes (api-server tsc --noEmit); server restarted clean (RLS boot self-check OK); no console errors; git diff --stat = portfolioData.ts + portfolio.ts + BUILD-LOG only. Throwaway admin test session deleted (sessions row count 0 post-cleanup).
+
+---
+
+## CQ-37: Tiered confidence model (Tier 1 scan / Tier 2 telemetry / Tier 3 validation) + dispute-with-audit flow + /admin/tiers
+- Date: 2026-08-03 (UTC)
+- Status: complete in dev; Republish required to reach prod (schema rides the Publish diff)
+- Files changed: lib/db/src/schema/companies.ts (+tier2_status jsonb, +tier3_status text default 'unconfirmed', tier vocab consts), new lib/db/src/schema/tierDisputes.ts + tierAuditLog.ts, schema/index.ts, lib/api-spec/openapi.yaml (7 admin paths + tier schemas) + regenerated api-zod/api-client-react, new artifacts/api-server/src/routes/adminTiers.ts, admin.ts (mount inside requireAdminAuth), deleteFirmCascade.ts (new FK children), new artifacts/cs-rescue/src/pages/admin/AdminTiers.tsx, adminNav.ts, App.tsx, BUILD-LOG.md
+- Design (locked by Nitai 2026-08-03): tiers are INDEPENDENT, never cumulative. Tier 1 = derived (company has Phase 1 assessments; no new column). Tier 2 = per-connector status map (backengine/crm/conversation_intelligence/product_telemetry x not_connected/partial/connected), rolls up to x/4 connected. Tier 3 = unconfirmed/portco_confirmed/pe_confirmed, default unconfirmed, admin-settable only (CQ-11 portco UI out of scope).
+- Dispute flow: POST dispute only inserts a pending tier_disputes row - it NEVER mutates data. Resolve(action=apply) is the only mutation path: it updates companies.tier3_status, marks the dispute applied, and inserts exactly one tier_audit_log row (field/old/new/editor-email/dispute reason/timestamp) in ONE transaction. Reject is also audited (old==new). Apply is restricted to field tier3_status (422 otherwise); re-resolving a settled dispute 409s. tier_audit_log is append-only - no update/delete route exists.
+- New admin page /admin/tiers (nav "Tiers"): all companies across all tenants; server-side pagination (25/page), sortable (company/tenant/tier2/tier3/disputes) with stable id tiebreak, filters (tenant, tier3 status); drill-in row exposes per-connector editing, tier3 editing, dispute flag/apply/reject, and the audit trail. Same ProtectedRoute + requireAdminAuth gate as the rest of /admin.
+- Zero changes to scoring/rollup/composite logic and zero tenant-facing route changes. deleteFirmCascade updated for the two new FK child tables (audit log deleted before disputes before companies).
+- QA evidence (dev):
+  - Anonymous /api/portfolio/bootstrap byte-identical to the pre-change snapshot (/tmp/cq37-bootstrap-before.json, 83370 bytes) - cmp reports no difference.
+  - All /api/admin/tier* routes 401 without an Admin Lens session.
+  - Pagination proven server-side: 30 DB companies paged at limit=10 across 3 pages with disjoint, complete id sets; limit capped at 100; total/limit/offset returned for any scale (50+ safe).
+  - Dispute-then-correct cycle: dispute create left tier3_status untouched (verified in psql); apply changed it AND wrote exactly one audit row linking dispute_id; 409 on re-resolve; 422 on applying a non-tier3_status-field dispute; reject audited without data change.
+  - Tier 2 patch writes one audit row (tier2_status.crm not_connected -> connected) with editor = session email.
+  - Typecheck: api-server + cs-rescue tsc --noEmit clean; typecheck:libs clean (only pre-existing cs-rescue-video DOM-lib scaffold failure remains, unrelated).
+  - drizzle-kit push applied; all 30 existing companies backfilled tier3_status='unconfirmed'; QA scribbles reverted (audit/dispute tables back to 0 rows, company 11 reset); throwaway admin session deleted.
+- Republish needed: yes (prod gets tier2_status/tier3_status columns + tier_disputes/tier_audit_log tables via the Publish schema diff; no manual DDL).

@@ -1594,6 +1594,159 @@ export interface PortfolioBootstrap {
   firms: PortfolioBootstrapFirm[];
 }
 
+export type Tier2ConnectorValue =
+  (typeof Tier2ConnectorValue)[keyof typeof Tier2ConnectorValue];
+
+export const Tier2ConnectorValue = {
+  backengine: "backengine",
+  crm: "crm",
+  conversation_intelligence: "conversation_intelligence",
+  product_telemetry: "product_telemetry",
+} as const;
+
+export type Tier2ConnectorStatusValue =
+  (typeof Tier2ConnectorStatusValue)[keyof typeof Tier2ConnectorStatusValue];
+
+export const Tier2ConnectorStatusValue = {
+  not_connected: "not_connected",
+  partial: "partial",
+  connected: "connected",
+} as const;
+
+export type Tier3StatusValue =
+  (typeof Tier3StatusValue)[keyof typeof Tier3StatusValue];
+
+export const Tier3StatusValue = {
+  unconfirmed: "unconfirmed",
+  portco_confirmed: "portco_confirmed",
+  pe_confirmed: "pe_confirmed",
+} as const;
+
+export interface Tier2Snapshot {
+  backengine: Tier2ConnectorStatusValue;
+  crm: Tier2ConnectorStatusValue;
+  conversation_intelligence: Tier2ConnectorStatusValue;
+  product_telemetry: Tier2ConnectorStatusValue;
+  /** Connectors with status "connected" (partial does not count). */
+  connectedCount: number;
+  totalCount: number;
+}
+
+export interface TierSummaryRow {
+  companyId: number;
+  companyName: string;
+  /** @nullable */
+  companySlug: string | null;
+  companyStatus: string;
+  firmName: string;
+  firmSlug: string;
+  /** Derived — true when the company has at least one Phase 1 assessment row. */
+  tier1Complete: boolean;
+  tier2: Tier2Snapshot;
+  tier3Status: Tier3StatusValue;
+  pendingDisputes: number;
+}
+
+export interface TierSummaryPage {
+  total: number;
+  limit: number;
+  offset: number;
+  rows: TierSummaryRow[];
+}
+
+export interface UpdateTier2Input {
+  connector: Tier2ConnectorValue;
+  status: Tier2ConnectorStatusValue;
+  /** @nullable */
+  note?: string | null;
+}
+
+export interface UpdateTier3Input {
+  status: Tier3StatusValue;
+  /** @nullable */
+  note?: string | null;
+}
+
+export interface CreateTierDisputeInput {
+  /** Disputed field; defaults to tier3_status (the only auto-applicable field today). */
+  field?: string;
+  /** @minLength 3 */
+  reason: string;
+  /** @nullable */
+  proposedValue?: string | null;
+}
+
+export type ResolveTierDisputeInputAction =
+  (typeof ResolveTierDisputeInputAction)[keyof typeof ResolveTierDisputeInputAction];
+
+export const ResolveTierDisputeInputAction = {
+  apply: "apply",
+  reject: "reject",
+} as const;
+
+export interface ResolveTierDisputeInput {
+  action: ResolveTierDisputeInputAction;
+  /** Required for apply when the dispute has no proposedValue. */
+  newValue?: Tier3StatusValue | null;
+  /** @nullable */
+  note?: string | null;
+}
+
+export type TierDisputeRecordStatus =
+  (typeof TierDisputeRecordStatus)[keyof typeof TierDisputeRecordStatus];
+
+export const TierDisputeRecordStatus = {
+  pending: "pending",
+  applied: "applied",
+  rejected: "rejected",
+} as const;
+
+export interface TierDisputeRecord {
+  id: number;
+  companyId: number;
+  companyName: string;
+  firmSlug: string;
+  field: string;
+  reason: string;
+  /** @nullable */
+  proposedValue: string | null;
+  status: TierDisputeRecordStatus;
+  createdAt: string;
+  /** @nullable */
+  resolvedAt: string | null;
+  /** @nullable */
+  resolvedBy: string | null;
+  /** @nullable */
+  resolutionNote: string | null;
+}
+
+export interface TierAuditRecord {
+  id: number;
+  companyId: number;
+  field: string;
+  /** @nullable */
+  oldValue: string | null;
+  /** @nullable */
+  newValue: string | null;
+  editor: string;
+  /** @nullable */
+  note: string | null;
+  /** @nullable */
+  disputeId: number | null;
+  createdAt: string;
+}
+
+export interface TierMutationResult {
+  companyId: number;
+  tier2: Tier2Snapshot;
+  tier3Status: Tier3StatusValue;
+  /**
+   * The audit-log row this mutation wrote (null only for reject resolutions).
+   * @nullable
+   */
+  auditRowId: number | null;
+}
+
 /**
  * Opaque session token — `Bearer <sid>`.
  */
@@ -1635,3 +1788,52 @@ export type HandleBrowserLoginCallbackParams = {
   state?: string;
   iss?: string;
 };
+
+export type ListAdminTierSummaryParams = {
+  /**
+   * @minimum 1
+   * @maximum 100
+   */
+  limit?: number;
+  /**
+   * @minimum 0
+   */
+  offset?: number;
+  sortBy?: ListAdminTierSummarySortBy;
+  sortDir?: ListAdminTierSummarySortDir;
+  firmSlug?: string;
+  tier3Status?: Tier3StatusValue;
+};
+
+export type ListAdminTierSummarySortBy =
+  (typeof ListAdminTierSummarySortBy)[keyof typeof ListAdminTierSummarySortBy];
+
+export const ListAdminTierSummarySortBy = {
+  company: "company",
+  tenant: "tenant",
+  tier2: "tier2",
+  tier3: "tier3",
+  disputes: "disputes",
+} as const;
+
+export type ListAdminTierSummarySortDir =
+  (typeof ListAdminTierSummarySortDir)[keyof typeof ListAdminTierSummarySortDir];
+
+export const ListAdminTierSummarySortDir = {
+  asc: "asc",
+  desc: "desc",
+} as const;
+
+export type ListAdminTierDisputesParams = {
+  status?: ListAdminTierDisputesStatus;
+  companyId?: number;
+};
+
+export type ListAdminTierDisputesStatus =
+  (typeof ListAdminTierDisputesStatus)[keyof typeof ListAdminTierDisputesStatus];
+
+export const ListAdminTierDisputesStatus = {
+  pending: "pending",
+  applied: "applied",
+  rejected: "rejected",
+} as const;
