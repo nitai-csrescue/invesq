@@ -1,3 +1,4 @@
+- [BUILD-LOG parser format](build-log-parser-format.md) — build-status silently skips entries lacking `- Date:`/`- Status:` bullets; always include them and verify once.
 - [GitHub push via git-remote skill](github-push-via-skill.md) — shell `git push` hangs (no credential helper); push with the gitPush callback instead.
 - [cs-rescue INVESQ branding](cs-rescue-branding.md) — user-visible copy must say INVESQ, not the legacy "CS Rescue", even when a spec says otherwise.
 - [video-js gotchas](video-js-gotchas.md) — DESIGN subagent emits unquoted CSS units in framer-motion objects; video scaffold tsconfig omits DOM lib so `tsc` "fails" by design.
