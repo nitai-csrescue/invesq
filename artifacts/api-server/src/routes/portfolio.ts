@@ -22,7 +22,15 @@ router.get("/bootstrap", async (req, res) => {
     // Session-aware: login-gated firms (STG) ship companies: [] unless the
     // request carries a valid tenant session for that firm — see
     // portfolioData.ts. All other firms are served exactly as before.
-    const result = await getPortfolioBootstrapForSession(getTenantSession(req));
+    //
+    // CQ-36: a validated Admin Lens session (req.user is only ever populated
+    // by authMiddleware for allowlisted @csrescue.com Google sessions, and is
+    // the same gate requireAdminAuth enforces on /api/admin) gets the
+    // un-redacted payload so the internal /admin Firms index can show gated
+    // tenants' real rollups. Customer-facing gating is untouched.
+    const result = await getPortfolioBootstrapForSession(getTenantSession(req), {
+      adminUnredacted: req.user != null,
+    });
     if (!result.ok) {
       res.status(500).json({ error: "Portfolio data failed to load or validate" });
       return;

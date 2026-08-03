@@ -291,11 +291,24 @@ async function loadGatedFirmCompanies(firmId: number): Promise<RawCompany[]> {
 // are passed through from the shared cache untouched.
 export async function getPortfolioBootstrapForSession(
   session: TenantSession | null,
+  options?: {
+    // Internal Admin Lens read path (CQ-36). When true — set ONLY when the
+    // request carries a validated admin session (authMiddleware populates
+    // req.user exclusively for allowlisted @csrescue.com Google sessions) —
+    // gated firms are served un-redacted straight from the shared owner-
+    // connection cache, which is not subject to RLS (RLS is not FORCEd for
+    // the table owner). This does not touch, weaken, or route around the
+    // tenant_reader RLS policies: customer sessions still go through
+    // withTenantDb, and anonymous/non-matching sessions still get
+    // companies: [].
+    adminUnredacted?: boolean;
+  },
 ): Promise<PortfolioLoadResult> {
   const result = await getPortfolioBootstrap();
   if (!result.ok) return result;
   const anyGated = result.data.firms.some((f) => LOGIN_GATED_SLUGS.has(f.slug));
   if (!anyGated) return result;
+  if (options?.adminUnredacted) return result;
 
   const firms: PortfolioBootstrapFirm[] = [];
   for (const firm of result.data.firms) {
