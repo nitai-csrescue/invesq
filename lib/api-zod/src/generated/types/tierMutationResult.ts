@@ -13,7 +13,7 @@ export interface TierMutationResult {
   tier2: Tier2Snapshot;
   tier3Status: Tier3StatusValue;
   /**
-   * The audit-log row this mutation wrote (null only for reject resolutions).
+   * The audit-log row this mutation wrote. Every successful mutation (including a reject resolution) writes one; nullable only for forward compatibility.
    * @nullable
    */
   auditRowId: number | null;

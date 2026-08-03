@@ -3552,7 +3552,7 @@ export const UpdateAdminCompanyTier2Response = zod.object({
     .number()
     .nullable()
     .describe(
-      "The audit-log row this mutation wrote (null only for reject resolutions).",
+      "The audit-log row this mutation wrote. Every successful mutation (including a reject resolution) writes one; nullable only for forward compatibility.",
     ),
 });
 
@@ -3591,7 +3591,7 @@ export const UpdateAdminCompanyTier3Response = zod.object({
     .number()
     .nullable()
     .describe(
-      "The audit-log row this mutation wrote (null only for reject resolutions).",
+      "The audit-log row this mutation wrote. Every successful mutation (including a reject resolution) writes one; nullable only for forward compatibility.",
     ),
 });
 
@@ -3684,7 +3684,7 @@ export const ResolveAdminTierDisputeResponse = zod.object({
     .number()
     .nullable()
     .describe(
-      "The audit-log row this mutation wrote (null only for reject resolutions).",
+      "The audit-log row this mutation wrote. Every successful mutation (including a reject resolution) writes one; nullable only for forward compatibility.",
     ),
 });
 

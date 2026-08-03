@@ -3574,4 +3574,4 @@ components:
         tier3Status: { $ref: "#/components/schemas/Tier3StatusValue" }
         auditRowId:
           type: [integer, "null"]
-          description: The audit-log row this mutation wrote (null only for reject resolutions).
+          description: The audit-log row this mutation wrote. Every successful mutation (including a reject resolution) writes one; nullable only for forward compatibility.

@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { Fragment, useMemo, useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import {
   ArrowDown,
@@ -20,7 +20,6 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { AdminShell } from "@/components/admin/AdminShell";
 import { useToast } from "@/hooks/use-toast";
 import {
   useListAdminTierSummary,
@@ -405,9 +404,10 @@ export default function AdminTiers() {
     </button>
   );
 
+  // NOTE: no AdminShell wrapper here — ProtectedRoute in App.tsx already
+  // wraps every /admin route in AdminShell; nesting it double-renders the nav.
   return (
-    <AdminShell>
-      <div className="p-6">
+    <div className="p-6">
         <div className="mb-1 flex items-center gap-2">
           <Layers className="h-5 w-5 text-slate-500" />
           <h1 className="text-xl font-bold text-slate-900" data-testid="heading-tiers">
@@ -489,9 +489,8 @@ export default function AdminTiers() {
                 </TableHeader>
                 <TableBody>
                   {(data?.rows ?? []).map((row) => (
-                    <>
+                    <Fragment key={row.companyId}>
                       <TableRow
-                        key={row.companyId}
                         className="cursor-pointer"
                         data-testid={`row-company-${row.companyId}`}
                         onClick={() =>
@@ -536,13 +535,13 @@ export default function AdminTiers() {
                         </TableCell>
                       </TableRow>
                       {expanded === row.companyId && (
-                        <TableRow key={`detail-${row.companyId}`}>
+                        <TableRow>
                           <TableCell colSpan={7} className="p-0">
                             <RowDetail row={row} onMutated={invalidateSummary} />
                           </TableCell>
                         </TableRow>
                       )}
-                    </>
+                    </Fragment>
                   ))}
                 </TableBody>
               </Table>
@@ -580,6 +579,5 @@ export default function AdminTiers() {
           </>
         )}
       </div>
-    </AdminShell>
   );
 }

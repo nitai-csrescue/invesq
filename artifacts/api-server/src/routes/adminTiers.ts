@@ -414,6 +414,10 @@ router.post("/tier-disputes/:disputeId/resolve", async (req, res) => {
       res.status(409).json({ error: `Dispute is already ${dispute.status}` });
       return;
     }
+    // NOTE: this precheck is advisory only (fast 404/409). The authoritative
+    // claim happens inside each transaction below via a conditional
+    // UPDATE ... WHERE status='pending' RETURNING — two concurrent resolves
+    // cannot both win; the loser gets a 409.
     const company = await loadCompany(dispute.companyId);
     if (!company) {
       res.status(404).json({ error: "Company not found" });
@@ -424,10 +428,13 @@ router.post("/tier-disputes/:disputeId/resolve", async (req, res) => {
 
     if (action === "reject") {
       const auditRowId = await db.transaction(async (tx) => {
-        await tx
+        // Atomically claim the pending row — concurrency-safe.
+        const claimed = await tx
           .update(tierDisputesTable)
           .set({ status: "rejected", resolvedAt: now, resolvedBy: editor, resolutionNote: note ?? null })
-          .where(eq(tierDisputesTable.id, disputeId));
+          .where(and(eq(tierDisputesTable.id, disputeId), eq(tierDisputesTable.status, "pending")))
+          .returning({ id: tierDisputesTable.id });
+        if (claimed.length === 0) return null;
         // Full audit trail either way: a reject writes a row too, with
         // old == new (nothing changed) so the trail shows the decision.
         const [audit] = await tx
@@ -444,6 +451,10 @@ router.post("/tier-disputes/:disputeId/resolve", async (req, res) => {
           .returning({ id: tierAuditLogTable.id });
         return audit.id;
       });
+      if (auditRowId === null) {
+        res.status(409).json({ error: "Dispute was already resolved by another admin" });
+        return;
+      }
       res.json(mutationResult(dispute.companyId, company.tier2Status, company.tier3Status, auditRowId));
       return;
     }
@@ -462,14 +473,18 @@ router.post("/tier-disputes/:disputeId/resolve", async (req, res) => {
     }
 
     const auditRowId = await db.transaction(async (tx) => {
+      // Atomically claim the pending row FIRST — if another admin already
+      // resolved it, nothing else in this transaction runs.
+      const claimed = await tx
+        .update(tierDisputesTable)
+        .set({ status: "applied", resolvedAt: now, resolvedBy: editor, resolutionNote: note ?? null })
+        .where(and(eq(tierDisputesTable.id, disputeId), eq(tierDisputesTable.status, "pending")))
+        .returning({ id: tierDisputesTable.id });
+      if (claimed.length === 0) return null;
       await tx
         .update(companiesTable)
         .set({ tier3Status: applyValue })
         .where(eq(companiesTable.id, dispute.companyId));
-      await tx
-        .update(tierDisputesTable)
-        .set({ status: "applied", resolvedAt: now, resolvedBy: editor, resolutionNote: note ?? null })
-        .where(eq(tierDisputesTable.id, disputeId));
       const [audit] = await tx
         .insert(tierAuditLogTable)
         .values({
@@ -484,6 +499,10 @@ router.post("/tier-disputes/:disputeId/resolve", async (req, res) => {
         .returning({ id: tierAuditLogTable.id });
       return audit.id;
     });
+    if (auditRowId === null) {
+      res.status(409).json({ error: "Dispute was already resolved by another admin" });
+      return;
+    }
 
     req.log.info({ disputeId, companyId: dispute.companyId, applyValue, auditRowId }, "Tier dispute applied");
     res.json(mutationResult(dispute.companyId, company.tier2Status, applyValue, auditRowId));
