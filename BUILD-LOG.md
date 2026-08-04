@@ -1564,3 +1564,13 @@ curl -X POST https://<prod-domain>/api/admin/repair-assessments-dedup \
 - What/why: architect review found two severe gaps: (1) wipe and completion marker were separate transactions, so a crash in between could re-wipe on next boot; (2) the admin firm PATCH replaces the whole meta object, which would erase migratedToPipelineAt/stgPipelineSeededAt and let a later restart wipe freshly re-onboarded companies. Marker is now written inside the same transaction as the deletes, and the PATCH merges marker keys back into any replacement meta.
 - QA notes: typecheck clean; restart is a verified no-op (markers present, counts unchanged: stg 6 / pamlico 0 / longarc 0 / solen 0, raviga absent).
 - Self-report: entry written by the agent immediately after the change.
+
+---
+
+## Publish 413 mitigation: trim workspace dead weight
+- Date: 2026-08-04 18:40 UTC
+- Status: complete
+- Files changed: deleted two unreferenced root video exports (CS-Rescue-May-21-12-05-42.mp4, CS-Rescue-Jun-11-12-33-48.mp4, ~27 MB) and cleared the pnpm metadata cache (~254 MB, regenerates automatically)
+- Republish needed: yes (this unblocks the failed 18:15 publish)
+- What/why: the Phase 2 publish failed at the image-upload step with HTTP 413 Payload Too Large while pushing the repl layer; the build itself compiled cleanly. Removed the largest unreferenced files to bring the layer size back under the limit. Grep confirmed neither mp4 is referenced anywhere in code, config, or docs.
+- Self-report: entry written by the agent immediately after the change.
