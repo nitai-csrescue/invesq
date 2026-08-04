@@ -67,6 +67,18 @@ export const signalsTable = pgTable(
     // legacy value stays authoritative and is never overwritten; this flag
     // surfaces the conflict for human review instead of silently resolving it.
     divergenceFlag: boolean("divergence_flag").notNull().default(false),
+    // ---- Calibration Ledger Resolution Events (2026-08-04, additive: both
+    // columns nullable, existing rows untouched). A signals row with a
+    // non-null event_type is a RESOLUTION EVENT — a real-world outcome that
+    // tests a locked Stage 1 prediction — rather than a collection-time
+    // evidence record. Vocabulary: RESOLUTION_EVENT_TYPES in calibration.ts
+    // (leadership_departure | cs_layoffs | rating_drop | funding_cs_rebuild
+    // | acquisition_distress). Written ONLY by the Admin-Lens calibration
+    // routes; the one-line confirms/contradicts reasoning lives in `note`.
+    eventType: text("event_type"),
+    // "confirms" | "contradicts" — whether the event confirms or contradicts
+    // the original pillar prediction. Null on all non-resolution-event rows.
+    calibrationVerdict: text("calibration_verdict"),
     // `createdAt` doubles as the "date pulled" timestamp for the record.
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   },

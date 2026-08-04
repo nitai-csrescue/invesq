@@ -1773,6 +1773,134 @@ export interface AdminCompanyOutcomes {
   interventions: OutcomeInterventionRecord[];
 }
 
+/**
+ * Per-pillar scores keyed by pillar id (org, onboarding, health, escalation, revenue, leadership, planning, ai). Values are the assessment text scores "0" | "1" | "2" | "NA". Observations may be partial (absent keys = not yet observed).
+
+ */
+export interface CalibrationPillarScores {
+  [key: string]: string;
+}
+
+export interface CalibrationPredictionRecord {
+  id: number;
+  companyId: number;
+  assessmentId: number;
+  pillars: CalibrationPillarScores;
+  /** Phase 1 tier composite 0-16 */
+  composite: number;
+  /** Tier band label frozen at snapshot time. */
+  band: string;
+  rubricVersion: string;
+  predictedAt: string;
+  lockedAt: string;
+  createdBy?: string | null;
+}
+
+export interface CreateCalibrationObservationInput {
+  pillars: CalibrationPillarScores;
+  /** When the real-world signal was observed (ISO timestamp or YYYY-MM-DD). */
+  observedAt: string;
+  /**
+   * @minLength 1
+   * @maxLength 200
+   */
+  source: string;
+  /** @maxLength 2000 */
+  note?: string | null;
+}
+
+export interface CalibrationObservationRecord {
+  id: number;
+  companyId: number;
+  pillars: CalibrationPillarScores;
+  observedAt: string;
+  source: string;
+  note: string | null;
+  createdAt: string;
+  createdBy: string | null;
+}
+
+export interface CalibrationDeltaEntry {
+  pillarId: string;
+  /** Frozen predicted score ("0"|"1"|"2"|"NA"). */
+  predicted: string | null;
+  /** Latest observed score for this pillar. */
+  observed: string | null;
+  /** Observed minus Predicted (numeric). Null when either side is NA/unobserved. */
+  delta: number | null;
+}
+
+export type ResolutionEventTypeValue =
+  (typeof ResolutionEventTypeValue)[keyof typeof ResolutionEventTypeValue];
+
+export const ResolutionEventTypeValue = {
+  leadership_departure: "leadership_departure",
+  cs_layoffs: "cs_layoffs",
+  rating_drop: "rating_drop",
+  funding_cs_rebuild: "funding_cs_rebuild",
+  acquisition_distress: "acquisition_distress",
+} as const;
+
+export type CalibrationVerdictValue =
+  (typeof CalibrationVerdictValue)[keyof typeof CalibrationVerdictValue];
+
+export const CalibrationVerdictValue = {
+  confirms: "confirms",
+  contradicts: "contradicts",
+} as const;
+
+export interface CreateResolutionEventInput {
+  eventType: ResolutionEventTypeValue;
+  /**
+   * Calendar day the event occurred, YYYY-MM-DD.
+   * @pattern ^\d{4}-\d{2}-\d{2}$
+   */
+  eventDate: string;
+  /**
+   * @minLength 1
+   * @maxLength 200
+   */
+  source: string;
+  /**
+   * @minLength 1
+   * @maxLength 50
+   */
+  pillarId: string;
+  verdict: CalibrationVerdictValue;
+  /**
+   * One line on whether/why the event confirms or contradicts the original pillar prediction.
+   * @minLength 1
+   * @maxLength 500
+   */
+  note: string;
+  /** @maxLength 2000 */
+  url?: string | null;
+}
+
+export interface ResolutionEventRecord {
+  id: number;
+  companyId: number;
+  pillarId: string;
+  eventType: ResolutionEventTypeValue;
+  verdict: CalibrationVerdictValue;
+  eventDate: string | null;
+  source: string;
+  note: string;
+  url?: string | null;
+  createdAt: string;
+}
+
+export interface AdminCompanyCalibration {
+  companyId: number;
+  companyName: string;
+  firmSlug: string | null;
+  prediction: CalibrationPredictionRecord | null;
+  observations: CalibrationObservationRecord[];
+  /** Per-pillar Observed minus Predicted, computed at read time (never stored). */
+  deltas: CalibrationDeltaEntry[];
+  resolutionEvents: ResolutionEventRecord[];
+}
+
 export type Tier2ConnectorValue =
   (typeof Tier2ConnectorValue)[keyof typeof Tier2ConnectorValue];
 

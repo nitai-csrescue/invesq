@@ -1617,6 +1617,140 @@ paths:
         "204":
           description: Deleted
 
+  # ---- Calibration Ledger (Admin Lens ONLY): locked Stage 1 prediction
+  # snapshots, observed records, computed deltas, and resolution events
+  # (which live in the existing signals table). Never tenant-facing.
+  /admin/companies/{companyId}/calibration:
+    get:
+      operationId: getAdminCompanyCalibration
+      tags: [admin]
+      summary: Calibration ledger for one company (prediction, observations, deltas, resolution events)
+      parameters:
+        - name: companyId
+          in: path
+          required: true
+          schema: { type: integer }
+      responses:
+        "200":
+          description: Full calibration ledger for the company
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AdminCompanyCalibration"
+        "404":
+          description: Company not found
+  /admin/companies/{companyId}/calibration/prediction:
+    post:
+      operationId: lockAdminCalibrationPrediction
+      tags: [admin]
+      summary: Snapshot + lock the Stage 1 prediction from the company's latest scored assessment
+      description: >
+        Creates the company's one immutable prediction snapshot (per-pillar
+        scores, composite, band, rubric version, prediction timestamp),
+        derived server-side from the latest assessment row. 409 if a locked
+        snapshot already exists; 422 if the company has no scored assessment.
+      parameters:
+        - name: companyId
+          in: path
+          required: true
+          schema: { type: integer }
+      responses:
+        "201":
+          description: Locked prediction snapshot
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CalibrationPredictionRecord"
+        "409":
+          description: A locked snapshot already exists (immutable)
+        "422":
+          description: Company has no scored assessment to snapshot
+    patch:
+      operationId: updateAdminCalibrationPrediction
+      tags: [admin]
+      summary: Always rejected — locked prediction snapshots are immutable
+      description: >
+        Exists so the immutability contract is explicit and testable. Any
+        attempt to edit a locked snapshot returns 409; there is no writable
+        field on a locked prediction.
+      parameters:
+        - name: companyId
+          in: path
+          required: true
+          schema: { type: integer }
+      responses:
+        "409":
+          description: Locked prediction snapshots are immutable
+        "404":
+          description: No prediction snapshot exists for this company
+  /admin/companies/{companyId}/calibration/observations:
+    post:
+      operationId: createAdminCalibrationObservation
+      tags: [admin]
+      summary: Record observed reality for one or more pillars (any source, own timestamp)
+      parameters:
+        - name: companyId
+          in: path
+          required: true
+          schema: { type: integer }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateCalibrationObservationInput"
+      responses:
+        "201":
+          description: Created observation plus recomputed deltas
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AdminCompanyCalibration"
+        "404":
+          description: Company not found
+  /admin/companies/{companyId}/calibration/resolution-events:
+    post:
+      operationId: createAdminResolutionEvent
+      tags: [admin]
+      summary: Record a resolution event (stored as a signals-table row with event_type set)
+      parameters:
+        - name: companyId
+          in: path
+          required: true
+          schema: { type: integer }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateResolutionEventInput"
+      responses:
+        "201":
+          description: Created resolution event
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ResolutionEventRecord"
+        "404":
+          description: Company not found
+        "422":
+          description: Company has no assessment row to attach the signal to
+  /admin/calibration/resolution-events/{signalId}:
+    delete:
+      operationId: deleteAdminResolutionEvent
+      tags: [admin]
+      summary: Delete one resolution event (refuses to touch non-event signal rows)
+      parameters:
+        - name: signalId
+          in: path
+          required: true
+          schema: { type: integer }
+      responses:
+        "204":
+          description: Deleted
+        "404":
+          description: No resolution event with this id
+
   /portfolio/cs-rescue-internal/backengine:
     get:
       operationId: getCsRescueInternalBackengine
@@ -3736,6 +3870,127 @@ components:
           type: array
           items:
             $ref: "#/components/schemas/OutcomeInterventionRecord"
+
+    # ---- Calibration Ledger (Admin Lens only) ----
+    CalibrationPillarScores:
+      type: object
+      description: >
+        Per-pillar scores keyed by pillar id (org, onboarding, health,
+        escalation, revenue, leadership, planning, ai). Values are the
+        assessment text scores "0" | "1" | "2" | "NA". Observations may be
+        partial (absent keys = not yet observed).
+      additionalProperties:
+        type: string
+    CalibrationPredictionRecord:
+      type: object
+      required: [id, companyId, assessmentId, pillars, composite, band, rubricVersion, predictedAt, lockedAt]
+      properties:
+        id: { type: integer }
+        companyId: { type: integer }
+        assessmentId: { type: integer }
+        pillars: { $ref: "#/components/schemas/CalibrationPillarScores" }
+        composite: { type: integer, description: Phase 1 tier composite 0-16, NA substituted as 1. }
+        band: { type: string, description: Tier band label frozen at snapshot time. }
+        rubricVersion: { type: string }
+        predictedAt: { type: string }
+        lockedAt: { type: string }
+        createdBy: { type: string, nullable: true }
+    CreateCalibrationObservationInput:
+      type: object
+      required: [pillars, observedAt, source]
+      properties:
+        pillars:
+          $ref: "#/components/schemas/CalibrationPillarScores"
+        observedAt:
+          type: string
+          description: When the real-world signal was observed (ISO timestamp or YYYY-MM-DD).
+        source: { type: string, minLength: 1, maxLength: 200 }
+        note: { type: string, maxLength: 2000, nullable: true }
+    CalibrationObservationRecord:
+      type: object
+      required: [id, companyId, pillars, observedAt, source, note, createdAt, createdBy]
+      properties:
+        id: { type: integer }
+        companyId: { type: integer }
+        pillars: { $ref: "#/components/schemas/CalibrationPillarScores" }
+        observedAt: { type: string }
+        source: { type: string }
+        note: { type: string, nullable: true }
+        createdAt: { type: string }
+        createdBy: { type: string, nullable: true }
+    CalibrationDeltaEntry:
+      type: object
+      required: [pillarId, predicted, observed, delta]
+      properties:
+        pillarId: { type: string }
+        predicted: { type: string, nullable: true, description: Frozen predicted score ("0"|"1"|"2"|"NA"). }
+        observed: { type: string, nullable: true, description: Latest observed score for this pillar. }
+        delta:
+          type: number
+          nullable: true
+          description: Observed minus Predicted (numeric). Null when either side is NA/unobserved.
+    ResolutionEventTypeValue:
+      type: string
+      enum: [leadership_departure, cs_layoffs, rating_drop, funding_cs_rebuild, acquisition_distress]
+    CalibrationVerdictValue:
+      type: string
+      enum: [confirms, contradicts]
+    CreateResolutionEventInput:
+      type: object
+      required: [eventType, eventDate, source, pillarId, verdict, note]
+      properties:
+        eventType: { $ref: "#/components/schemas/ResolutionEventTypeValue" }
+        eventDate:
+          type: string
+          pattern: '^\d{4}-\d{2}-\d{2}$'
+          description: Calendar day the event occurred, YYYY-MM-DD.
+        source: { type: string, minLength: 1, maxLength: 200 }
+        pillarId: { type: string, minLength: 1, maxLength: 50 }
+        verdict: { $ref: "#/components/schemas/CalibrationVerdictValue" }
+        note:
+          type: string
+          minLength: 1
+          maxLength: 500
+          description: One line on whether/why the event confirms or contradicts the original pillar prediction.
+        url: { type: string, nullable: true, maxLength: 2000 }
+    ResolutionEventRecord:
+      type: object
+      required: [id, companyId, pillarId, eventType, verdict, eventDate, source, note, createdAt]
+      properties:
+        id: { type: integer }
+        companyId: { type: integer }
+        pillarId: { type: string }
+        eventType: { $ref: "#/components/schemas/ResolutionEventTypeValue" }
+        verdict: { $ref: "#/components/schemas/CalibrationVerdictValue" }
+        eventDate: { type: string, nullable: true }
+        source: { type: string }
+        note: { type: string }
+        url: { type: string, nullable: true }
+        createdAt: { type: string }
+    AdminCompanyCalibration:
+      type: object
+      required: [companyId, companyName, firmSlug, prediction, observations, deltas, resolutionEvents]
+      properties:
+        companyId: { type: integer }
+        companyName: { type: string }
+        firmSlug: { type: string, nullable: true }
+        prediction:
+          oneOf:
+            - $ref: "#/components/schemas/CalibrationPredictionRecord"
+            - type: "null"
+        observations:
+          type: array
+          items:
+            $ref: "#/components/schemas/CalibrationObservationRecord"
+        deltas:
+          type: array
+          description: Per-pillar Observed minus Predicted, computed at read time (never stored).
+          items:
+            $ref: "#/components/schemas/CalibrationDeltaEntry"
+        resolutionEvents:
+          type: array
+          items:
+            $ref: "#/components/schemas/ResolutionEventRecord"
 
     # ---- CQ-37 tier model ----
     Tier2ConnectorValue:

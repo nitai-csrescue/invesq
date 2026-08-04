@@ -2,6 +2,7 @@ import app from "./app";
 import { logger } from "./lib/logger";
 import { resumeQueuedDiscoveryJobs } from "./lib/jobs/discovery";
 import { resumeQueuedBuildJobs } from "./lib/jobs/build";
+import { startWeeklySlackDigest } from "./lib/slackDigest";
 import { backfillCompanyNormalizedNames } from "./lib/backfillNormalizedNames";
 import { backfillIcpMeta } from "./lib/backfillIcpMeta";
 import { backfillRubricV2 } from "./lib/backfillRubricV2";
@@ -55,4 +56,5 @@ app.listen(port, (err) => {
   void resumeQueuedDiscoveryJobs();
   void resumeQueuedBuildJobs();
   void logSystemHealthOnStartup();
+  startWeeklySlackDigest();
 });

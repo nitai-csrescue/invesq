@@ -34,6 +34,8 @@ import {
   tierDisputesTable,
   backengineAccountsTable,
   outcomeInterventionsTable,
+  calibrationPredictionsTable,
+  calibrationObservationsTable,
 } from "@workspace/db";
 
 export interface DeleteFirmCascadeResult {
@@ -95,6 +97,16 @@ export async function deleteFirmCascade(firmId: number): Promise<DeleteFirmCasca
       await tx
         .delete(reportExportsTable)
         .where(inArray(reportExportsTable.companyId, companyIds));
+    }
+    if (companyIds.length > 0) {
+      // Calibration Ledger: predictions FK BOTH companies and assessments,
+      // so they must be deleted before the assessments delete just below.
+      await tx
+        .delete(calibrationPredictionsTable)
+        .where(inArray(calibrationPredictionsTable.companyId, companyIds));
+      await tx
+        .delete(calibrationObservationsTable)
+        .where(inArray(calibrationObservationsTable.companyId, companyIds));
     }
     if (assessmentIds.length > 0) {
       await tx.delete(signalsTable).where(inArray(signalsTable.assessmentId, assessmentIds));

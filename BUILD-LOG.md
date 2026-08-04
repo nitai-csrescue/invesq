@@ -1395,3 +1395,20 @@ curl -X POST https://<prod-domain>/api/admin/repair-assessments-dedup \
   - /admin/outcomes verified at 390x844 mobile viewport (renders authed with nav + company table); no console errors.
   - Validation run PASSED (api-server + cs-rescue tsc --noEmit). drizzle push applied. QA scribbles reverted (company 200 outcome_metrics null, outcome_interventions empty, throwaway QA session deleted); temporary dev-login screenshot route removed from source before commit (rg "dev/test-login" = no matches).
 - Republish needed: yes (prod gets outcome_metrics column + outcome_interventions table via the Publish schema diff; no manual DDL).
+
+---
+
+## Calibration Ledger (Data Moat: Predicted vs Observed vs Delta + Resolution Events + weekly Slack digest)
+- Date: 2026-08-04 14:10 UTC
+- Status: complete
+- Files changed: lib/db/src/schema/calibration.ts (new), lib/db/src/schema/signals.ts, lib/api-spec/openapi.yaml (+codegen in lib/api-zod + lib/api-client-react), artifacts/api-server/src/routes/adminCalibration.ts (new), routes/admin.ts, lib/slackDigest.ts (new), lib/deleteFirmCascade.ts, src/index.ts, artifacts/cs-rescue/src/pages/admin/AdminCalibration.tsx (new), App.tsx, components/admin/adminNav.ts
+- Validation: typecheck-api + typecheck-web clean; api-server restart clean; anonymous /api/portfolio/bootstrap byte-parity confirmed (no calibration strings leak)
+- Republish needed: yes
+- QA notes:
+  - New tables: calibration_predictions (company_id unique, assessment_id, pillars jsonb of p1..p8 scores keyed by pillar id org/onboarding/health/escalation/revenue/leadership/planning/ai, composite int 0-16 with NA->1, band, rubric_version, predicted_at, locked_at, created_by) — created already-locked, one per company, immutable (no UPDATE path exists; PATCH returns 409, verified). calibration_observations (company_id, partial pillars jsonb, observed_at, source, note, created_by) — any source, own timestamp. Deltas are computed at read time in GET /api/admin/companies/:id/calibration (Observed − Predicted per pillar, latest observation per pillar wins, NA/unobserved -> null); delta math verified (org 1->2 = +1, revenue 0->1 = +1).
+  - Resolution Events live in the EXISTING signals table via two new nullable columns: event_type (vocab: leadership_departure, cs_layoffs, rating_drop, funding_cs_rebuild, acquisition_distress) and calibration_verdict (confirms|contradicts). Rows carry company's latest assessment_id, source_system calibration_ledger. Verified an event on a raviga company renders through the tenant signals endpoint without error.
+  - Weekly Slack digest: artifacts/api-server/src/lib/slackDigest.ts, started from src/index.ts at boot; hourly tick, at most one post per ISO week (dedup via new calibration_digests table keyed by week_key — deliberately NOT the jobs table). Config: SLACK_WEBHOOK_URL env var (Slack incoming-webhook URL). Currently unset -> cleanly STUBBED: one boot log warning naming SLACK_WEBHOOK_URL, week not marked done, so the first digest posts once the webhook is configured. No email path by design.
+  - Admin UI at /admin/calibration (Calibration nav item): company list, lock-prediction button, per-pillar observed entry, Predicted/Observed/Delta table, resolution-event add/delete. Screenshot verified at 390x644.
+  - Backfilled 4 historical calibration points (Nomis Solutions, Profisee, Pied Piper, Hooli): locked predictions from their real scored diagnostics + manual_backfill observations + 2 resolution events.
+  - All /api/admin/.../calibration routes 401 unauthenticated; deleteFirmCascade extended for both new company-child tables (before assessments delete, since predictions FK assessments).
+  - Purely additive: tenant pages unchanged; anonymous bootstrap has zero calibration/backfill strings.

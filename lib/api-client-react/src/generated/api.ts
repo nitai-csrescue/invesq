@@ -20,6 +20,7 @@ import type {
   Account,
   ActiveJobConflict,
   AddAdminCompanyInput,
+  AdminCompanyCalibration,
   AdminCompanyOutcomes,
   AdminCompanyReportData,
   AdminFirmConfirmResult,
@@ -36,14 +37,17 @@ import type {
   BackengineImportResult,
   BackfillPipelineMetaResult,
   BeginBrowserLoginParams,
+  CalibrationPredictionRecord,
   Company,
   ConfirmAdminFirmInput,
   Connector,
   ConnectorHealthSummary,
   CreateAdminFirmInput,
   CreateAdminFirmResponse,
+  CreateCalibrationObservationInput,
   CreateManualAdminFirmInput,
   CreateOutcomeInterventionInput,
+  CreateResolutionEventInput,
   CreateTierDisputeInput,
   DeleteAdminFirmResult,
   Deployment,
@@ -75,6 +79,7 @@ import type {
   ReorderAdminFirmsInput,
   ReportRevisionInput,
   ReportValidateInput,
+  ResolutionEventRecord,
   ResolveTierDisputeInput,
   Resource,
   SetFirmClearanceInput,
@@ -5277,6 +5282,549 @@ export const useDeleteAdminOutcomeIntervention = <
   TContext
 > => {
   return useMutation(getDeleteAdminOutcomeInterventionMutationOptions(options));
+};
+
+/**
+ * @summary Calibration ledger for one company (prediction, observations, deltas, resolution events)
+ */
+export const getGetAdminCompanyCalibrationUrl = (companyId: number) => {
+  return `/api/admin/companies/${companyId}/calibration`;
+};
+
+export const getAdminCompanyCalibration = async (
+  companyId: number,
+  options?: RequestInit,
+): Promise<AdminCompanyCalibration> => {
+  return customFetch<AdminCompanyCalibration>(
+    getGetAdminCompanyCalibrationUrl(companyId),
+    {
+      ...options,
+      method: "GET",
+    },
+  );
+};
+
+export const getGetAdminCompanyCalibrationQueryKey = (companyId: number) => {
+  return [`/api/admin/companies/${companyId}/calibration`] as const;
+};
+
+export const getGetAdminCompanyCalibrationQueryOptions = <
+  TData = Awaited<ReturnType<typeof getAdminCompanyCalibration>>,
+  TError = ErrorType<void>,
+>(
+  companyId: number,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof getAdminCompanyCalibration>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey =
+    queryOptions?.queryKey ?? getGetAdminCompanyCalibrationQueryKey(companyId);
+
+  const queryFn: QueryFunction<
+    Awaited<ReturnType<typeof getAdminCompanyCalibration>>
+  > = ({ signal }) =>
+    getAdminCompanyCalibration(companyId, { signal, ...requestOptions });
+
+  return {
+    queryKey,
+    queryFn,
+    enabled: !!companyId,
+    ...queryOptions,
+  } as UseQueryOptions<
+    Awaited<ReturnType<typeof getAdminCompanyCalibration>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type GetAdminCompanyCalibrationQueryResult = NonNullable<
+  Awaited<ReturnType<typeof getAdminCompanyCalibration>>
+>;
+export type GetAdminCompanyCalibrationQueryError = ErrorType<void>;
+
+/**
+ * @summary Calibration ledger for one company (prediction, observations, deltas, resolution events)
+ */
+
+export function useGetAdminCompanyCalibration<
+  TData = Awaited<ReturnType<typeof getAdminCompanyCalibration>>,
+  TError = ErrorType<void>,
+>(
+  companyId: number,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof getAdminCompanyCalibration>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getGetAdminCompanyCalibrationQueryOptions(
+    companyId,
+    options,
+  );
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * Creates the company's one immutable prediction snapshot (per-pillar scores, composite, band, rubric version, prediction timestamp), derived server-side from the latest assessment row. 409 if a locked snapshot already exists; 422 if the company has no scored assessment.
+
+ * @summary Snapshot + lock the Stage 1 prediction from the company's latest scored assessment
+ */
+export const getLockAdminCalibrationPredictionUrl = (companyId: number) => {
+  return `/api/admin/companies/${companyId}/calibration/prediction`;
+};
+
+export const lockAdminCalibrationPrediction = async (
+  companyId: number,
+  options?: RequestInit,
+): Promise<CalibrationPredictionRecord> => {
+  return customFetch<CalibrationPredictionRecord>(
+    getLockAdminCalibrationPredictionUrl(companyId),
+    {
+      ...options,
+      method: "POST",
+    },
+  );
+};
+
+export const getLockAdminCalibrationPredictionMutationOptions = <
+  TError = ErrorType<void>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof lockAdminCalibrationPrediction>>,
+    TError,
+    { companyId: number },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof lockAdminCalibrationPrediction>>,
+  TError,
+  { companyId: number },
+  TContext
+> => {
+  const mutationKey = ["lockAdminCalibrationPrediction"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof lockAdminCalibrationPrediction>>,
+    { companyId: number }
+  > = (props) => {
+    const { companyId } = props ?? {};
+
+    return lockAdminCalibrationPrediction(companyId, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type LockAdminCalibrationPredictionMutationResult = NonNullable<
+  Awaited<ReturnType<typeof lockAdminCalibrationPrediction>>
+>;
+
+export type LockAdminCalibrationPredictionMutationError = ErrorType<void>;
+
+/**
+ * @summary Snapshot + lock the Stage 1 prediction from the company's latest scored assessment
+ */
+export const useLockAdminCalibrationPrediction = <
+  TError = ErrorType<void>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof lockAdminCalibrationPrediction>>,
+    TError,
+    { companyId: number },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof lockAdminCalibrationPrediction>>,
+  TError,
+  { companyId: number },
+  TContext
+> => {
+  return useMutation(getLockAdminCalibrationPredictionMutationOptions(options));
+};
+
+/**
+ * Exists so the immutability contract is explicit and testable. Any attempt to edit a locked snapshot returns 409; there is no writable field on a locked prediction.
+
+ * @summary Always rejected — locked prediction snapshots are immutable
+ */
+export const getUpdateAdminCalibrationPredictionUrl = (companyId: number) => {
+  return `/api/admin/companies/${companyId}/calibration/prediction`;
+};
+
+export const updateAdminCalibrationPrediction = async (
+  companyId: number,
+  options?: RequestInit,
+): Promise<unknown> => {
+  return customFetch<unknown>(
+    getUpdateAdminCalibrationPredictionUrl(companyId),
+    {
+      ...options,
+      method: "PATCH",
+    },
+  );
+};
+
+export const getUpdateAdminCalibrationPredictionMutationOptions = <
+  TError = ErrorType<void>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof updateAdminCalibrationPrediction>>,
+    TError,
+    { companyId: number },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof updateAdminCalibrationPrediction>>,
+  TError,
+  { companyId: number },
+  TContext
+> => {
+  const mutationKey = ["updateAdminCalibrationPrediction"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof updateAdminCalibrationPrediction>>,
+    { companyId: number }
+  > = (props) => {
+    const { companyId } = props ?? {};
+
+    return updateAdminCalibrationPrediction(companyId, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type UpdateAdminCalibrationPredictionMutationResult = NonNullable<
+  Awaited<ReturnType<typeof updateAdminCalibrationPrediction>>
+>;
+
+export type UpdateAdminCalibrationPredictionMutationError = ErrorType<void>;
+
+/**
+ * @summary Always rejected — locked prediction snapshots are immutable
+ */
+export const useUpdateAdminCalibrationPrediction = <
+  TError = ErrorType<void>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof updateAdminCalibrationPrediction>>,
+    TError,
+    { companyId: number },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof updateAdminCalibrationPrediction>>,
+  TError,
+  { companyId: number },
+  TContext
+> => {
+  return useMutation(
+    getUpdateAdminCalibrationPredictionMutationOptions(options),
+  );
+};
+
+/**
+ * @summary Record observed reality for one or more pillars (any source, own timestamp)
+ */
+export const getCreateAdminCalibrationObservationUrl = (companyId: number) => {
+  return `/api/admin/companies/${companyId}/calibration/observations`;
+};
+
+export const createAdminCalibrationObservation = async (
+  companyId: number,
+  createCalibrationObservationInput: CreateCalibrationObservationInput,
+  options?: RequestInit,
+): Promise<AdminCompanyCalibration> => {
+  return customFetch<AdminCompanyCalibration>(
+    getCreateAdminCalibrationObservationUrl(companyId),
+    {
+      ...options,
+      method: "POST",
+      headers: { "Content-Type": "application/json", ...options?.headers },
+      body: JSON.stringify(createCalibrationObservationInput),
+    },
+  );
+};
+
+export const getCreateAdminCalibrationObservationMutationOptions = <
+  TError = ErrorType<void>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof createAdminCalibrationObservation>>,
+    TError,
+    { companyId: number; data: BodyType<CreateCalibrationObservationInput> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof createAdminCalibrationObservation>>,
+  TError,
+  { companyId: number; data: BodyType<CreateCalibrationObservationInput> },
+  TContext
+> => {
+  const mutationKey = ["createAdminCalibrationObservation"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof createAdminCalibrationObservation>>,
+    { companyId: number; data: BodyType<CreateCalibrationObservationInput> }
+  > = (props) => {
+    const { companyId, data } = props ?? {};
+
+    return createAdminCalibrationObservation(companyId, data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type CreateAdminCalibrationObservationMutationResult = NonNullable<
+  Awaited<ReturnType<typeof createAdminCalibrationObservation>>
+>;
+export type CreateAdminCalibrationObservationMutationBody =
+  BodyType<CreateCalibrationObservationInput>;
+export type CreateAdminCalibrationObservationMutationError = ErrorType<void>;
+
+/**
+ * @summary Record observed reality for one or more pillars (any source, own timestamp)
+ */
+export const useCreateAdminCalibrationObservation = <
+  TError = ErrorType<void>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof createAdminCalibrationObservation>>,
+    TError,
+    { companyId: number; data: BodyType<CreateCalibrationObservationInput> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof createAdminCalibrationObservation>>,
+  TError,
+  { companyId: number; data: BodyType<CreateCalibrationObservationInput> },
+  TContext
+> => {
+  return useMutation(
+    getCreateAdminCalibrationObservationMutationOptions(options),
+  );
+};
+
+/**
+ * @summary Record a resolution event (stored as a signals-table row with event_type set)
+ */
+export const getCreateAdminResolutionEventUrl = (companyId: number) => {
+  return `/api/admin/companies/${companyId}/calibration/resolution-events`;
+};
+
+export const createAdminResolutionEvent = async (
+  companyId: number,
+  createResolutionEventInput: CreateResolutionEventInput,
+  options?: RequestInit,
+): Promise<ResolutionEventRecord> => {
+  return customFetch<ResolutionEventRecord>(
+    getCreateAdminResolutionEventUrl(companyId),
+    {
+      ...options,
+      method: "POST",
+      headers: { "Content-Type": "application/json", ...options?.headers },
+      body: JSON.stringify(createResolutionEventInput),
+    },
+  );
+};
+
+export const getCreateAdminResolutionEventMutationOptions = <
+  TError = ErrorType<void>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof createAdminResolutionEvent>>,
+    TError,
+    { companyId: number; data: BodyType<CreateResolutionEventInput> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof createAdminResolutionEvent>>,
+  TError,
+  { companyId: number; data: BodyType<CreateResolutionEventInput> },
+  TContext
+> => {
+  const mutationKey = ["createAdminResolutionEvent"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof createAdminResolutionEvent>>,
+    { companyId: number; data: BodyType<CreateResolutionEventInput> }
+  > = (props) => {
+    const { companyId, data } = props ?? {};
+
+    return createAdminResolutionEvent(companyId, data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type CreateAdminResolutionEventMutationResult = NonNullable<
+  Awaited<ReturnType<typeof createAdminResolutionEvent>>
+>;
+export type CreateAdminResolutionEventMutationBody =
+  BodyType<CreateResolutionEventInput>;
+export type CreateAdminResolutionEventMutationError = ErrorType<void>;
+
+/**
+ * @summary Record a resolution event (stored as a signals-table row with event_type set)
+ */
+export const useCreateAdminResolutionEvent = <
+  TError = ErrorType<void>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof createAdminResolutionEvent>>,
+    TError,
+    { companyId: number; data: BodyType<CreateResolutionEventInput> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof createAdminResolutionEvent>>,
+  TError,
+  { companyId: number; data: BodyType<CreateResolutionEventInput> },
+  TContext
+> => {
+  return useMutation(getCreateAdminResolutionEventMutationOptions(options));
+};
+
+/**
+ * @summary Delete one resolution event (refuses to touch non-event signal rows)
+ */
+export const getDeleteAdminResolutionEventUrl = (signalId: number) => {
+  return `/api/admin/calibration/resolution-events/${signalId}`;
+};
+
+export const deleteAdminResolutionEvent = async (
+  signalId: number,
+  options?: RequestInit,
+): Promise<void> => {
+  return customFetch<void>(getDeleteAdminResolutionEventUrl(signalId), {
+    ...options,
+    method: "DELETE",
+  });
+};
+
+export const getDeleteAdminResolutionEventMutationOptions = <
+  TError = ErrorType<void>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof deleteAdminResolutionEvent>>,
+    TError,
+    { signalId: number },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof deleteAdminResolutionEvent>>,
+  TError,
+  { signalId: number },
+  TContext
+> => {
+  const mutationKey = ["deleteAdminResolutionEvent"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof deleteAdminResolutionEvent>>,
+    { signalId: number }
+  > = (props) => {
+    const { signalId } = props ?? {};
+
+    return deleteAdminResolutionEvent(signalId, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type DeleteAdminResolutionEventMutationResult = NonNullable<
+  Awaited<ReturnType<typeof deleteAdminResolutionEvent>>
+>;
+
+export type DeleteAdminResolutionEventMutationError = ErrorType<void>;
+
+/**
+ * @summary Delete one resolution event (refuses to touch non-event signal rows)
+ */
+export const useDeleteAdminResolutionEvent = <
+  TError = ErrorType<void>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof deleteAdminResolutionEvent>>,
+    TError,
+    { signalId: number },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof deleteAdminResolutionEvent>>,
+  TError,
+  { signalId: number },
+  TContext
+> => {
+  return useMutation(getDeleteAdminResolutionEventMutationOptions(options));
 };
 
 /**

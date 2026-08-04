@@ -3906,6 +3906,197 @@ export const DeleteAdminOutcomeInterventionParams = zod.object({
 });
 
 /**
+ * @summary Calibration ledger for one company (prediction, observations, deltas, resolution events)
+ */
+export const GetAdminCompanyCalibrationParams = zod.object({
+  companyId: zod.coerce.number(),
+});
+
+export const GetAdminCompanyCalibrationResponse = zod.object({
+  companyId: zod.number(),
+  companyName: zod.string(),
+  firmSlug: zod.string().nullable(),
+  prediction: zod.union([
+    zod.object({
+      id: zod.number(),
+      companyId: zod.number(),
+      assessmentId: zod.number(),
+      pillars: zod
+        .record(zod.string(), zod.string())
+        .describe(
+          'Per-pillar scores keyed by pillar id (org, onboarding, health, escalation, revenue, leadership, planning, ai). Values are the assessment text scores \"0\" | \"1\" | \"2\" | \"NA\". Observations may be partial (absent keys = not yet observed).\n',
+        ),
+      composite: zod.number().describe("Phase 1 tier composite 0-16"),
+      band: zod.string().describe("Tier band label frozen at snapshot time."),
+      rubricVersion: zod.string(),
+      predictedAt: zod.string(),
+      lockedAt: zod.string(),
+      createdBy: zod.string().nullish(),
+    }),
+    zod.null(),
+  ]),
+  observations: zod.array(
+    zod.object({
+      id: zod.number(),
+      companyId: zod.number(),
+      pillars: zod
+        .record(zod.string(), zod.string())
+        .describe(
+          'Per-pillar scores keyed by pillar id (org, onboarding, health, escalation, revenue, leadership, planning, ai). Values are the assessment text scores \"0\" | \"1\" | \"2\" | \"NA\". Observations may be partial (absent keys = not yet observed).\n',
+        ),
+      observedAt: zod.string(),
+      source: zod.string(),
+      note: zod.string().nullable(),
+      createdAt: zod.string(),
+      createdBy: zod.string().nullable(),
+    }),
+  ),
+  deltas: zod
+    .array(
+      zod.object({
+        pillarId: zod.string(),
+        predicted: zod
+          .string()
+          .nullable()
+          .describe('Frozen predicted score (\"0\"|\"1\"|\"2\"|\"NA\").'),
+        observed: zod
+          .string()
+          .nullable()
+          .describe("Latest observed score for this pillar."),
+        delta: zod
+          .number()
+          .nullable()
+          .describe(
+            "Observed minus Predicted (numeric). Null when either side is NA\/unobserved.",
+          ),
+      }),
+    )
+    .describe(
+      "Per-pillar Observed minus Predicted, computed at read time (never stored).",
+    ),
+  resolutionEvents: zod.array(
+    zod.object({
+      id: zod.number(),
+      companyId: zod.number(),
+      pillarId: zod.string(),
+      eventType: zod.enum([
+        "leadership_departure",
+        "cs_layoffs",
+        "rating_drop",
+        "funding_cs_rebuild",
+        "acquisition_distress",
+      ]),
+      verdict: zod.enum(["confirms", "contradicts"]),
+      eventDate: zod.string().nullable(),
+      source: zod.string(),
+      note: zod.string(),
+      url: zod.string().nullish(),
+      createdAt: zod.string(),
+    }),
+  ),
+});
+
+/**
+ * Creates the company's one immutable prediction snapshot (per-pillar scores, composite, band, rubric version, prediction timestamp), derived server-side from the latest assessment row. 409 if a locked snapshot already exists; 422 if the company has no scored assessment.
+
+ * @summary Snapshot + lock the Stage 1 prediction from the company's latest scored assessment
+ */
+export const LockAdminCalibrationPredictionParams = zod.object({
+  companyId: zod.coerce.number(),
+});
+
+/**
+ * Exists so the immutability contract is explicit and testable. Any attempt to edit a locked snapshot returns 409; there is no writable field on a locked prediction.
+
+ * @summary Always rejected — locked prediction snapshots are immutable
+ */
+export const UpdateAdminCalibrationPredictionParams = zod.object({
+  companyId: zod.coerce.number(),
+});
+
+/**
+ * @summary Record observed reality for one or more pillars (any source, own timestamp)
+ */
+export const CreateAdminCalibrationObservationParams = zod.object({
+  companyId: zod.coerce.number(),
+});
+
+export const createAdminCalibrationObservationBodySourceMax = 200;
+
+export const createAdminCalibrationObservationBodyNoteMax = 2000;
+
+export const CreateAdminCalibrationObservationBody = zod.object({
+  pillars: zod
+    .record(zod.string(), zod.string())
+    .describe(
+      'Per-pillar scores keyed by pillar id (org, onboarding, health, escalation, revenue, leadership, planning, ai). Values are the assessment text scores \"0\" | \"1\" | \"2\" | \"NA\". Observations may be partial (absent keys = not yet observed).\n',
+    ),
+  observedAt: zod
+    .string()
+    .describe(
+      "When the real-world signal was observed (ISO timestamp or YYYY-MM-DD).",
+    ),
+  source: zod
+    .string()
+    .min(1)
+    .max(createAdminCalibrationObservationBodySourceMax),
+  note: zod
+    .string()
+    .max(createAdminCalibrationObservationBodyNoteMax)
+    .nullish(),
+});
+
+/**
+ * @summary Record a resolution event (stored as a signals-table row with event_type set)
+ */
+export const CreateAdminResolutionEventParams = zod.object({
+  companyId: zod.coerce.number(),
+});
+
+export const createAdminResolutionEventBodyEventDateRegExp = new RegExp(
+  "^\\d{4}-\\d{2}-\\d{2}$",
+);
+export const createAdminResolutionEventBodySourceMax = 200;
+
+export const createAdminResolutionEventBodyPillarIdMax = 50;
+
+export const createAdminResolutionEventBodyNoteMax = 500;
+
+export const createAdminResolutionEventBodyUrlMax = 2000;
+
+export const CreateAdminResolutionEventBody = zod.object({
+  eventType: zod.enum([
+    "leadership_departure",
+    "cs_layoffs",
+    "rating_drop",
+    "funding_cs_rebuild",
+    "acquisition_distress",
+  ]),
+  eventDate: zod
+    .string()
+    .regex(createAdminResolutionEventBodyEventDateRegExp)
+    .describe("Calendar day the event occurred, YYYY-MM-DD."),
+  source: zod.string().min(1).max(createAdminResolutionEventBodySourceMax),
+  pillarId: zod.string().min(1).max(createAdminResolutionEventBodyPillarIdMax),
+  verdict: zod.enum(["confirms", "contradicts"]),
+  note: zod
+    .string()
+    .min(1)
+    .max(createAdminResolutionEventBodyNoteMax)
+    .describe(
+      "One line on whether\/why the event confirms or contradicts the original pillar prediction.",
+    ),
+  url: zod.string().max(createAdminResolutionEventBodyUrlMax).nullish(),
+});
+
+/**
+ * @summary Delete one resolution event (refuses to touch non-event signal rows)
+ */
+export const DeleteAdminResolutionEventParams = zod.object({
+  signalId: zod.coerce.number(),
+});
+
+/**
  * Returns ONLY anonymized data — deterministic "Prospect N" placeholders plus engagement metrics (accounts shape) and anonymized signal text (monitor/feed shape). Real account names never appear in this payload; the real-name mapping is Admin-Lens-only. Literal-slug route like /portfolio/raviga/signals: no other tenant has it.
 
  * @summary Anonymized BackEngine evidence for the CS Rescue Internal dogfood tenant

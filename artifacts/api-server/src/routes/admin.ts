@@ -39,6 +39,7 @@ import { requireAdminAuth } from "../middlewares/authMiddleware.js";
 import adminTiersRouter from "./adminTiers.js";
 import adminBackengineRouter from "./adminBackengine.js";
 import adminOutcomesRouter from "./adminOutcomes.js";
+import adminCalibrationRouter from "./adminCalibration.js";
 import {
   getOrGenerateReportExport,
   getCompanyWebsite,
@@ -80,6 +81,7 @@ router.use(adminBackengineRouter);
 // Data Moat action #3: Outcome Data (internal GRR/NRR outcomes + interventions
 // log). Mounted after requireAdminAuth — never tenant-reachable.
 router.use(adminOutcomesRouter);
+router.use(adminCalibrationRouter);
 
 // The 5 hand-authored tenant slugs. They are not pipeline-managed, so the
 // on-demand re-run endpoint refuses to touch them (a rebuild would append a

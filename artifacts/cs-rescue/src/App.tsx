@@ -43,6 +43,7 @@ import AdminPipeline from "@/pages/admin/AdminPipeline";
 import AdminInsights from "@/pages/admin/AdminInsights";
 import AdminTiers from "@/pages/admin/AdminTiers";
 import AdminOutcomes from "@/pages/admin/AdminOutcomes";
+import AdminCalibration from "@/pages/admin/AdminCalibration";
 import AdminBackengine from "@/pages/admin/AdminBackengine";
 import AdminHealth from "@/pages/admin/AdminHealth";
 import AdminFirmReviewRedirect from "@/pages/admin/FirmReviewRedirect";
@@ -142,6 +143,13 @@ function Router() {
             {() => (
               <ProtectedRoute>
                 <AdminTiers />
+              </ProtectedRoute>
+            )}
+          </Route>
+          <Route path="/admin/calibration">
+            {() => (
+              <ProtectedRoute>
+                <AdminCalibration />
               </ProtectedRoute>
             )}
           </Route>
