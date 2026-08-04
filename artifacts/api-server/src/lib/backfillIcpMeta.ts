@@ -29,12 +29,14 @@ interface IcpMetaValues {
 
 // Exact copies of the ICP fields in the canonical TS source data.
 const ICP_META_BY_SLUG: Record<string, IcpMetaValues> = {
-  // STG (lib/portfolio-engine/src/data/stg.ts)
-  "nomis-solutions": { portfolioStatus: "Active", sectorCategory: "Fintech", investmentDate: "2024-01-01" },
-  cadmium: { portfolioStatus: "Active", sectorCategory: "Other B2B SaaS", investmentDate: "2024-01-01" },
-  confience: { portfolioStatus: "Active", sectorCategory: "Other B2B SaaS", investmentDate: "2024-06-01" },
-  mediavalet: { portfolioStatus: "Active", sectorCategory: "Other B2B SaaS", investmentDate: "2023-01-01" },
-  taxcalc: { portfolioStatus: "Active", sectorCategory: "Fintech", investmentDate: "2023-06-01" },
+  // NOTE (2026-08-04): the STG entries were removed. STG was de-legacized and
+  // its companies re-onboarded through the real pipeline; the fresh rows
+  // coincidentally reuse the old slugs, so this slug-keyed backfill stamped
+  // stale legacy ICP values onto 5 of the 6 new companies while Trellix (never
+  // in the map) got none — and the engine's all-or-none ICP rule then failed
+  // validation for the whole firm, dropping STG from the bootstrap. ICP data
+  // for pipeline-onboarded companies must come from the pipeline/admin flow,
+  // not this legacy backfill.
   // Pamlico (lib/portfolio-engine/src/data/pamlico.ts)
   profisee: { portfolioStatus: "Active", sectorCategory: "Other B2B SaaS", investmentDate: "2022-01-01" },
   "ehs-insight": { portfolioStatus: "Active", sectorCategory: "Other B2B SaaS", investmentDate: "2025-12-01" },

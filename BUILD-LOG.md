@@ -1531,3 +1531,14 @@ curl -X POST https://<prod-domain>/api/admin/repair-assessments-dedup \
 - Republish needed: optional housekeeping only — prod already ran the seed (job 43 completed, marker firms.meta.stgPipelineSeededAt set 2026-08-04T17:31Z), so the routine left in the live bundle is a guaranteed no-op.
 - What/why: Prod verified live — 6 STG companies with real pipeline assessments/meta, firm "ready", /stg/portfolio renders on cs-rescue.replit.app. Per convention, one-shot repair routines are removed once both environments carry the durable marker.
 - Self-report: entry written by the agent immediately after the change.
+
+---
+
+## Fix: legacy ICP backfill broke re-onboarded STG in bootstrap
+- Date: 2026-08-04 17:55 UTC
+- Status: complete in dev; prod needs one Republish (urgent-ish: any prod api-server restart on the OLD bundle would stamp stale ICP fields onto the 5 matching STG slugs and drop /stg/portfolio from the bootstrap)
+- Files changed: artifacts/api-server/src/lib/backfillIcpMeta.ts (STG entries removed), dev DB repair (stripped portfolioStatus/sectorCategory/investmentDate from 5 STG company rows)
+- Republish needed: yes
+- What/why: The slug-keyed ICP backfill (written for the legacy STG rows) matched the freshly pipeline-onboarded STG companies by slug coincidence, stamped stale legacy ICP values onto 5/6 (Trellix never in its map), and the engine's all-or-none ICP rule then hard-failed validation for the firm, removing STG from the dev bootstrap after a restart. Removed STG from the backfill map (STG is de-legacized; ICP data for pipeline companies must come from the pipeline/admin flow) and stripped the accidental stamps in dev. Prod verified unaffected (0 stamped rows — its backfill ran a second before the seed inserted the companies).
+- QA notes: typecheck clean; dev bootstrap again returns STG with all 6 companies; dev/prod both have 0 ICP-stamped STG rows.
+- Self-report: entry written by the agent immediately after the change.
