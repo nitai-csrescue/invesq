@@ -36,6 +36,7 @@ import {
   outcomeInterventionsTable,
   calibrationPredictionsTable,
   calibrationObservationsTable,
+  confirmationRequestsTable,
 } from "@workspace/db";
 
 export interface DeleteFirmCascadeResult {
@@ -107,6 +108,10 @@ export async function deleteFirmCascade(firmId: number): Promise<DeleteFirmCasca
       await tx
         .delete(calibrationObservationsTable)
         .where(inArray(calibrationObservationsTable.companyId, companyIds));
+      // Confirmation-ask links FK companies; delete before companies below.
+      await tx
+        .delete(confirmationRequestsTable)
+        .where(inArray(confirmationRequestsTable.companyId, companyIds));
     }
     if (assessmentIds.length > 0) {
       await tx.delete(signalsTable).where(inArray(signalsTable.assessmentId, assessmentIds));

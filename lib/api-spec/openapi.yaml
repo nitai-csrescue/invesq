@@ -1708,6 +1708,78 @@ paths:
                 $ref: "#/components/schemas/AdminCompanyCalibration"
         "404":
           description: Company not found
+  /admin/companies/{companyId}/confirmation:
+    get:
+      operationId: getAdminCompanyConfirmation
+      tags: [admin]
+      summary: Confirmation Status (tier3_status) plus auto-flagged pillars and confirmation requests for one company
+      parameters:
+        - name: companyId
+          in: path
+          required: true
+          schema: { type: integer }
+      responses:
+        "200":
+          description: Confirmation state for the company
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AdminCompanyConfirmation"
+        "404":
+          description: Company not found
+  /admin/companies/{companyId}/confirmation-requests:
+    post:
+      operationId: createAdminConfirmationRequest
+      tags: [admin]
+      summary: Create a single-purpose expiring confirmation link for the portco CS lead or PE operating partner
+      description: >
+        Generates an unguessable token (returned exactly once in the link;
+        only its hash is stored), snapshots the auto-flagged pillars, and
+        returns the shareable /confirm/{token} link for the admin to send.
+        409 if the company has no flagged pillars to confirm.
+      parameters:
+        - name: companyId
+          in: path
+          required: true
+          schema: { type: integer }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateConfirmationRequestInput"
+      responses:
+        "201":
+          description: Created request plus the one-time shareable link
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CreatedConfirmationRequest"
+        "404":
+          description: Company not found
+        "409":
+          description: No flagged pillars to confirm
+  /admin/confirmation-requests/{requestId}/revoke:
+    post:
+      operationId: revokeAdminConfirmationRequest
+      tags: [admin]
+      summary: Revoke a pending confirmation link before it is used or expires
+      parameters:
+        - name: requestId
+          in: path
+          required: true
+          schema: { type: integer }
+      responses:
+        "200":
+          description: Request revoked
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ConfirmationRequestRecord"
+        "404":
+          description: Request not found
+        "409":
+          description: Request is not pending (already submitted, revoked, or expired)
   /admin/companies/{companyId}/calibration/resolution-events:
     post:
       operationId: createAdminResolutionEvent
@@ -3929,6 +4001,64 @@ components:
           type: number
           nullable: true
           description: Observed minus Predicted (numeric). Null when either side is NA/unobserved.
+    ConfirmationRecipientRoleValue:
+      type: string
+      enum: [portco_cs_lead, pe_operating_partner]
+    ConfirmationStatusValue:
+      type: string
+      enum: [unconfirmed, portco_confirmed, pe_confirmed]
+      description: External Confirmation Status — the existing companies.tier3_status column (CQ-12 vocabulary), NOT a new field.
+    FlaggedPillarEntry:
+      type: object
+      required: [pillarId, label, predicted, reason]
+      properties:
+        pillarId: { type: string }
+        label: { type: string }
+        predicted: { type: string, nullable: true, description: Pillar score at flag time ("0"|"1"|"2"|"NA"). }
+        reason: { type: string, description: Why the pillar was auto-flagged (insufficient_data | low_confidence). }
+    ConfirmationRequestRecord:
+      type: object
+      required: [id, companyId, recipientRole, flaggedPillars, status, expiresAt, createdAt, createdBy, respondedAt]
+      properties:
+        id: { type: integer }
+        companyId: { type: integer }
+        recipientRole: { $ref: "#/components/schemas/ConfirmationRecipientRoleValue" }
+        flaggedPillars:
+          type: array
+          items: { $ref: "#/components/schemas/FlaggedPillarEntry" }
+        status: { type: string, description: pending | submitted | revoked | expired (expired is derived at read time). }
+        expiresAt: { type: string }
+        createdAt: { type: string }
+        createdBy: { type: string, nullable: true }
+        respondedAt: { type: string, nullable: true }
+    CreateConfirmationRequestInput:
+      type: object
+      required: [recipientRole]
+      properties:
+        recipientRole: { $ref: "#/components/schemas/ConfirmationRecipientRoleValue" }
+        expiresInDays: { type: integer, minimum: 1, maximum: 90, description: Link lifetime; default 14 days. }
+    CreatedConfirmationRequest:
+      type: object
+      required: [request, link]
+      properties:
+        request: { $ref: "#/components/schemas/ConfirmationRequestRecord" }
+        link:
+          type: string
+          description: One-time shareable /confirm/{token} URL. The raw token is never stored or shown again.
+    AdminCompanyConfirmation:
+      type: object
+      required: [companyId, companyName, confirmationStatus, flaggedPillars, requests]
+      properties:
+        companyId: { type: integer }
+        companyName: { type: string }
+        confirmationStatus: { $ref: "#/components/schemas/ConfirmationStatusValue" }
+        flaggedPillars:
+          type: array
+          items: { $ref: "#/components/schemas/FlaggedPillarEntry" }
+          description: Auto-flagged live from the latest scored assessment (Insufficient Data/NA pillars).
+        requests:
+          type: array
+          items: { $ref: "#/components/schemas/ConfirmationRequestRecord" }
     ResolutionEventTypeValue:
       type: string
       enum: [leadership_departure, cs_layoffs, rating_drop, funding_cs_rebuild, acquisition_distress]

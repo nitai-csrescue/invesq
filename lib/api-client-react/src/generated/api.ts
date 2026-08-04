@@ -21,6 +21,7 @@ import type {
   ActiveJobConflict,
   AddAdminCompanyInput,
   AdminCompanyCalibration,
+  AdminCompanyConfirmation,
   AdminCompanyOutcomes,
   AdminCompanyReportData,
   AdminFirmConfirmResult,
@@ -40,15 +41,18 @@ import type {
   CalibrationPredictionRecord,
   Company,
   ConfirmAdminFirmInput,
+  ConfirmationRequestRecord,
   Connector,
   ConnectorHealthSummary,
   CreateAdminFirmInput,
   CreateAdminFirmResponse,
   CreateCalibrationObservationInput,
+  CreateConfirmationRequestInput,
   CreateManualAdminFirmInput,
   CreateOutcomeInterventionInput,
   CreateResolutionEventInput,
   CreateTierDisputeInput,
+  CreatedConfirmationRequest,
   DeleteAdminFirmResult,
   Deployment,
   ErrorEnvelope,
@@ -5650,6 +5654,281 @@ export const useCreateAdminCalibrationObservation = <
   return useMutation(
     getCreateAdminCalibrationObservationMutationOptions(options),
   );
+};
+
+/**
+ * @summary Confirmation Status (tier3_status) plus auto-flagged pillars and confirmation requests for one company
+ */
+export const getGetAdminCompanyConfirmationUrl = (companyId: number) => {
+  return `/api/admin/companies/${companyId}/confirmation`;
+};
+
+export const getAdminCompanyConfirmation = async (
+  companyId: number,
+  options?: RequestInit,
+): Promise<AdminCompanyConfirmation> => {
+  return customFetch<AdminCompanyConfirmation>(
+    getGetAdminCompanyConfirmationUrl(companyId),
+    {
+      ...options,
+      method: "GET",
+    },
+  );
+};
+
+export const getGetAdminCompanyConfirmationQueryKey = (companyId: number) => {
+  return [`/api/admin/companies/${companyId}/confirmation`] as const;
+};
+
+export const getGetAdminCompanyConfirmationQueryOptions = <
+  TData = Awaited<ReturnType<typeof getAdminCompanyConfirmation>>,
+  TError = ErrorType<void>,
+>(
+  companyId: number,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof getAdminCompanyConfirmation>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey =
+    queryOptions?.queryKey ?? getGetAdminCompanyConfirmationQueryKey(companyId);
+
+  const queryFn: QueryFunction<
+    Awaited<ReturnType<typeof getAdminCompanyConfirmation>>
+  > = ({ signal }) =>
+    getAdminCompanyConfirmation(companyId, { signal, ...requestOptions });
+
+  return {
+    queryKey,
+    queryFn,
+    enabled: !!companyId,
+    ...queryOptions,
+  } as UseQueryOptions<
+    Awaited<ReturnType<typeof getAdminCompanyConfirmation>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type GetAdminCompanyConfirmationQueryResult = NonNullable<
+  Awaited<ReturnType<typeof getAdminCompanyConfirmation>>
+>;
+export type GetAdminCompanyConfirmationQueryError = ErrorType<void>;
+
+/**
+ * @summary Confirmation Status (tier3_status) plus auto-flagged pillars and confirmation requests for one company
+ */
+
+export function useGetAdminCompanyConfirmation<
+  TData = Awaited<ReturnType<typeof getAdminCompanyConfirmation>>,
+  TError = ErrorType<void>,
+>(
+  companyId: number,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof getAdminCompanyConfirmation>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getGetAdminCompanyConfirmationQueryOptions(
+    companyId,
+    options,
+  );
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * Generates an unguessable token (returned exactly once in the link; only its hash is stored), snapshots the auto-flagged pillars, and returns the shareable /confirm/{token} link for the admin to send. 409 if the company has no flagged pillars to confirm.
+
+ * @summary Create a single-purpose expiring confirmation link for the portco CS lead or PE operating partner
+ */
+export const getCreateAdminConfirmationRequestUrl = (companyId: number) => {
+  return `/api/admin/companies/${companyId}/confirmation-requests`;
+};
+
+export const createAdminConfirmationRequest = async (
+  companyId: number,
+  createConfirmationRequestInput: CreateConfirmationRequestInput,
+  options?: RequestInit,
+): Promise<CreatedConfirmationRequest> => {
+  return customFetch<CreatedConfirmationRequest>(
+    getCreateAdminConfirmationRequestUrl(companyId),
+    {
+      ...options,
+      method: "POST",
+      headers: { "Content-Type": "application/json", ...options?.headers },
+      body: JSON.stringify(createConfirmationRequestInput),
+    },
+  );
+};
+
+export const getCreateAdminConfirmationRequestMutationOptions = <
+  TError = ErrorType<void>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof createAdminConfirmationRequest>>,
+    TError,
+    { companyId: number; data: BodyType<CreateConfirmationRequestInput> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof createAdminConfirmationRequest>>,
+  TError,
+  { companyId: number; data: BodyType<CreateConfirmationRequestInput> },
+  TContext
+> => {
+  const mutationKey = ["createAdminConfirmationRequest"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof createAdminConfirmationRequest>>,
+    { companyId: number; data: BodyType<CreateConfirmationRequestInput> }
+  > = (props) => {
+    const { companyId, data } = props ?? {};
+
+    return createAdminConfirmationRequest(companyId, data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type CreateAdminConfirmationRequestMutationResult = NonNullable<
+  Awaited<ReturnType<typeof createAdminConfirmationRequest>>
+>;
+export type CreateAdminConfirmationRequestMutationBody =
+  BodyType<CreateConfirmationRequestInput>;
+export type CreateAdminConfirmationRequestMutationError = ErrorType<void>;
+
+/**
+ * @summary Create a single-purpose expiring confirmation link for the portco CS lead or PE operating partner
+ */
+export const useCreateAdminConfirmationRequest = <
+  TError = ErrorType<void>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof createAdminConfirmationRequest>>,
+    TError,
+    { companyId: number; data: BodyType<CreateConfirmationRequestInput> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof createAdminConfirmationRequest>>,
+  TError,
+  { companyId: number; data: BodyType<CreateConfirmationRequestInput> },
+  TContext
+> => {
+  return useMutation(getCreateAdminConfirmationRequestMutationOptions(options));
+};
+
+/**
+ * @summary Revoke a pending confirmation link before it is used or expires
+ */
+export const getRevokeAdminConfirmationRequestUrl = (requestId: number) => {
+  return `/api/admin/confirmation-requests/${requestId}/revoke`;
+};
+
+export const revokeAdminConfirmationRequest = async (
+  requestId: number,
+  options?: RequestInit,
+): Promise<ConfirmationRequestRecord> => {
+  return customFetch<ConfirmationRequestRecord>(
+    getRevokeAdminConfirmationRequestUrl(requestId),
+    {
+      ...options,
+      method: "POST",
+    },
+  );
+};
+
+export const getRevokeAdminConfirmationRequestMutationOptions = <
+  TError = ErrorType<void>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof revokeAdminConfirmationRequest>>,
+    TError,
+    { requestId: number },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof revokeAdminConfirmationRequest>>,
+  TError,
+  { requestId: number },
+  TContext
+> => {
+  const mutationKey = ["revokeAdminConfirmationRequest"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof revokeAdminConfirmationRequest>>,
+    { requestId: number }
+  > = (props) => {
+    const { requestId } = props ?? {};
+
+    return revokeAdminConfirmationRequest(requestId, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type RevokeAdminConfirmationRequestMutationResult = NonNullable<
+  Awaited<ReturnType<typeof revokeAdminConfirmationRequest>>
+>;
+
+export type RevokeAdminConfirmationRequestMutationError = ErrorType<void>;
+
+/**
+ * @summary Revoke a pending confirmation link before it is used or expires
+ */
+export const useRevokeAdminConfirmationRequest = <
+  TError = ErrorType<void>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof revokeAdminConfirmationRequest>>,
+    TError,
+    { requestId: number },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof revokeAdminConfirmationRequest>>,
+  TError,
+  { requestId: number },
+  TContext
+> => {
+  return useMutation(getRevokeAdminConfirmationRequestMutationOptions(options));
 };
 
 /**

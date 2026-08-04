@@ -1831,6 +1831,73 @@ export interface CalibrationDeltaEntry {
   delta: number | null;
 }
 
+export type ConfirmationRecipientRoleValue =
+  (typeof ConfirmationRecipientRoleValue)[keyof typeof ConfirmationRecipientRoleValue];
+
+export const ConfirmationRecipientRoleValue = {
+  portco_cs_lead: "portco_cs_lead",
+  pe_operating_partner: "pe_operating_partner",
+} as const;
+
+/**
+ * External Confirmation Status — the existing companies.tier3_status column (CQ-12 vocabulary), NOT a new field.
+ */
+export type ConfirmationStatusValue =
+  (typeof ConfirmationStatusValue)[keyof typeof ConfirmationStatusValue];
+
+export const ConfirmationStatusValue = {
+  unconfirmed: "unconfirmed",
+  portco_confirmed: "portco_confirmed",
+  pe_confirmed: "pe_confirmed",
+} as const;
+
+export interface FlaggedPillarEntry {
+  pillarId: string;
+  label: string;
+  /** Pillar score at flag time ("0"|"1"|"2"|"NA"). */
+  predicted: string | null;
+  /** Why the pillar was auto-flagged (insufficient_data | low_confidence). */
+  reason: string;
+}
+
+export interface ConfirmationRequestRecord {
+  id: number;
+  companyId: number;
+  recipientRole: ConfirmationRecipientRoleValue;
+  flaggedPillars: FlaggedPillarEntry[];
+  /** pending | submitted | revoked | expired (expired is derived at read time). */
+  status: string;
+  expiresAt: string;
+  createdAt: string;
+  createdBy: string | null;
+  respondedAt: string | null;
+}
+
+export interface CreateConfirmationRequestInput {
+  recipientRole: ConfirmationRecipientRoleValue;
+  /**
+   * Link lifetime; default 14 days.
+   * @minimum 1
+   * @maximum 90
+   */
+  expiresInDays?: number;
+}
+
+export interface CreatedConfirmationRequest {
+  request: ConfirmationRequestRecord;
+  /** One-time shareable /confirm/{token} URL. The raw token is never stored or shown again. */
+  link: string;
+}
+
+export interface AdminCompanyConfirmation {
+  companyId: number;
+  companyName: string;
+  confirmationStatus: ConfirmationStatusValue;
+  /** Auto-flagged live from the latest scored assessment (Insufficient Data/NA pillars). */
+  flaggedPillars: FlaggedPillarEntry[];
+  requests: ConfirmationRequestRecord[];
+}
+
 export type ResolutionEventTypeValue =
   (typeof ResolutionEventTypeValue)[keyof typeof ResolutionEventTypeValue];
 

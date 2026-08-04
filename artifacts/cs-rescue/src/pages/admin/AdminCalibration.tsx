@@ -20,6 +20,10 @@ import {
   useCreateAdminCalibrationObservation,
   useCreateAdminResolutionEvent,
   useDeleteAdminResolutionEvent,
+  useGetAdminCompanyConfirmation,
+  getGetAdminCompanyConfirmationQueryKey,
+  useCreateAdminConfirmationRequest,
+  useRevokeAdminConfirmationRequest,
 } from "@workspace/api-client-react";
 
 // ---------------------------------------------------------------------------
@@ -66,6 +70,188 @@ function fmtScore(v: string | null | undefined): string {
 function fmtDelta(v: number | null | undefined): string {
   if (v === null || v === undefined) return "—";
   return v > 0 ? `+${v}` : String(v);
+}
+
+// ── Confirmation (Engagement Entry Step 2) ──────────────────────────────────
+// Confirmation Status is companies.tier3_status (unconfirmed | portco_confirmed
+// | pe_confirmed). This section shows the status + auto-flagged pillars and
+// mints expiring single-purpose /confirm/{token} links for the portco CS lead
+// or PE operating partner. The raw link is shown ONCE — copy it here.
+
+const CONFIRMATION_STATUS_LABELS: Record<string, string> = {
+  unconfirmed: "Unconfirmed",
+  portco_confirmed: "Portco-Confirmed",
+  pe_confirmed: "PE-Confirmed",
+};
+
+const RECIPIENT_ROLES = [
+  { value: "portco_cs_lead", label: "Portco CS lead" },
+  { value: "pe_operating_partner", label: "PE operating partner" },
+] as const;
+
+function ConfirmationSection({ companyId }: { companyId: number }) {
+  const { toast } = useToast();
+  const queryClient = useQueryClient();
+  const { data, isLoading } = useGetAdminCompanyConfirmation(companyId);
+  const [role, setRole] = useState<string>("portco_cs_lead");
+  const [freshLink, setFreshLink] = useState<string | null>(null);
+
+  const invalidate = () =>
+    queryClient.invalidateQueries({ queryKey: getGetAdminCompanyConfirmationQueryKey(companyId) });
+
+  const createRequest = useCreateAdminConfirmationRequest({
+    mutation: {
+      onSuccess: (res) => {
+        setFreshLink(res.link);
+        invalidate();
+        toast({
+          title: "Confirmation link created",
+          description: "The link is shown once — copy and send it now.",
+        });
+      },
+      onError: (e: unknown) =>
+        toast({
+          title: "Could not create link",
+          description: String((e as Error)?.message ?? e),
+          variant: "destructive",
+        }),
+    },
+  });
+  const revokeRequest = useRevokeAdminConfirmationRequest({
+    mutation: {
+      onSuccess: () => {
+        invalidate();
+        toast({ title: "Link revoked" });
+      },
+      onError: (e: unknown) =>
+        toast({
+          title: "Revoke failed",
+          description: String((e as Error)?.message ?? e),
+          variant: "destructive",
+        }),
+    },
+  });
+
+  if (isLoading || !data) return null;
+
+  return (
+    <section>
+      <h3 className="mb-2 text-sm font-semibold">Portco / PE confirmation</h3>
+      <div className="space-y-3 text-sm">
+        <div className="flex flex-wrap items-center gap-2">
+          <span className="text-muted-foreground">Confirmation Status:</span>
+          <span
+            className="rounded-full border px-2 py-0.5 text-xs font-medium"
+            data-testid="badge-confirmation-status"
+          >
+            {CONFIRMATION_STATUS_LABELS[data.confirmationStatus] ?? data.confirmationStatus}
+          </span>
+          <span className="text-xs text-muted-foreground">
+            (tier3_status — admin overrides via Tiers page; upgrades automatically on submission)
+          </span>
+        </div>
+
+        <div>
+          <span className="text-muted-foreground">Auto-flagged pillars: </span>
+          {data.flaggedPillars.length === 0 ? (
+            <span data-testid="text-no-flagged">none — every pillar has a confident score</span>
+          ) : (
+            <span data-testid="text-flagged-pillars">
+              {data.flaggedPillars.map((f) => PILLAR_LABELS[f.pillarId] ?? f.pillarId).join(", ")}
+            </span>
+          )}
+        </div>
+
+        <div className="flex flex-wrap items-center gap-2">
+          <select
+            className="h-8 rounded-md border border-input bg-background px-2 text-xs"
+            value={role}
+            onChange={(e) => setRole(e.target.value)}
+            data-testid="select-recipient-role"
+          >
+            {RECIPIENT_ROLES.map((r) => (
+              <option key={r.value} value={r.value}>
+                {r.label}
+              </option>
+            ))}
+          </select>
+          <Button
+            size="sm"
+            disabled={createRequest.isPending || data.flaggedPillars.length === 0}
+            onClick={() =>
+              createRequest.mutate({ companyId, data: { recipientRole: role as never } })
+            }
+            data-testid="button-create-confirmation-link"
+          >
+            {createRequest.isPending ? "Creating…" : "Create confirmation link"}
+          </Button>
+        </div>
+
+        {freshLink && (
+          <div className="flex flex-wrap items-center gap-2 rounded-md border bg-muted/40 p-2">
+            <code className="max-w-full flex-1 break-all text-xs" data-testid="text-fresh-link">
+              {freshLink}
+            </code>
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={() => {
+                navigator.clipboard?.writeText(freshLink);
+                toast({ title: "Link copied" });
+              }}
+              data-testid="button-copy-link"
+            >
+              Copy
+            </Button>
+          </div>
+        )}
+
+        {data.requests.length > 0 && (
+          <div className="overflow-x-auto">
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Sent to</TableHead>
+                  <TableHead>Status</TableHead>
+                  <TableHead>Expires</TableHead>
+                  <TableHead>Responded</TableHead>
+                  <TableHead className="w-8" />
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {data.requests.map((r) => (
+                  <TableRow key={r.id} data-testid={`row-confirmation-request-${r.id}`}>
+                    <TableCell>
+                      {RECIPIENT_ROLES.find((x) => x.value === r.recipientRole)?.label ??
+                        r.recipientRole}
+                    </TableCell>
+                    <TableCell data-testid={`text-request-status-${r.id}`}>{r.status}</TableCell>
+                    <TableCell>{new Date(r.expiresAt).toLocaleDateString()}</TableCell>
+                    <TableCell>
+                      {r.respondedAt ? new Date(r.respondedAt).toLocaleDateString() : "—"}
+                    </TableCell>
+                    <TableCell>
+                      {r.status === "pending" && (
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          disabled={revokeRequest.isPending}
+                          onClick={() => revokeRequest.mutate({ requestId: r.id })}
+                          data-testid={`button-revoke-${r.id}`}
+                        >
+                          Revoke
+                        </Button>
+                      )}
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </div>
+        )}
+      </div>
+    </section>
+  );
 }
 
 // ── Per-company drill-in ────────────────────────────────────────────────────
@@ -140,6 +326,9 @@ function CalibrationEditor({ companyId }: { companyId: number }) {
 
   return (
     <div className="space-y-6 p-4">
+      {/* Confirmation Status + shareable ask links */}
+      <ConfirmationSection companyId={companyId} />
+
       {/* Predicted (locked snapshot) */}
       <section>
         <h3 className="mb-2 text-sm font-semibold">Predicted (Stage 1 snapshot)</h3>

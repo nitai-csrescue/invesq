@@ -15,6 +15,7 @@ import portfolioRouter from "./portfolio.js";
 import jobsRouter from "./jobs.js";
 import adminRouter from "./admin.js";
 import buildStatusRouter from "./buildStatus.js";
+import confirmationsRouter from "./confirmations.js";
 
 const router: IRouter = Router();
 
@@ -31,6 +32,9 @@ router.use("/lifecycle-motions", lifecycleRouter);
 router.use("/invesq", invesqRouter);
 router.use("/portfolio", portfolioRouter);
 router.use("/tenant-auth", tenantAuthRouter);
+// Public by design: token-scoped confirmation-ask endpoints (Engagement
+// Entry Step 2). Access control is the unguessable expiring token itself.
+router.use("/confirmations", confirmationsRouter);
 router.use("/jobs", jobsRouter);
 router.use("/admin", adminRouter);
 router.use(debugRouter);

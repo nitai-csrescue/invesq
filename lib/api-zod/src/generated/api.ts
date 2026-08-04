@@ -4052,6 +4052,131 @@ export const CreateAdminCalibrationObservationBody = zod.object({
 });
 
 /**
+ * @summary Confirmation Status (tier3_status) plus auto-flagged pillars and confirmation requests for one company
+ */
+export const GetAdminCompanyConfirmationParams = zod.object({
+  companyId: zod.coerce.number(),
+});
+
+export const GetAdminCompanyConfirmationResponse = zod.object({
+  companyId: zod.number(),
+  companyName: zod.string(),
+  confirmationStatus: zod
+    .enum(["unconfirmed", "portco_confirmed", "pe_confirmed"])
+    .describe(
+      "External Confirmation Status — the existing companies.tier3_status column (CQ-12 vocabulary), NOT a new field.",
+    ),
+  flaggedPillars: zod
+    .array(
+      zod.object({
+        pillarId: zod.string(),
+        label: zod.string(),
+        predicted: zod
+          .string()
+          .nullable()
+          .describe('Pillar score at flag time (\"0\"|\"1\"|\"2\"|\"NA\").'),
+        reason: zod
+          .string()
+          .describe(
+            "Why the pillar was auto-flagged (insufficient_data | low_confidence).",
+          ),
+      }),
+    )
+    .describe(
+      "Auto-flagged live from the latest scored assessment (Insufficient Data\/NA pillars).",
+    ),
+  requests: zod.array(
+    zod.object({
+      id: zod.number(),
+      companyId: zod.number(),
+      recipientRole: zod.enum(["portco_cs_lead", "pe_operating_partner"]),
+      flaggedPillars: zod.array(
+        zod.object({
+          pillarId: zod.string(),
+          label: zod.string(),
+          predicted: zod
+            .string()
+            .nullable()
+            .describe('Pillar score at flag time (\"0\"|\"1\"|\"2\"|\"NA\").'),
+          reason: zod
+            .string()
+            .describe(
+              "Why the pillar was auto-flagged (insufficient_data | low_confidence).",
+            ),
+        }),
+      ),
+      status: zod
+        .string()
+        .describe(
+          "pending | submitted | revoked | expired (expired is derived at read time).",
+        ),
+      expiresAt: zod.string(),
+      createdAt: zod.string(),
+      createdBy: zod.string().nullable(),
+      respondedAt: zod.string().nullable(),
+    }),
+  ),
+});
+
+/**
+ * Generates an unguessable token (returned exactly once in the link; only its hash is stored), snapshots the auto-flagged pillars, and returns the shareable /confirm/{token} link for the admin to send. 409 if the company has no flagged pillars to confirm.
+
+ * @summary Create a single-purpose expiring confirmation link for the portco CS lead or PE operating partner
+ */
+export const CreateAdminConfirmationRequestParams = zod.object({
+  companyId: zod.coerce.number(),
+});
+
+export const createAdminConfirmationRequestBodyExpiresInDaysMax = 90;
+
+export const CreateAdminConfirmationRequestBody = zod.object({
+  recipientRole: zod.enum(["portco_cs_lead", "pe_operating_partner"]),
+  expiresInDays: zod
+    .number()
+    .min(1)
+    .max(createAdminConfirmationRequestBodyExpiresInDaysMax)
+    .optional()
+    .describe("Link lifetime; default 14 days."),
+});
+
+/**
+ * @summary Revoke a pending confirmation link before it is used or expires
+ */
+export const RevokeAdminConfirmationRequestParams = zod.object({
+  requestId: zod.coerce.number(),
+});
+
+export const RevokeAdminConfirmationRequestResponse = zod.object({
+  id: zod.number(),
+  companyId: zod.number(),
+  recipientRole: zod.enum(["portco_cs_lead", "pe_operating_partner"]),
+  flaggedPillars: zod.array(
+    zod.object({
+      pillarId: zod.string(),
+      label: zod.string(),
+      predicted: zod
+        .string()
+        .nullable()
+        .describe('Pillar score at flag time (\"0\"|\"1\"|\"2\"|\"NA\").'),
+      reason: zod
+        .string()
+        .describe(
+          "Why the pillar was auto-flagged (insufficient_data | low_confidence).",
+        ),
+    }),
+  ),
+  status: zod
+    .string()
+    .describe(
+      "pending | submitted | revoked | expired (expired is derived at read time).",
+    ),
+  expiresAt: zod.string(),
+  createdAt: zod.string(),
+  createdBy: zod.string().nullable(),
+  respondedAt: zod.string().nullable(),
+});
+
+/**
  * @summary Record a resolution event (stored as a signals-table row with event_type set)
  */
 export const CreateAdminResolutionEventParams = zod.object({

@@ -354,6 +354,17 @@ curl -X POST "$REPLIT_DOMAINS/api/admin/firms/<firmId>/refresh" \
 
 The backfill response lists exactly which firms were changed, so a second backfill call returning all-zeros confirms the firm-meta / de-dup repair is complete and idempotent. After a firm's re-run job reaches `ready`, confirm its portal renders at `/<firmSlug>/portfolio`.
 
+## Portco/PE confirmation flow (Engagement Entry Step 2)
+
+External **Confirmation Status** is the existing `companies.tier3_status` column (`unconfirmed` | `portco_confirmed` | `pe_confirmed` — CQ-12 locked vocabulary). It is **not** a new field, and it is distinct from the internal Validated/Complete-Sendable report status; do not conflate them. Every mutation still writes a `tier_audit_log` row in the same transaction (admin edits via `PATCH /api/admin/companies/:id/tier3`; the public confirm flow writes its own audit row with an `external:` editor).
+
+Workflow (all admin surfaces on `/admin/calibration`, Admin-Lens-gated):
+
+1. After Stage 2 scoring, pillars scored `NA` ("Insufficient Data") are **auto-flagged** — derived live from the latest scored assessment, never stored on the company, so a re-score re-flags automatically.
+2. Admin creates a confirmation request for the **portco CS lead** or **PE operating partner** (`POST /api/admin/companies/:id/confirmation-requests`). This mints an expiring (default 14 days), unguessable 64-hex token; only its SHA-256 hash is stored in `confirmation_requests`, and the `/confirm/<token>` link is shown exactly once for the admin to send. Pending links can be revoked.
+3. The recipient opens the public, login-free `/confirm/<token>` page — scoped to that single company, no firm/company enumeration, forward-looking structural copy only (no employee-sentiment content, no GRR/NRR figures, no judgments of named individuals). Single submission (atomic pending→submitted claim).
+4. Submission writes through to the **Calibration Ledger**: one `calibration_observations` row (source `portco_confirmation` / `pe_confirmation`) whose confirmed/corrected values become the "actual" against the locked "predicted", and upgrades `tier3_status` per recipient role (`pe_confirmed` is never downgraded).
+
 ## Notion sync — duplicate protection (pre-write existence checks)
 
 Pipeline builds best-effort mirror each company's diagnostic into the shared **Portfolio Company Diagnostics** Notion database (`api-server/src/lib/notion.ts`, called from the build job). Two distinct existence checks run before any write, at two levels:

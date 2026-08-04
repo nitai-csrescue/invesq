@@ -119,7 +119,8 @@ Lessons from production incidents. Honor them in every future build.
 3. **Prod DB is separate from dev.** The only prod data fix path: idempotent startup routine → Republish → verify prod state. Never report a prod issue "fixed" before that verification.
 4. **A build is not done until writes are confirmed.** Verify changed files with `git --no-optional-locks status`; a firm is onboarded only when its portal resolves with companies + assessments; a code change is "shipped" only after Republish is confirmed live.
 5. **Post-build QA gates** after every pipeline or admin change: `verify-db-invariants` (must PASS), `pipeline-smoke-test` (must PASS), and `GET /api/admin/system-health` / the `/admin/health` page showing zero issues. Resolve the pre-publish blocking banner before republishing.
-6. **Copy and data policies (non-negotiable):**
+6. **Confirmation Status is `companies.tier3_status`** (`unconfirmed`|`portco_confirmed`|`pe_confirmed`) — never add a parallel status field, never conflate with the internal Validated/Complete-Sendable report status. Every mutation writes a `tier_audit_log` row in-transaction. The `/confirm/<token>` ask page (Engagement Entry Step 2) is the platform's ONE public token-scoped surface: 64-hex token, SHA-256 hash stored only, expiring, single-submission, single-company payload with no enumeration; submissions write through to `calibration_observations` as the ledger "actual". See FIRM-ONBOARDING.md "Portco/PE confirmation flow".
+7. **Copy and data policies (non-negotiable):**
    - No em-dashes anywhere in user-visible copy or generated narrative (use double hyphens or restructure).
    - INVESQ branding everywhere in visible chrome; never "CS Rescue".
    - No named individuals in generated narratives; redact to "the current CS leader".

@@ -40,6 +40,7 @@ import adminTiersRouter from "./adminTiers.js";
 import adminBackengineRouter from "./adminBackengine.js";
 import adminOutcomesRouter from "./adminOutcomes.js";
 import adminCalibrationRouter from "./adminCalibration.js";
+import adminConfirmationsRouter from "./adminConfirmations.js";
 import {
   getOrGenerateReportExport,
   getCompanyWebsite,
@@ -82,6 +83,7 @@ router.use(adminBackengineRouter);
 // log). Mounted after requireAdminAuth — never tenant-reachable.
 router.use(adminOutcomesRouter);
 router.use(adminCalibrationRouter);
+router.use(adminConfirmationsRouter);
 
 // The 5 hand-authored tenant slugs. They are not pipeline-managed, so the
 // on-demand re-run endpoint refuses to touch them (a rebuild would append a

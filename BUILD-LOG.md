@@ -1425,3 +1425,29 @@ curl -X POST https://<prod-domain>/api/admin/repair-assessments-dedup \
   - Prediction lock is now an atomic INSERT ... ON CONFLICT DO NOTHING; concurrent double-locks lose with 409, never a unique-violation 500.
   - Slack digest now summarizes only the PREVIOUS COMPLETED ISO week (fixed Monday-to-Monday UTC boundaries), so events created later in an in-progress week can never be skipped; the calibration_digests row is inserted as an atomic claim BEFORE posting (unique week_key elects one poster) and is released on post failure for retry.
   - calibration_predictions.assessment_id is now nullable with ON DELETE SET NULL so the same-day re-score path (delete + re-insert assessment) never fails against a locked snapshot; all predicted values are copied into the row, so the immutable snapshot survives intact.
+
+---
+
+## Engagement Entry Step 2 — Portco/PE confirmation flow (Confirmation Status + token-scoped ask page)
+- Date: 2026-08-04 15:25 UTC
+- Status: complete
+- Files changed: lib/db/src/schema/confirmationRequests.ts (new), lib/db/src/schema/index.ts, lib/api-spec/openapi.yaml (+codegen), artifacts/api-server/src/lib/confirmationFlags.ts (new), artifacts/api-server/src/routes/adminConfirmations.ts (new), artifacts/api-server/src/routes/confirmations.ts (new), artifacts/api-server/src/routes/admin.ts, artifacts/api-server/src/routes/index.ts, artifacts/api-server/src/lib/deleteFirmCascade.ts, artifacts/api-server/package.json (zod dep), artifacts/cs-rescue/src/pages/ConfirmationAsk.tsx (new), artifacts/cs-rescue/src/pages/admin/AdminCalibration.tsx, artifacts/cs-rescue/src/App.tsx, FIRM-ONBOARDING.md, replit.md
+- Republish needed: yes
+- Fields/tables:
+  - Confirmation Status = EXISTING companies.tier3_status (unconfirmed | portco_confirmed | pe_confirmed, CQ-12 vocabulary). No new status column added; the internal Validated/Complete-Sendable report status is untouched. All mutations keep writing tier_audit_log in-transaction (public confirm flow uses editor "external:<source>:request_<id>").
+  - New table confirmation_requests: id, company_id FK, token_hash (unique, SHA-256 of 32-byte hex token; raw token never stored), recipient_role (portco_cs_lead | pe_operating_partner), flagged_pillars jsonb snapshot, status (pending | submitted | revoked; expired derived at read), expires_at (default 14 days), created_by, created_at, responded_at, response jsonb. Included in deleteFirmCascade before companies delete.
+- Auto-flagging: derived live from the latest scored assessment (pillars scored NA / "Insufficient Data" — the same pillars that drive Low/Medium confidence in buildCompanyMeta); never stored on the company, so re-scores re-flag automatically; each request snapshots flags at creation.
+- Routes:
+  - Admin (behind requireAdminAuth): GET /api/admin/companies/:id/confirmation; POST /api/admin/companies/:id/confirmation-requests (mints link, returns it ONCE, 409 when nothing is flagged); POST /api/admin/confirmation-requests/:id/revoke (atomic pending-only claim, 409 otherwise). Admin status override remains PATCH /api/admin/companies/:id/tier3 (existing).
+  - Public by design: GET/POST /api/confirmations/:token — uniform 404 for unknown/malformed/revoked tokens, 410 expired / already_submitted; payload contains only the one company name + flagged pillars (no firm names, ids, or enumeration surface); POST accepts only the request's own flagged pillar ids.
+- Delivery mechanism chosen: admin-minted single-purpose shareable link /confirm/<token> (copy-and-send from /admin/calibration drill-in; no email dependency, no portal login).
+- Pages: /confirm/:token (public ConfirmationAsk, self-contained chrome, mobile-first; forward-looking structural copy only — no employee-sentiment content, no GRR/NRR, no named-individual judgments); /admin/calibration drill-in gains a "Portco / PE confirmation" section (status badge, flagged pillars, link minting + copy, request list + revoke).
+- Write-through: submission transaction atomically claims the request (pending -> submitted), inserts one calibration_observations row (source portco_confirmation | pe_confirmation) whose confirmed/corrected values become the "actual" vs the locked "predicted" in the Calibration Ledger, and upgrades tier3_status per recipient role (pe_confirmed never downgraded) + tier_audit_log row.
+- Validation: typecheck-api + typecheck-web clean; pipeline-smoke-test PASSED; verify-db-invariants has ONE PRE-EXISTING violation (assessment 176, dogfood "CS Rescue" co created 2026-08-03, 0 findings rows) unrelated to this build (no assessments/findings touched).
+- QA notes:
+  - Unauth admin confirmation routes 401; authed GET returns status/flags/requests.
+  - Full loop verified on dev: mint link (64-hex token) -> public GET without any cookie -> POST correction -> calibration_observations row written, delta table shows observed value, tier3_status unconfirmed -> portco_confirmed with audit row -> resubmit 410 -> GET-after-submit 410.
+  - Expired token 410 "expired" (backdated then restored); revoke: 200 -> public GET 404 -> re-revoke 409 -> missing id 404; bad/random tokens uniform 404 (no oracle).
+  - Tenant isolation: dev /api/portfolio/bootstrap 200 with ZERO occurrences of confirmation/tier3/tokenHash/flaggedPillars; grep of portfolio.ts/portfolioData.ts/reportExport.ts shows zero references; STG/Pamlico/Raviga pages unchanged.
+  - Mobile 390x844 screenshots of /confirm/<token>: ready state and invalid-link state both render cleanly; no console errors (only known benign ICP warnings).
+  - All QA scratch data cleaned: confirmation_requests emptied, test observation deleted, company 1 tier3 reverted via audit-compliant admin PATCH.

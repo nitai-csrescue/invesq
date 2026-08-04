@@ -49,6 +49,7 @@ import AdminHealth from "@/pages/admin/AdminHealth";
 import AdminFirmReviewRedirect from "@/pages/admin/FirmReviewRedirect";
 import AdminJobStatus from "@/pages/admin/JobStatus";
 import AdminReports from "@/pages/admin/AdminReports";
+import ConfirmationAsk from "@/pages/ConfirmationAsk";
 import { ProtectedRoute } from "@/lib/protected-route";
 import { PortfolioDataProvider, PortfolioGate } from "@/data/portfolio/PortfolioDataProvider";
 
@@ -85,6 +86,12 @@ function Shell({ children }: { children: ReactNode }) {
     return <AdminShell>{children}</AdminShell>;
   }
 
+  // External confirmation-ask page (token-scoped, Engagement Entry Step 2) —
+  // fully self-contained chrome, never wrapped in the demo Layout.
+  if (location.startsWith("/confirm/")) {
+    return <>{children}</>;
+  }
+
   // Legacy /firms path — redirected to /admin below; pass the Redirect through
   // without wrapping it in the demo Layout chrome.
   if (location === "/firms") {
@@ -118,6 +125,11 @@ function Router() {
           <Route path="/settings" component={Settings} />
           <Route path="/platform/architecture" component={Architecture} />
           <Route path="/platform/ai-copilot" component={AICopilot} />
+
+          {/* External confirmation-ask page — public by design, scoped to one
+              company by an expiring unguessable token (no portal login). Must
+              stay above the /:firmSlug/* wildcards. */}
+          <Route path="/confirm/:token" component={ConfirmationAsk} />
 
           {/* Legacy tenant index — consolidated into /admin. */}
           <Route path="/firms">{() => <Redirect to="/admin" />}</Route>
