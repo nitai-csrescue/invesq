@@ -22,8 +22,16 @@
 import { createHash, createHmac, randomBytes, timingSafeEqual } from "node:crypto";
 import type { Request, Response } from "express";
 
-/** Firm slugs whose tenant portal requires login. THE scope boundary. */
-export const LOGIN_GATED_SLUGS: ReadonlySet<string> = new Set(["stg"]);
+/**
+ * Firm slugs whose tenant portal requires login. THE scope boundary.
+ *
+ * TEMPORARY ROLLBACK (2026-08-04): "stg" removed to disable the CQ-14
+ * magic-link login screen while Resend email delivery is sandbox-limited.
+ * All login machinery (tenant_login_tokens, request/verify endpoints,
+ * session cookie) is intentionally left in place, unused — re-add "stg"
+ * here to re-enable. RLS policies are NOT affected by this constant.
+ */
+export const LOGIN_GATED_SLUGS: ReadonlySet<string> = new Set([]);
 
 export const TENANT_SESSION_COOKIE = "tenant_sid";
 /** Session lifetime: 12 hours ("a few hours to a day"). */

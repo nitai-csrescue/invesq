@@ -1363,3 +1363,18 @@ curl -X POST https://<prod-domain>/api/admin/repair-assessments-dedup \
   - drizzle-kit push applied; all 30 existing companies backfilled tier3_status='unconfirmed'; QA scribbles reverted (audit/dispute tables back to 0 rows, company 11 reset); throwaway admin session deleted.
 - Republish needed: yes (prod gets tier2_status/tier3_status columns + tier_disputes/tier_audit_log tables via the Publish schema diff; no manual DDL).
 - Review-round fixes (same day): (1) dispute resolution made concurrency-safe — the transaction now atomically claims the pending row (conditional UPDATE ... WHERE status='pending' RETURNING) before any mutation; the losing concurrent resolve gets 409. Proven with two simultaneous apply/reject requests: one 200, one 409, exactly one audit row. (2) AdminTiers row pairs keyed via <Fragment key> (was unkeyed shorthand fragment). (3) Removed double AdminShell wrapper (ProtectedRoute already provides it). (4) OpenAPI auditRowId description corrected — reject resolutions also write an audit row.
+
+---
+
+## CQ-14 rollback (temporary): disable STG magic-link login gate
+- Date: 2026-08-04 (UTC)
+- Status: complete in dev; Republish required to reach prod
+- Files changed: artifacts/api-server/src/lib/tenantAuth.ts (ONLY file — removed "stg" from LOGIN_GATED_SLUGS, now an empty set, with a dated re-enable comment). git diff --stat: 1 file, +10/-2.
+- What this does: /stg/portfolio, /stg/portfolio/:company, and /stg/portfolio/:company/report render anonymously again with real data, exactly like every other non-gated tenant. /stg/portfolio/:company/journey keeps its independent CQ-27 Admin Lens gate (anonymous/non-admin visitors redirect to the company page) — that gate was never part of CQ-14 and is explicitly out of scope.
+- Deliberately NOT touched (rollback is the login screen only): Postgres RLS (tenant_reader role + tenant_isolation_select policies + withTenantDb), tenant_login_tokens table, magic-link request/verify endpoints (routes/tenantAuth.ts), tenant_sid session cookie mechanism, Admin Lens / Google admin auth, all other tenants. The login machinery stays in the codebase unused so re-adding "stg" to LOGIN_GATED_SLUGS re-enables it later (once Resend domain verification / recipient management lands).
+- Why: Resend account is sandbox-limited (only delivers to the owner), so tenant users like Jay never receive their sign-in links; user chose to drop the gate for now (task #55 tracks the email fix).
+- QA evidence (dev):
+  - Anonymous bootstrap: stg now ships 5 companies (no requireLogin flag); pamlico/raviga/longarc/solen/cs-rescue-internal unchanged (3/10/3/6/1).
+  - Anonymous screenshots: /stg/portfolio and /stg/portfolio/taxcalc render full real data, no login redirect, no console errors; /stg/portfolio/taxcalc/journey redirects to the company page per the Admin Lens gate; /pamlico/portfolio unchanged.
+  - RLS re-proof in psql: SET LOCAL ROLE tenant_reader with app.firm_id=stg sees 5 stg companies and 0 pamlico companies; with app.firm_id unset the select fails closed (integer cast error). Policies untouched and enforced.
+  - Validation run PASSED: api-server tsc --noEmit + cs-rescue tsc --noEmit both clean.
