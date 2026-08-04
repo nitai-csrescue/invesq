@@ -7,3 +7,5 @@ Rule: for "resolve a pending record" endpoints (disputes, approvals, queues), th
 **Why:** architect review caught that two concurrent admins could both pass a precheck, both mutate, and write duplicate audit rows — violating the "exactly one audit row per change" invariant. Verified fix with simultaneous apply/reject: one 200, one 409, one audit row.
 
 **How to apply:** whenever adding a resolve/approve/claim endpoint, put the conditional claim first inside the tx and gate all subsequent writes on it.
+
+**Expiry belongs inside the claim too (2026-08-04):** for expiring token links, checking `expiresAt` before the transaction is not enough — the conditional claim itself must include `expires_at >= now()` at database time, or a link expiring mid-request still writes. Distinguish the loser's 410 reason by rechecking expiry after the failed claim.

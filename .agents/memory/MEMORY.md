@@ -37,4 +37,4 @@
 - [Notion dedup live check](notion-dedup-live-check.md) — sync-state keyed by per-run ids isn't idempotency; dedup needs a live query on the business key with client-side normalized matching.
 - [Boot backfill vs response cache](boot-backfill-cache-snapshot.md) — a cache-on-first-request payload can freeze a mid-refresh snapshot; boot backfills must invalidate it, and UI headlines the latest row, not flipped historical ones.
 - [Calibration Ledger design invariants](calibration-ledger-design.md) — locked-snapshot immutability, claim-before-post digest weeks, and why assessment FKs must survive the re-score delete+reinsert.
-- [Dispute resolution atomic claim](dispute-audit-atomic-claim.md) — resolve-pending endpoints must conditionally claim the row inside the tx (409 loser), never precheck-then-update.
+- [Dispute resolution atomic claim](dispute-audit-atomic-claim.md) — conditionally claim rows inside the tx (never precheck-then-update); expiring tokens must enforce expires_at in the claim itself.
