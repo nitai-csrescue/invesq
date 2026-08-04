@@ -1542,3 +1542,14 @@ curl -X POST https://<prod-domain>/api/admin/repair-assessments-dedup \
 - What/why: The slug-keyed ICP backfill (written for the legacy STG rows) matched the freshly pipeline-onboarded STG companies by slug coincidence, stamped stale legacy ICP values onto 5/6 (Trellix never in its map), and the engine's all-or-none ICP rule then hard-failed validation for the firm, removing STG from the dev bootstrap after a restart. Removed STG from the backfill map (STG is de-legacized; ICP data for pipeline companies must come from the pipeline/admin flow) and stripped the accidental stamps in dev. Prod verified unaffected (0 stamped rows — its backfill ran a second before the seed inserted the companies).
 - QA notes: typecheck clean; dev bootstrap again returns STG with all 6 companies; dev/prod both have 0 ICP-stamped STG rows.
 - Self-report: entry written by the agent immediately after the change.
+
+---
+
+## Phase 2 legacy-tenant migration: de-legacize Pamlico/Long Arc/Solen, delete Raviga
+- Date: 2026-08-04 18:15 UTC
+- Status: complete in dev; prod runs via next Republish (TEMPORARY migratePhase2Tenants routine to be removed after prod verification)
+- Files changed: lib/portfolio-engine/src/data/firmsMeta.ts (LEGACY_FIRMS_META now empty), artifacts/api-server/src/lib/backfillIcpMeta.ts (deleted — remaining entries were Pamlico slugs that would re-stamp stale ICP data on re-onboarded companies, the exact STG lesson), artifacts/api-server/src/lib/migratePhase2Tenants.ts (new one-shot boot migration), artifacts/api-server/src/index.ts (wired between RLS DDL and job resumption)
+- Republish needed: yes
+- What/why: Pamlico/Long Arc/Solen de-legacized identically to STG — company rows + FK children wiped via shared deleteFirmCompaniesCascade (12 companies total), firm rows preserved, durable marker firms.meta.migratedToPipelineAt per firm. Raviga (fictional HBO Silicon Valley demo data, confirmed for full removal) deleted entirely via deleteFirmCascade; deletion naturally idempotent (absent firm row = done). Remaining raviga code references are all slug-gated (isRaviga checks, literal /raviga/signals route) and are dead-but-harmless with the firm gone — left untouched to keep the diff scoped.
+- QA notes: typecheck api+web clean; no stale queued jobs before restart. Dev verified: raviga firm+10 companies gone (/api/portfolio/raviga/signals -> 404), pamlico/longarc/solen exist with 0 companies + markers set, bootstrap 200 listing all three as empty portfolios, /pamlico/portfolio renders clean empty state with zero console errors, STG untouched (still 6 pipeline-built companies).
+- Self-report: entry written by the agent immediately after the change.

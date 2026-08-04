@@ -4,11 +4,11 @@ import { resumeQueuedDiscoveryJobs } from "./lib/jobs/discovery";
 import { resumeQueuedBuildJobs } from "./lib/jobs/build";
 import { startWeeklySlackDigest } from "./lib/slackDigest";
 import { backfillCompanyNormalizedNames } from "./lib/backfillNormalizedNames";
-import { backfillIcpMeta } from "./lib/backfillIcpMeta";
 import { backfillRubricV2 } from "./lib/backfillRubricV2";
 import { backfillEngagement } from "./lib/backfillEngagement";
 import { ensureRlsPolicies } from "./lib/rlsPolicies";
 import { removePamlicoCapitalDuplicate } from "./lib/removePamlicoCapitalDuplicate";
+import { migratePhase2Tenants } from "./lib/migratePhase2Tenants";
 import { seedStuckFirms } from "./lib/seedStuckFirms";
 import { logSystemHealthOnStartup } from "./lib/systemHealth";
 
@@ -47,15 +47,17 @@ app.listen(port, (err) => {
   logger.info({ port }, "Server listening");
 
   void backfillCompanyNormalizedNames();
-  void backfillIcpMeta();
   void backfillRubricV2();
   void backfillEngagement();
   // Sequence job resumption after the RLS DDL: boot routines that touch the
-  // same relations concurrently have deadlocked before.
-  void ensureRlsPolicies().then(() => {
-    void resumeQueuedDiscoveryJobs();
-    void resumeQueuedBuildJobs();
-  });
+  // same relations concurrently have deadlocked before. The one-shot Phase 2
+  // tenant migration runs in between (touches the same relations).
+  void ensureRlsPolicies()
+    .then(() => migratePhase2Tenants())
+    .then(() => {
+      void resumeQueuedDiscoveryJobs();
+      void resumeQueuedBuildJobs();
+    });
   void removePamlicoCapitalDuplicate();
   void seedStuckFirms();
   void logSystemHealthOnStartup();

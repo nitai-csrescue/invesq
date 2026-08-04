@@ -7,34 +7,12 @@
 // ---------------------------------------------------------------------------
 import type { Firm } from "../types";
 
-// NOTE (2026-08-04): "stg" was de-legacized — it is now a standard
-// pipeline-managed tenant (firms.meta + fail-soft bootstrap branch), so it no
-// longer appears here. Pamlico/Raviga/Long Arc/Solen remain legacy until their
-// own migration passes.
-export const LEGACY_FIRMS_META: Firm[] = [
-  {
-    slug: "pamlico",
-    displayName: "Pamlico Capital",
-    statusLabel: "Internal preview — not cleared for external distribution",
-    internalOnly: true,
-    icpFit: "Moderate",
-  },
-  {
-    slug: "raviga",
-    displayName: "Raviga Capital",
-    statusLabel: "Demo Sandbox — Not for External Use",
-    internalOnly: true,
-  },
-  {
-    slug: "longarc",
-    displayName: "Long Arc Capital",
-    statusLabel: "Internal preview — not cleared for external distribution",
-    internalOnly: true,
-  },
-  {
-    slug: "solen",
-    displayName: "Solen Software Group",
-    statusLabel: "Internal preview — not cleared for external distribution",
-    internalOnly: true,
-  },
-];
+// NOTE (2026-08-04): the legacy-tenant era is over.
+//   - "stg" was de-legacized first (pipeline re-onboarded, verified in prod).
+//   - Phase 2: "pamlico", "longarc", and "solen" were de-legacized the same
+//     way (firm rows preserved, company data wiped for pipeline re-onboarding)
+//     and "raviga" (fictional demo sandbox) was deleted entirely.
+// All tenants are now standard pipeline-managed firms (firms.meta +
+// fail-soft bootstrap branch). This list stays as the derivation point for
+// LEGACY_SLUGS guards, which now correctly match nothing.
+export const LEGACY_FIRMS_META: Firm[] = [];
