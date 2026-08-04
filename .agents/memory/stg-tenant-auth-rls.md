@@ -3,6 +3,7 @@ name: STG tenant auth + RLS patterns
 description: How the STG-only magic-link login and Postgres RLS tenant isolation are wired, and the traps found building it.
 ---
 
+- STATUS (2026-08-04): login gate temporarily DISABLED — `LOGIN_GATED_SLUGS` is an empty set (Resend sandbox couldn't deliver to non-owner emails). All login machinery left in place unused; re-add "stg" to re-enable. RLS untouched.
 - Scope boundary is `LOGIN_GATED_SLUGS` in api-server `lib/tenantAuth.ts` (code constant, NOT a DB flag). **Every** gate must union it with any DB `meta.requireLogin` check — the report-pdf route originally trusted only the DB flag and was an anonymous-download bypass.
 - **Why:** DB meta can be missing/edited; code-level gating keeps dev and prod identical with no data migration.
 - RLS: non-owner role `tenant_reader` + `tenant_isolation_select` policies keyed on `current_setting('app.firm_id')`; the owner connection bypasses RLS (not FORCEd) so all pre-existing paths are untouched. Tenant-session reads go through `withTenantDb()` (BEGIN; SET LOCAL ROLE; set_config; COMMIT).
