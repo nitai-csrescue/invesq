@@ -7,14 +7,11 @@
 // ---------------------------------------------------------------------------
 import type { Firm } from "../types";
 
+// NOTE (2026-08-04): "stg" was de-legacized — it is now a standard
+// pipeline-managed tenant (firms.meta + fail-soft bootstrap branch), so it no
+// longer appears here. Pamlico/Raviga/Long Arc/Solen remain legacy until their
+// own migration passes.
 export const LEGACY_FIRMS_META: Firm[] = [
-  {
-    slug: "stg",
-    displayName: "STG",
-    statusLabel: "Design-partner preview",
-    internalOnly: false,
-    icpFit: "Strong",
-  },
   {
     slug: "pamlico",
     displayName: "Pamlico Capital",

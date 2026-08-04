@@ -44,7 +44,26 @@ export interface DeleteFirmCascadeResult {
   removedAssessments: number;
 }
 
+/**
+ * Delete ALL companies of a firm plus every row hanging off them, but keep
+ * the firm row (and its ingestion_sources / firm-targeted jobs) intact.
+ * Shares the exact child-deletion order with deleteFirmCascade below so the
+ * two can never diverge. Used by the STG de-legacize migration.
+ */
+export async function deleteFirmCompaniesCascade(
+  firmId: number,
+): Promise<DeleteFirmCascadeResult> {
+  return runCascade(firmId, { deleteFirmRow: false });
+}
+
 export async function deleteFirmCascade(firmId: number): Promise<DeleteFirmCascadeResult> {
+  return runCascade(firmId, { deleteFirmRow: true });
+}
+
+async function runCascade(
+  firmId: number,
+  opts: { deleteFirmRow: boolean },
+): Promise<DeleteFirmCascadeResult> {
   const companies = await db
     .select({ id: companiesTable.id })
     .from(companiesTable)
@@ -72,8 +91,11 @@ export async function deleteFirmCascade(firmId: number): Promise<DeleteFirmCasca
       : [];
 
   // Polymorphic jobs.target_id is text and may hold the firm id or a company
-  // id depending on job type; remove both forms.
-  const jobTargetIds = [String(firmId), ...companyIds.map(String)];
+  // id depending on job type; remove both forms (companies only when the
+  // firm row itself is kept).
+  const jobTargetIds = opts.deleteFirmRow
+    ? [String(firmId), ...companyIds.map(String)]
+    : companyIds.map(String);
 
   await db.transaction(async (tx) => {
     if (revisionIds.length > 0) {
@@ -138,11 +160,15 @@ export async function deleteFirmCascade(firmId: number): Promise<DeleteFirmCasca
         .where(inArray(tierDisputesTable.companyId, companyIds));
       await tx.delete(companiesTable).where(inArray(companiesTable.id, companyIds));
     }
-    await tx.delete(jobsTable).where(inArray(jobsTable.targetId, jobTargetIds));
-    await tx
-      .delete(ingestionSourcesTable)
-      .where(eq(ingestionSourcesTable.firmId, firmId));
-    await tx.delete(firmsTable).where(eq(firmsTable.id, firmId));
+    if (jobTargetIds.length > 0) {
+      await tx.delete(jobsTable).where(inArray(jobsTable.targetId, jobTargetIds));
+    }
+    if (opts.deleteFirmRow) {
+      await tx
+        .delete(ingestionSourcesTable)
+        .where(eq(ingestionSourcesTable.firmId, firmId));
+      await tx.delete(firmsTable).where(eq(firmsTable.id, firmId));
+    }
   });
 
   return {

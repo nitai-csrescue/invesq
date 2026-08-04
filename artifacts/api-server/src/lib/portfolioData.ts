@@ -171,16 +171,19 @@ async function load(): Promise<PortfolioLoadResult> {
             assessments: assessmentsByCompany.get(c.id) ?? [],
           }));
 
+        // A firm with zero renderable companies is still a real tenant (e.g.
+        // freshly de-legacized STG awaiting its first pipeline build): include
+        // it with an empty portfolio so its portal renders an empty state
+        // instead of vanishing/404ing. Engine validation is a no-op on [].
         if (rawCompanies.length === 0) {
           logger.info(
             { firmId: firm.id, slug: firm.slug, status: firm.status },
-            "Skipping pipeline firm in bootstrap (no renderable companies)",
+            "Including pipeline firm with empty portfolio in bootstrap (no renderable companies yet)",
           );
-          continue;
+        } else {
+          // Validate against every engine invariant — throws on any violation.
+          buildFirmPortfolio(firm.slug, rawCompanies);
         }
-
-        // Validate against every engine invariant — throws on any violation.
-        buildFirmPortfolio(firm.slug, rawCompanies);
 
         bootstrapFirms.push({
           slug: firm.slug,

@@ -1480,3 +1480,14 @@ curl -X POST https://<prod-domain>/api/admin/repair-assessments-dedup \
 - Files changed: artifacts/api-server/src/lib/repairStgTrellix.ts (deleted), artifacts/api-server/src/index.ts (unwired)
 - Republish needed: yes (next Publish ships without the routine; harmless until then — idempotent no-op now that prod company 64 has meta + assessment)
 - What/why: prod repair confirmed live (company 64 has_meta=true, 1 assessment; user downloaded the Trellix diagnostic PDF). Per plan, the temporary routine is removed so it leaves no permanent surface area. Typecheck clean; `rg repairStgTrellix` returns nothing.
+
+---
+
+## De-legacize STG (Phase 1 of 5-tenant migration)
+- Date: 2026-08-04 16:40 UTC
+- Status: complete in dev (pending Publish for prod; migration routine is TEMPORARY — remove after live verification)
+- Files changed: lib/portfolio-engine/src/data/firmsMeta.ts (stg removed from LEGACY_FIRMS_META), artifacts/api-server/src/lib/portfolioData.ts (pipeline firms with 0 renderable companies now render an empty portfolio instead of being skipped), artifacts/api-server/src/lib/deleteFirmCascade.ts (extracted shared deleteFirmCompaniesCascade — same FK order, firm row kept), artifacts/api-server/src/lib/migrateStgToPipeline.ts (new, TEMPORARY boot migration), artifacts/api-server/src/index.ts (wiring; migration sequenced AFTER ensureRlsPolicies — running them concurrently deadlocked at boot), artifacts/api-server/src/lib/tenantAuth.ts (comment only; LOGIN_GATED_SLUGS was already empty)
+- Republish needed: yes (runs the prod deletion), plus one more after removing the temp migration
+- What/why: STG is now a standard pipeline-managed tenant (signed off by Nitai). Boot migration wipes ALL STG companies + children (assessments, reports incl. validations, signals, findings, calibration, confirmation requests, tier disputes/audit, backengine, interventions, company-targeted jobs) via the shared cascade; firm row (slug stg, name STG, meta) untouched. Admin "Add company" on STG now follows the normal confirm-and-queue-build pipeline; LEGACY delete/backfill guards no longer apply to stg.
+- QA notes: typecheck api+web clean. Dev verified: migration removed 6 companies/6 assessments; /stg/portfolio renders clean empty state (0 companies, no console errors, no login gate); pamlico (3) / raviga (10) / longarc (3) / solen (6) unchanged and still legacy-classified. First boot hit an RLS/migration deadlock (fixed by sequencing); one stale-log 500 was that boot only.
+- Self-report: this entry written by the agent immediately after the change, per the append-only BUILD-LOG convention.

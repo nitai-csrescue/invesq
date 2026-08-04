@@ -9,6 +9,7 @@ import { backfillRubricV2 } from "./lib/backfillRubricV2";
 import { backfillEngagement } from "./lib/backfillEngagement";
 import { ensureRlsPolicies } from "./lib/rlsPolicies";
 import { removePamlicoCapitalDuplicate } from "./lib/removePamlicoCapitalDuplicate";
+import { migrateStgToPipeline } from "./lib/migrateStgToPipeline";
 import { seedStuckFirms } from "./lib/seedStuckFirms";
 import { logSystemHealthOnStartup } from "./lib/systemHealth";
 
@@ -50,7 +51,9 @@ app.listen(port, (err) => {
   void backfillIcpMeta();
   void backfillRubricV2();
   void backfillEngagement();
-  void ensureRlsPolicies();
+  // The STG migration's cascade delete and the RLS DDL touch the same
+  // relations; running them concurrently deadlocks at boot. Sequence them.
+  void ensureRlsPolicies().then(() => migrateStgToPipeline());
   void removePamlicoCapitalDuplicate();
   void seedStuckFirms();
   void resumeQueuedDiscoveryJobs();
