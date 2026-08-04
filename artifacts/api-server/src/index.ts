@@ -10,6 +10,7 @@ import { ensureRlsPolicies } from "./lib/rlsPolicies";
 import { removePamlicoCapitalDuplicate } from "./lib/removePamlicoCapitalDuplicate";
 import { migratePhase2Tenants } from "./lib/migratePhase2Tenants";
 import { seedTrellixManualEvidence } from "./lib/seedTrellixManualEvidence";
+import { restorePhase2Portfolios } from "./lib/restorePhase2Portfolios";
 import { seedStuckFirms } from "./lib/seedStuckFirms";
 import { logSystemHealthOnStartup } from "./lib/systemHealth";
 
@@ -56,6 +57,10 @@ app.listen(port, (err) => {
   void ensureRlsPolicies()
     .then(() => migratePhase2Tenants())
     .then(() => seedTrellixManualEvidence())
+    // TEMPORARY: re-onboard the three tenants emptied by migratePhase2Tenants
+    // (runs the real add-company + build pipeline; marker-gated, idempotent).
+    // Must run BEFORE the resume scan so its queued jobs aren't double-fired.
+    .then(() => restorePhase2Portfolios())
     .then(() => {
       void resumeQueuedDiscoveryJobs();
       void resumeQueuedBuildJobs();
