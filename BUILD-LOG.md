@@ -1460,3 +1460,14 @@ curl -X POST https://<prod-domain>/api/admin/repair-assessments-dedup \
 - Files changed: artifacts/api-server/src/routes/confirmations.ts
 - Republish needed: yes (rides with the main confirmation-flow entry)
 - QA notes: architect review found that a link expiring between the POST precheck and the transactional claim could still write. The atomic pending->submitted claim now also requires expires_at >= now() at DATABASE time; the loser gets 410 "expired" (vs "already_submitted" for concurrent-submit losers). Verified live: backdated request POST returns 410 expired with zero writes (request stays pending, no observation, tier3_status unchanged).
+
+---
+
+## TEMP: STG Trellix (prod company 64) boot repair routine
+- Date: 2026-08-04 16:05 UTC
+- Status: complete (pending Publish + live verification, then REMOVAL — this routine is temporary)
+- Files changed: artifacts/api-server/src/lib/repairStgTrellix.ts (new, TEMPORARY), artifacts/api-server/src/index.ts
+- Republish needed: yes (twice — once to run the repair, once after removing the routine)
+- What/why: live admin "add company" left prod company 64 (Trellix, STG) as a bare row with no meta/assessments; STG's legacy bootstrap validation fails loud on such rows, so the next cache reload would white-screen every tenant portal. The agent has no prod write channel, so per replit.md convention #3 this idempotent startup routine writes the exact meta + single 2026-08-04 assessment (org 1 / onboarding 1 / health 2 / escalation NA / revenue 2 / leadership 1 / planning 2 / ai 2; rubric columns Medium/Medium/High/High, PortCo High, version v6) already created and screenshot-verified in dev (company 208), then invalidates the portfolio cache.
+- Safety: guards require id 64 + firm slug stg + company slug trellix + name Trellix + status active; meta written only when NULL; assessment inserted only when the company has zero; single transaction; touches no other row. No-ops in dev (verified boot log: "guards not met, skipping") and on every prod boot after the first.
+- QA notes: typecheck-api clean; dev restart clean; dev bootstrap still serves STG with 6 companies (dev row 208 unaffected).
