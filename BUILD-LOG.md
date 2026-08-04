@@ -1451,3 +1451,12 @@ curl -X POST https://<prod-domain>/api/admin/repair-assessments-dedup \
   - Tenant isolation: dev /api/portfolio/bootstrap 200 with ZERO occurrences of confirmation/tier3/tokenHash/flaggedPillars; grep of portfolio.ts/portfolioData.ts/reportExport.ts shows zero references; STG/Pamlico/Raviga pages unchanged.
   - Mobile 390x844 screenshots of /confirm/<token>: ready state and invalid-link state both render cleanly; no console errors (only known benign ICP warnings).
   - All QA scratch data cleaned: confirmation_requests emptied, test observation deleted, company 1 tier3 reverted via audit-compliant admin PATCH.
+
+---
+
+## Confirmation flow — review hardening (expiry race in submission claim)
+- Date: 2026-08-04 15:40 UTC
+- Status: complete
+- Files changed: artifacts/api-server/src/routes/confirmations.ts
+- Republish needed: yes (rides with the main confirmation-flow entry)
+- QA notes: architect review found that a link expiring between the POST precheck and the transactional claim could still write. The atomic pending->submitted claim now also requires expires_at >= now() at DATABASE time; the loser gets 410 "expired" (vs "already_submitted" for concurrent-submit losers). Verified live: backdated request POST returns 410 expired with zero writes (request stays pending, no observation, tier3_status unchanged).

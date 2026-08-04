@@ -28,7 +28,7 @@
 //      portco_confirmed.
 // ---------------------------------------------------------------------------
 import { Router, type IRouter } from "express";
-import { and, eq } from "drizzle-orm";
+import { and, eq, gte, sql } from "drizzle-orm";
 import { z } from "zod/v4";
 import {
   db,
@@ -196,6 +196,10 @@ router.post("/:token", async (req, res) => {
           and(
             eq(confirmationRequestsTable.id, request.id),
             eq(confirmationRequestsTable.status, "pending"),
+            // Re-check expiry inside the claim itself at DATABASE time — a
+            // link that expires between the precheck and this UPDATE must
+            // lose here and produce zero writes.
+            gte(confirmationRequestsTable.expiresAt, sql`now()`),
           ),
         )
         .returning({ id: confirmationRequestsTable.id });
@@ -241,7 +245,11 @@ router.post("/:token", async (req, res) => {
     });
 
     if (!ok) {
-      res.status(410).json({ error: "already_submitted" });
+      // The claim can lose either to a concurrent submission or to expiry
+      // crossing during the request; report the accurate reason.
+      res.status(410).json({
+        error: request.expiresAt.getTime() < Date.now() ? "expired" : "already_submitted",
+      });
       return;
     }
     req.log.info(
