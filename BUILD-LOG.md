@@ -1500,3 +1500,13 @@ curl -X POST https://<prod-domain>/api/admin/repair-assessments-dedup \
 - Files changed: artifacts/api-server/src/lib/migrateStgToPipeline.ts, artifacts/api-server/src/index.ts
 - Republish needed: yes (same Publish as the migration itself)
 - What/why: architect review flagged that "0 companies" as the completion check would re-wipe STG after the pipeline repopulates it on any later restart/Publish. Now a durable marker (firms.meta.migratedToPipelineAt) written after the wipe makes it truly one-shot, and queued job resumption is sequenced after the migration so a resumed STG build can never race the wipe. Dev-verified: marker present, second boot no-ops, bootstrap clean.
+
+---
+
+## Remove temporary STG de-legacize migration routine
+- Date: 2026-08-04 17:05 UTC
+- Status: complete
+- Files changed: artifacts/api-server/src/lib/migrateStgToPipeline.ts (deleted), artifacts/api-server/src/index.ts (unwired; job resumption stays sequenced after RLS DDL)
+- Republish needed: yes (removes the dead routine from the prod bundle; harmless if delayed — the durable marker firms.meta.migratedToPipelineAt already makes it a no-op)
+- What/why: prod verified live after Publish — STG firm intact with 0 companies/0 assessments, marker set 16:52 UTC, pamlico/raviga/longarc/solen unchanged (3/10/3/6), https://cs-rescue.replit.app/stg/portfolio renders the clean empty state. Side effect confirmed: the misleading Trellix "Signed Off" validation row was deleted as an STG child row. Per convention, the one-shot routine is removed after verified production execution.
+- Self-report: entry written by the agent immediately after the change.

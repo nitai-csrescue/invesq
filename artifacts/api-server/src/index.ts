@@ -9,7 +9,6 @@ import { backfillRubricV2 } from "./lib/backfillRubricV2";
 import { backfillEngagement } from "./lib/backfillEngagement";
 import { ensureRlsPolicies } from "./lib/rlsPolicies";
 import { removePamlicoCapitalDuplicate } from "./lib/removePamlicoCapitalDuplicate";
-import { migrateStgToPipeline } from "./lib/migrateStgToPipeline";
 import { seedStuckFirms } from "./lib/seedStuckFirms";
 import { logSystemHealthOnStartup } from "./lib/systemHealth";
 
@@ -51,16 +50,12 @@ app.listen(port, (err) => {
   void backfillIcpMeta();
   void backfillRubricV2();
   void backfillEngagement();
-  // The STG migration's cascade delete and the RLS DDL touch the same
-  // relations; running them concurrently deadlocks at boot. Sequence them,
-  // and only resume queued jobs after the migration so a resumed STG build
-  // can never race the one-time wipe.
-  void ensureRlsPolicies()
-    .then(() => migrateStgToPipeline())
-    .then(() => {
-      void resumeQueuedDiscoveryJobs();
-      void resumeQueuedBuildJobs();
-    });
+  // Sequence job resumption after the RLS DDL: boot routines that touch the
+  // same relations concurrently have deadlocked before.
+  void ensureRlsPolicies().then(() => {
+    void resumeQueuedDiscoveryJobs();
+    void resumeQueuedBuildJobs();
+  });
   void removePamlicoCapitalDuplicate();
   void seedStuckFirms();
   void logSystemHealthOnStartup();
