@@ -82,6 +82,15 @@ export const companiesTable = pgTable(
     // every existing row to unconfirmed. Mutations MUST go through the admin
     // tier routes, which write a tier_audit_log row in the same transaction.
     tier3Status: text("tier3_status").notNull().default("unconfirmed"),
+    // ---- Data Moat action #3: Outcome Data (2026-08-04). INTERNAL-ONLY
+    // retention outcomes, shape OutcomeMetrics below. null = never entered.
+    // Admin-Lens-editable ONLY (routes/adminOutcomes.ts). NEVER surfaced on
+    // any tenant-facing route, client report, or exported PDF — the
+    // portfolio bootstrap mapper spreads companies.meta plus explicit
+    // fields, so this top-level column is structurally excluded; keep it
+    // that way. Standing rule: real GRR/NRR figures never appear in
+    // real-tenant client-facing material.
+    outcomeMetrics: jsonb("outcome_metrics"),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   },
   (table) => [

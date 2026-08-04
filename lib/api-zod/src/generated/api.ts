@@ -3711,6 +3711,201 @@ export const ListAdminTierAuditResponse = zod.array(
 );
 
 /**
+ * @summary Internal outcome metrics + interventions log for one company (Admin Lens only)
+ */
+export const GetAdminCompanyOutcomesParams = zod.object({
+  companyId: zod.coerce.number(),
+});
+
+export const GetAdminCompanyOutcomesResponse = zod.object({
+  companyId: zod.number(),
+  companyName: zod.string(),
+  firmSlug: zod.string().nullable(),
+  metrics: zod
+    .object({
+      grrEntry: zod.number().nullish(),
+      nrrEntry: zod.number().nullish(),
+      grr90d: zod.number().nullish(),
+      nrr90d: zod.number().nullish(),
+      grr180d: zod.number().nullish(),
+      nrr180d: zod.number().nullish(),
+      grrAnnual: zod.number().nullish(),
+      nrrAnnual: zod.number().nullish(),
+    })
+    .describe(
+      "Entry\/milestone retention outcomes, all nullable percentages (null = not yet measured). INTERNAL ONLY — never rendered on tenant pages, client reports, or exported PDFs.\n",
+    ),
+  interventions: zod.array(
+    zod.object({
+      id: zod.number(),
+      companyId: zod.number(),
+      pillar: zod.enum([
+        "org_design",
+        "onboarding",
+        "health_scoring",
+        "renewal_expansion",
+      ]),
+      action: zod.string(),
+      occurredOn: zod.string(),
+      owner: zod.string(),
+      createdAt: zod.string(),
+      createdBy: zod.string(),
+    }),
+  ),
+});
+
+/**
+ * @summary Update entry/milestone GRR-NRR outcome metrics (partial; null clears a value)
+ */
+export const UpdateAdminCompanyOutcomeMetricsParams = zod.object({
+  companyId: zod.coerce.number(),
+});
+
+export const updateAdminCompanyOutcomeMetricsBodyGrrEntryMin = 0;
+export const updateAdminCompanyOutcomeMetricsBodyGrrEntryMax = 200;
+
+export const updateAdminCompanyOutcomeMetricsBodyNrrEntryMin = 0;
+export const updateAdminCompanyOutcomeMetricsBodyNrrEntryMax = 200;
+
+export const updateAdminCompanyOutcomeMetricsBodyGrr90dMin = 0;
+export const updateAdminCompanyOutcomeMetricsBodyGrr90dMax = 200;
+
+export const updateAdminCompanyOutcomeMetricsBodyNrr90dMin = 0;
+export const updateAdminCompanyOutcomeMetricsBodyNrr90dMax = 200;
+
+export const updateAdminCompanyOutcomeMetricsBodyGrr180dMin = 0;
+export const updateAdminCompanyOutcomeMetricsBodyGrr180dMax = 200;
+
+export const updateAdminCompanyOutcomeMetricsBodyNrr180dMin = 0;
+export const updateAdminCompanyOutcomeMetricsBodyNrr180dMax = 200;
+
+export const updateAdminCompanyOutcomeMetricsBodyGrrAnnualMin = 0;
+export const updateAdminCompanyOutcomeMetricsBodyGrrAnnualMax = 200;
+
+export const updateAdminCompanyOutcomeMetricsBodyNrrAnnualMin = 0;
+export const updateAdminCompanyOutcomeMetricsBodyNrrAnnualMax = 200;
+
+export const UpdateAdminCompanyOutcomeMetricsBody = zod
+  .object({
+    grrEntry: zod
+      .number()
+      .min(updateAdminCompanyOutcomeMetricsBodyGrrEntryMin)
+      .max(updateAdminCompanyOutcomeMetricsBodyGrrEntryMax)
+      .nullish(),
+    nrrEntry: zod
+      .number()
+      .min(updateAdminCompanyOutcomeMetricsBodyNrrEntryMin)
+      .max(updateAdminCompanyOutcomeMetricsBodyNrrEntryMax)
+      .nullish(),
+    grr90d: zod
+      .number()
+      .min(updateAdminCompanyOutcomeMetricsBodyGrr90dMin)
+      .max(updateAdminCompanyOutcomeMetricsBodyGrr90dMax)
+      .nullish(),
+    nrr90d: zod
+      .number()
+      .min(updateAdminCompanyOutcomeMetricsBodyNrr90dMin)
+      .max(updateAdminCompanyOutcomeMetricsBodyNrr90dMax)
+      .nullish(),
+    grr180d: zod
+      .number()
+      .min(updateAdminCompanyOutcomeMetricsBodyGrr180dMin)
+      .max(updateAdminCompanyOutcomeMetricsBodyGrr180dMax)
+      .nullish(),
+    nrr180d: zod
+      .number()
+      .min(updateAdminCompanyOutcomeMetricsBodyNrr180dMin)
+      .max(updateAdminCompanyOutcomeMetricsBodyNrr180dMax)
+      .nullish(),
+    grrAnnual: zod
+      .number()
+      .min(updateAdminCompanyOutcomeMetricsBodyGrrAnnualMin)
+      .max(updateAdminCompanyOutcomeMetricsBodyGrrAnnualMax)
+      .nullish(),
+    nrrAnnual: zod
+      .number()
+      .min(updateAdminCompanyOutcomeMetricsBodyNrrAnnualMin)
+      .max(updateAdminCompanyOutcomeMetricsBodyNrrAnnualMax)
+      .nullish(),
+  })
+  .describe(
+    "Partial update; provided keys overwrite (null clears a value). 0-200 range.",
+  );
+
+export const UpdateAdminCompanyOutcomeMetricsResponse = zod.object({
+  companyId: zod.number(),
+  companyName: zod.string(),
+  firmSlug: zod.string().nullable(),
+  metrics: zod
+    .object({
+      grrEntry: zod.number().nullish(),
+      nrrEntry: zod.number().nullish(),
+      grr90d: zod.number().nullish(),
+      nrr90d: zod.number().nullish(),
+      grr180d: zod.number().nullish(),
+      nrr180d: zod.number().nullish(),
+      grrAnnual: zod.number().nullish(),
+      nrrAnnual: zod.number().nullish(),
+    })
+    .describe(
+      "Entry\/milestone retention outcomes, all nullable percentages (null = not yet measured). INTERNAL ONLY — never rendered on tenant pages, client reports, or exported PDFs.\n",
+    ),
+  interventions: zod.array(
+    zod.object({
+      id: zod.number(),
+      companyId: zod.number(),
+      pillar: zod.enum([
+        "org_design",
+        "onboarding",
+        "health_scoring",
+        "renewal_expansion",
+      ]),
+      action: zod.string(),
+      occurredOn: zod.string(),
+      owner: zod.string(),
+      createdAt: zod.string(),
+      createdBy: zod.string(),
+    }),
+  ),
+});
+
+/**
+ * @summary Append an intervention (pillar, action, date, owner) to the company's log
+ */
+export const CreateAdminOutcomeInterventionParams = zod.object({
+  companyId: zod.coerce.number(),
+});
+
+export const createAdminOutcomeInterventionBodyActionMax = 2000;
+
+export const createAdminOutcomeInterventionBodyOccurredOnRegExp = new RegExp(
+  "^\\d{4}-\\d{2}-\\d{2}$",
+);
+export const createAdminOutcomeInterventionBodyOwnerMax = 200;
+
+export const CreateAdminOutcomeInterventionBody = zod.object({
+  pillar: zod.enum([
+    "org_design",
+    "onboarding",
+    "health_scoring",
+    "renewal_expansion",
+  ]),
+  action: zod.string().min(1).max(createAdminOutcomeInterventionBodyActionMax),
+  occurredOn: zod
+    .string()
+    .regex(createAdminOutcomeInterventionBodyOccurredOnRegExp)
+    .describe("Calendar day, YYYY-MM-DD."),
+  owner: zod.string().min(1).max(createAdminOutcomeInterventionBodyOwnerMax),
+});
+
+/**
+ * @summary Delete one intervention log row
+ */
+export const DeleteAdminOutcomeInterventionParams = zod.object({
+  interventionId: zod.coerce.number(),
+});
+
+/**
  * Returns ONLY anonymized data — deterministic "Prospect N" placeholders plus engagement metrics (accounts shape) and anonymized signal text (monitor/feed shape). Real account names never appear in this payload; the real-name mapping is Admin-Lens-only. Literal-slug route like /portfolio/raviga/signals: no other tenant has it.
 
  * @summary Anonymized BackEngine evidence for the CS Rescue Internal dogfood tenant

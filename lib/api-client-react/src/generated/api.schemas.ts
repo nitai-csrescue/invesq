@@ -1664,6 +1664,115 @@ export interface BackengineNameMapRow {
   createdAt: string;
 }
 
+export type OutcomePillarValue =
+  (typeof OutcomePillarValue)[keyof typeof OutcomePillarValue];
+
+export const OutcomePillarValue = {
+  org_design: "org_design",
+  onboarding: "onboarding",
+  health_scoring: "health_scoring",
+  renewal_expansion: "renewal_expansion",
+} as const;
+
+/**
+ * Entry/milestone retention outcomes, all nullable percentages (null = not yet measured). INTERNAL ONLY — never rendered on tenant pages, client reports, or exported PDFs.
+
+ */
+export interface OutcomeMetricsSnapshot {
+  grrEntry?: number | null;
+  nrrEntry?: number | null;
+  grr90d?: number | null;
+  nrr90d?: number | null;
+  grr180d?: number | null;
+  nrr180d?: number | null;
+  grrAnnual?: number | null;
+  nrrAnnual?: number | null;
+}
+
+/**
+ * Partial update; provided keys overwrite (null clears a value). 0-200 range.
+ */
+export interface UpdateOutcomeMetricsInput {
+  /**
+   * @minimum 0
+   * @maximum 200
+   */
+  grrEntry?: number | null;
+  /**
+   * @minimum 0
+   * @maximum 200
+   */
+  nrrEntry?: number | null;
+  /**
+   * @minimum 0
+   * @maximum 200
+   */
+  grr90d?: number | null;
+  /**
+   * @minimum 0
+   * @maximum 200
+   */
+  nrr90d?: number | null;
+  /**
+   * @minimum 0
+   * @maximum 200
+   */
+  grr180d?: number | null;
+  /**
+   * @minimum 0
+   * @maximum 200
+   */
+  nrr180d?: number | null;
+  /**
+   * @minimum 0
+   * @maximum 200
+   */
+  grrAnnual?: number | null;
+  /**
+   * @minimum 0
+   * @maximum 200
+   */
+  nrrAnnual?: number | null;
+}
+
+export interface CreateOutcomeInterventionInput {
+  pillar: OutcomePillarValue;
+  /**
+   * @minLength 1
+   * @maxLength 2000
+   */
+  action: string;
+  /**
+   * Calendar day, YYYY-MM-DD.
+   * @pattern ^\d{4}-\d{2}-\d{2}$
+   */
+  occurredOn: string;
+  /**
+   * @minLength 1
+   * @maxLength 200
+   */
+  owner: string;
+}
+
+export interface OutcomeInterventionRecord {
+  id: number;
+  companyId: number;
+  pillar: OutcomePillarValue;
+  action: string;
+  occurredOn: string;
+  owner: string;
+  createdAt: string;
+  createdBy: string;
+}
+
+export interface AdminCompanyOutcomes {
+  companyId: number;
+  companyName: string;
+  firmSlug: string | null;
+  metrics: OutcomeMetricsSnapshot;
+  interventions: OutcomeInterventionRecord[];
+}
+
 export type Tier2ConnectorValue =
   (typeof Tier2ConnectorValue)[keyof typeof Tier2ConnectorValue];
 

@@ -20,6 +20,7 @@ import type {
   Account,
   ActiveJobConflict,
   AddAdminCompanyInput,
+  AdminCompanyOutcomes,
   AdminCompanyReportData,
   AdminFirmConfirmResult,
   AdminFirmDetail,
@@ -42,6 +43,7 @@ import type {
   CreateAdminFirmInput,
   CreateAdminFirmResponse,
   CreateManualAdminFirmInput,
+  CreateOutcomeInterventionInput,
   CreateTierDisputeInput,
   DeleteAdminFirmResult,
   Deployment,
@@ -65,6 +67,7 @@ import type {
   NewResourceInput,
   NodeMetricSeries,
   OkResult,
+  OutcomeInterventionRecord,
   PatchConnectorInput,
   PatchResourceInput,
   PortfolioBootstrap,
@@ -81,6 +84,7 @@ import type {
   TierMutationResult,
   TierSummaryPage,
   UpdateAdminFirmInput,
+  UpdateOutcomeMetricsInput,
   UpdatePillarEvidenceInput,
   UpdateReportMetaInput,
   UpdateTier2Input,
@@ -4906,6 +4910,374 @@ export function useListAdminTierAudit<
 
   return { ...query, queryKey: queryOptions.queryKey };
 }
+
+/**
+ * @summary Internal outcome metrics + interventions log for one company (Admin Lens only)
+ */
+export const getGetAdminCompanyOutcomesUrl = (companyId: number) => {
+  return `/api/admin/companies/${companyId}/outcomes`;
+};
+
+export const getAdminCompanyOutcomes = async (
+  companyId: number,
+  options?: RequestInit,
+): Promise<AdminCompanyOutcomes> => {
+  return customFetch<AdminCompanyOutcomes>(
+    getGetAdminCompanyOutcomesUrl(companyId),
+    {
+      ...options,
+      method: "GET",
+    },
+  );
+};
+
+export const getGetAdminCompanyOutcomesQueryKey = (companyId: number) => {
+  return [`/api/admin/companies/${companyId}/outcomes`] as const;
+};
+
+export const getGetAdminCompanyOutcomesQueryOptions = <
+  TData = Awaited<ReturnType<typeof getAdminCompanyOutcomes>>,
+  TError = ErrorType<unknown>,
+>(
+  companyId: number,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof getAdminCompanyOutcomes>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey =
+    queryOptions?.queryKey ?? getGetAdminCompanyOutcomesQueryKey(companyId);
+
+  const queryFn: QueryFunction<
+    Awaited<ReturnType<typeof getAdminCompanyOutcomes>>
+  > = ({ signal }) =>
+    getAdminCompanyOutcomes(companyId, { signal, ...requestOptions });
+
+  return {
+    queryKey,
+    queryFn,
+    enabled: !!companyId,
+    ...queryOptions,
+  } as UseQueryOptions<
+    Awaited<ReturnType<typeof getAdminCompanyOutcomes>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type GetAdminCompanyOutcomesQueryResult = NonNullable<
+  Awaited<ReturnType<typeof getAdminCompanyOutcomes>>
+>;
+export type GetAdminCompanyOutcomesQueryError = ErrorType<unknown>;
+
+/**
+ * @summary Internal outcome metrics + interventions log for one company (Admin Lens only)
+ */
+
+export function useGetAdminCompanyOutcomes<
+  TData = Awaited<ReturnType<typeof getAdminCompanyOutcomes>>,
+  TError = ErrorType<unknown>,
+>(
+  companyId: number,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof getAdminCompanyOutcomes>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getGetAdminCompanyOutcomesQueryOptions(
+    companyId,
+    options,
+  );
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * @summary Update entry/milestone GRR-NRR outcome metrics (partial; null clears a value)
+ */
+export const getUpdateAdminCompanyOutcomeMetricsUrl = (companyId: number) => {
+  return `/api/admin/companies/${companyId}/outcomes`;
+};
+
+export const updateAdminCompanyOutcomeMetrics = async (
+  companyId: number,
+  updateOutcomeMetricsInput: UpdateOutcomeMetricsInput,
+  options?: RequestInit,
+): Promise<AdminCompanyOutcomes> => {
+  return customFetch<AdminCompanyOutcomes>(
+    getUpdateAdminCompanyOutcomeMetricsUrl(companyId),
+    {
+      ...options,
+      method: "PATCH",
+      headers: { "Content-Type": "application/json", ...options?.headers },
+      body: JSON.stringify(updateOutcomeMetricsInput),
+    },
+  );
+};
+
+export const getUpdateAdminCompanyOutcomeMetricsMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof updateAdminCompanyOutcomeMetrics>>,
+    TError,
+    { companyId: number; data: BodyType<UpdateOutcomeMetricsInput> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof updateAdminCompanyOutcomeMetrics>>,
+  TError,
+  { companyId: number; data: BodyType<UpdateOutcomeMetricsInput> },
+  TContext
+> => {
+  const mutationKey = ["updateAdminCompanyOutcomeMetrics"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof updateAdminCompanyOutcomeMetrics>>,
+    { companyId: number; data: BodyType<UpdateOutcomeMetricsInput> }
+  > = (props) => {
+    const { companyId, data } = props ?? {};
+
+    return updateAdminCompanyOutcomeMetrics(companyId, data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type UpdateAdminCompanyOutcomeMetricsMutationResult = NonNullable<
+  Awaited<ReturnType<typeof updateAdminCompanyOutcomeMetrics>>
+>;
+export type UpdateAdminCompanyOutcomeMetricsMutationBody =
+  BodyType<UpdateOutcomeMetricsInput>;
+export type UpdateAdminCompanyOutcomeMetricsMutationError = ErrorType<unknown>;
+
+/**
+ * @summary Update entry/milestone GRR-NRR outcome metrics (partial; null clears a value)
+ */
+export const useUpdateAdminCompanyOutcomeMetrics = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof updateAdminCompanyOutcomeMetrics>>,
+    TError,
+    { companyId: number; data: BodyType<UpdateOutcomeMetricsInput> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof updateAdminCompanyOutcomeMetrics>>,
+  TError,
+  { companyId: number; data: BodyType<UpdateOutcomeMetricsInput> },
+  TContext
+> => {
+  return useMutation(
+    getUpdateAdminCompanyOutcomeMetricsMutationOptions(options),
+  );
+};
+
+/**
+ * @summary Append an intervention (pillar, action, date, owner) to the company's log
+ */
+export const getCreateAdminOutcomeInterventionUrl = (companyId: number) => {
+  return `/api/admin/companies/${companyId}/outcomes/interventions`;
+};
+
+export const createAdminOutcomeIntervention = async (
+  companyId: number,
+  createOutcomeInterventionInput: CreateOutcomeInterventionInput,
+  options?: RequestInit,
+): Promise<OutcomeInterventionRecord> => {
+  return customFetch<OutcomeInterventionRecord>(
+    getCreateAdminOutcomeInterventionUrl(companyId),
+    {
+      ...options,
+      method: "POST",
+      headers: { "Content-Type": "application/json", ...options?.headers },
+      body: JSON.stringify(createOutcomeInterventionInput),
+    },
+  );
+};
+
+export const getCreateAdminOutcomeInterventionMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof createAdminOutcomeIntervention>>,
+    TError,
+    { companyId: number; data: BodyType<CreateOutcomeInterventionInput> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof createAdminOutcomeIntervention>>,
+  TError,
+  { companyId: number; data: BodyType<CreateOutcomeInterventionInput> },
+  TContext
+> => {
+  const mutationKey = ["createAdminOutcomeIntervention"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof createAdminOutcomeIntervention>>,
+    { companyId: number; data: BodyType<CreateOutcomeInterventionInput> }
+  > = (props) => {
+    const { companyId, data } = props ?? {};
+
+    return createAdminOutcomeIntervention(companyId, data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type CreateAdminOutcomeInterventionMutationResult = NonNullable<
+  Awaited<ReturnType<typeof createAdminOutcomeIntervention>>
+>;
+export type CreateAdminOutcomeInterventionMutationBody =
+  BodyType<CreateOutcomeInterventionInput>;
+export type CreateAdminOutcomeInterventionMutationError = ErrorType<unknown>;
+
+/**
+ * @summary Append an intervention (pillar, action, date, owner) to the company's log
+ */
+export const useCreateAdminOutcomeIntervention = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof createAdminOutcomeIntervention>>,
+    TError,
+    { companyId: number; data: BodyType<CreateOutcomeInterventionInput> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof createAdminOutcomeIntervention>>,
+  TError,
+  { companyId: number; data: BodyType<CreateOutcomeInterventionInput> },
+  TContext
+> => {
+  return useMutation(getCreateAdminOutcomeInterventionMutationOptions(options));
+};
+
+/**
+ * @summary Delete one intervention log row
+ */
+export const getDeleteAdminOutcomeInterventionUrl = (
+  interventionId: number,
+) => {
+  return `/api/admin/outcome-interventions/${interventionId}`;
+};
+
+export const deleteAdminOutcomeIntervention = async (
+  interventionId: number,
+  options?: RequestInit,
+): Promise<void> => {
+  return customFetch<void>(
+    getDeleteAdminOutcomeInterventionUrl(interventionId),
+    {
+      ...options,
+      method: "DELETE",
+    },
+  );
+};
+
+export const getDeleteAdminOutcomeInterventionMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof deleteAdminOutcomeIntervention>>,
+    TError,
+    { interventionId: number },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof deleteAdminOutcomeIntervention>>,
+  TError,
+  { interventionId: number },
+  TContext
+> => {
+  const mutationKey = ["deleteAdminOutcomeIntervention"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof deleteAdminOutcomeIntervention>>,
+    { interventionId: number }
+  > = (props) => {
+    const { interventionId } = props ?? {};
+
+    return deleteAdminOutcomeIntervention(interventionId, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type DeleteAdminOutcomeInterventionMutationResult = NonNullable<
+  Awaited<ReturnType<typeof deleteAdminOutcomeIntervention>>
+>;
+
+export type DeleteAdminOutcomeInterventionMutationError = ErrorType<unknown>;
+
+/**
+ * @summary Delete one intervention log row
+ */
+export const useDeleteAdminOutcomeIntervention = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof deleteAdminOutcomeIntervention>>,
+    TError,
+    { interventionId: number },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof deleteAdminOutcomeIntervention>>,
+  TError,
+  { interventionId: number },
+  TContext
+> => {
+  return useMutation(getDeleteAdminOutcomeInterventionMutationOptions(options));
+};
 
 /**
  * Returns ONLY anonymized data — deterministic "Prospect N" placeholders plus engagement metrics (accounts shape) and anonymized signal text (monitor/feed shape). Real account names never appear in this payload; the real-name mapping is Admin-Lens-only. Literal-slug route like /portfolio/raviga/signals: no other tenant has it.

@@ -33,6 +33,7 @@ import {
   tierAuditLogTable,
   tierDisputesTable,
   backengineAccountsTable,
+  outcomeInterventionsTable,
 } from "@workspace/db";
 
 export interface DeleteFirmCascadeResult {
@@ -106,6 +107,10 @@ export async function deleteFirmCascade(firmId: number): Promise<DeleteFirmCasca
       await tx
         .delete(backengineAccountsTable)
         .where(inArray(backengineAccountsTable.companyId, companyIds));
+      // Data Moat action #3: outcome interventions log (FK -> companies).
+      await tx
+        .delete(outcomeInterventionsTable)
+        .where(inArray(outcomeInterventionsTable.companyId, companyIds));
       // CQ-37 tier-model children: audit log first (it FKs tier_disputes),
       // then disputes, then the companies rows they reference.
       await tx

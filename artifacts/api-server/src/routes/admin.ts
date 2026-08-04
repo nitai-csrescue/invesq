@@ -38,6 +38,7 @@ import { invalidatePortfolioCache } from "../lib/portfolioData.js";
 import { requireAdminAuth } from "../middlewares/authMiddleware.js";
 import adminTiersRouter from "./adminTiers.js";
 import adminBackengineRouter from "./adminBackengine.js";
+import adminOutcomesRouter from "./adminOutcomes.js";
 import {
   getOrGenerateReportExport,
   getCompanyWebsite,
@@ -75,6 +76,10 @@ router.use(adminTiersRouter);
 // Dogfood BackEngine import + real-name mapping (CS Rescue Internal tenant).
 // Mounted after requireAdminAuth: the name map is NEVER tenant-reachable.
 router.use(adminBackengineRouter);
+
+// Data Moat action #3: Outcome Data (internal GRR/NRR outcomes + interventions
+// log). Mounted after requireAdminAuth — never tenant-reachable.
+router.use(adminOutcomesRouter);
 
 // The 5 hand-authored tenant slugs. They are not pipeline-managed, so the
 // on-demand re-run endpoint refuses to touch them (a rebuild would append a

@@ -1378,3 +1378,20 @@ curl -X POST https://<prod-domain>/api/admin/repair-assessments-dedup \
   - Anonymous screenshots: /stg/portfolio and /stg/portfolio/taxcalc render full real data, no login redirect, no console errors; /stg/portfolio/taxcalc/journey redirects to the company page per the Admin Lens gate; /pamlico/portfolio unchanged.
   - RLS re-proof in psql: SET LOCAL ROLE tenant_reader with app.firm_id=stg sees 5 stg companies and 0 pamlico companies; with app.firm_id unset the select fails closed (integer cast error). Policies untouched and enforced.
   - Validation run PASSED: api-server tsc --noEmit + cs-rescue tsc --noEmit both clean.
+
+---
+
+## Data Moat action #3: Outcome Data — internal GRR/NRR outcomes + interventions log
+- Date: 2026-08-04 (UTC)
+- Status: complete in dev; Republish required to reach prod (schema rides the Publish diff)
+- Files changed: lib/db/src/schema/companies.ts (+outcome_metrics jsonb, nullable), new lib/db/src/schema/outcomeInterventions.ts (outcome_interventions table: id, company_id FK, pillar, action, occurred_on date, owner, created_at, created_by; OUTCOME_PILLARS vocab = org_design/onboarding/health_scoring/renewal_expansion), schema/index.ts, lib/api-spec/openapi.yaml (4 admin paths + outcome schemas) + regenerated api-zod/api-client-react, new artifacts/api-server/src/routes/adminOutcomes.ts, admin.ts (mount inside requireAdminAuth), deleteFirmCascade.ts (new FK child deleted before companies), new artifacts/cs-rescue/src/pages/admin/AdminOutcomes.tsx, adminNav.ts, App.tsx
+- Exact fields: companies.outcome_metrics jsonb, shape { grrEntry, nrrEntry, grr90d, nrr90d, grr180d, nrr180d, grrAnnual, nrrAnnual } — all nullable percentages (null = not measured), validated 0–200 on write. Interventions live in the outcome_interventions table (one row per intervention: pillar, action taken, date, owner).
+- Admin entry UI: /admin/outcomes (nav "Outcomes"), same ProtectedRoute + AdminShell as the rest of /admin. Paginated cross-tenant company list (reuses the tier-summary endpoint), drill-in row with the 8 metric inputs + interventions log (add/delete). API: GET/PATCH /api/admin/companies/:id/outcomes, POST .../outcomes/interventions, DELETE /api/admin/outcome-interventions/:id — all mounted after requireAdminAuth.
+- Isolation guarantees: purely additive — p1–p8 columns, composite math, tier derivation, and every tenant-facing route untouched. The bootstrap mapper spreads companies.meta plus explicit fields only, so the new top-level column is structurally excluded from tenant payloads; grep of the live anonymous bootstrap shows zero outcome keys (the single "outcome" text hit is pre-existing narrative prose). reportExport.ts / portfolio routes / portfolio-engine have zero references to the new fields.
+- QA evidence (dev):
+  - All 4 new routes 401 unauthenticated (GET/PATCH/POST/DELETE).
+  - Authed CRUD cycle: GET returns all-null snapshot; PATCH merges partials and null-clears; 400 on out-of-range (250) and bogus pillar; POST intervention stamps created_by from the session email; DELETE 204 then 404 on repeat.
+  - Anonymous bootstrap parity: firm/company counts unchanged (stg 5 / pamlico 3 / raviga 10 / longarc 3 / solen 6 / cs-rescue-internal 1), no outcomeMetrics/grrEntry/nrrAnnual keys in the payload.
+  - /admin/outcomes verified at 390x844 mobile viewport (renders authed with nav + company table); no console errors.
+  - Validation run PASSED (api-server + cs-rescue tsc --noEmit). drizzle push applied. QA scribbles reverted (company 200 outcome_metrics null, outcome_interventions empty, throwaway QA session deleted); temporary dev-login screenshot route removed from source before commit (rg "dev/test-login" = no matches).
+- Republish needed: yes (prod gets outcome_metrics column + outcome_interventions table via the Publish schema diff; no manual DDL).

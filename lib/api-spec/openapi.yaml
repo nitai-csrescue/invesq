@@ -1538,6 +1538,85 @@ paths:
                   $ref: "#/components/schemas/TierAuditRecord"
 
 
+  # ---- Data Moat action #3: Outcome Data (admin surface ONLY — internal
+  # retention outcomes + interventions log; never tenant-facing, never in
+  # reports or PDFs) ----
+  /admin/companies/{companyId}/outcomes:
+    get:
+      operationId: getAdminCompanyOutcomes
+      tags: [admin]
+      summary: Internal outcome metrics + interventions log for one company (Admin Lens only)
+      parameters:
+        - name: companyId
+          in: path
+          required: true
+          schema: { type: integer }
+      responses:
+        "200":
+          description: Outcome metrics and interventions
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AdminCompanyOutcomes"
+    patch:
+      operationId: updateAdminCompanyOutcomeMetrics
+      tags: [admin]
+      summary: Update entry/milestone GRR-NRR outcome metrics (partial; null clears a value)
+      parameters:
+        - name: companyId
+          in: path
+          required: true
+          schema: { type: integer }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateOutcomeMetricsInput"
+      responses:
+        "200":
+          description: Updated outcome snapshot
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AdminCompanyOutcomes"
+  /admin/companies/{companyId}/outcomes/interventions:
+    post:
+      operationId: createAdminOutcomeIntervention
+      tags: [admin]
+      summary: Append an intervention (pillar, action, date, owner) to the company's log
+      parameters:
+        - name: companyId
+          in: path
+          required: true
+          schema: { type: integer }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateOutcomeInterventionInput"
+      responses:
+        "201":
+          description: Created intervention row
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/OutcomeInterventionRecord"
+  /admin/outcome-interventions/{interventionId}:
+    delete:
+      operationId: deleteAdminOutcomeIntervention
+      tags: [admin]
+      summary: Delete one intervention log row
+      parameters:
+        - name: interventionId
+          in: path
+          required: true
+          schema: { type: integer }
+      responses:
+        "204":
+          description: Deleted
+
   /portfolio/cs-rescue-internal/backengine:
     get:
       operationId: getCsRescueInternalBackengine
@@ -3590,6 +3669,73 @@ components:
         realName: { type: string }
         placeholder: { type: string }
         createdAt: { type: string }
+
+    # ---- Data Moat action #3: Outcome Data (admin-only) ----
+    OutcomePillarValue:
+      type: string
+      enum: [org_design, onboarding, health_scoring, renewal_expansion]
+    OutcomeMetricsSnapshot:
+      type: object
+      description: >
+        Entry/milestone retention outcomes, all nullable percentages
+        (null = not yet measured). INTERNAL ONLY — never rendered on tenant
+        pages, client reports, or exported PDFs.
+      properties:
+        grrEntry: { type: number, nullable: true }
+        nrrEntry: { type: number, nullable: true }
+        grr90d: { type: number, nullable: true }
+        nrr90d: { type: number, nullable: true }
+        grr180d: { type: number, nullable: true }
+        nrr180d: { type: number, nullable: true }
+        grrAnnual: { type: number, nullable: true }
+        nrrAnnual: { type: number, nullable: true }
+    UpdateOutcomeMetricsInput:
+      type: object
+      description: Partial update; provided keys overwrite (null clears a value). 0-200 range.
+      properties:
+        grrEntry: { type: number, nullable: true, minimum: 0, maximum: 200 }
+        nrrEntry: { type: number, nullable: true, minimum: 0, maximum: 200 }
+        grr90d: { type: number, nullable: true, minimum: 0, maximum: 200 }
+        nrr90d: { type: number, nullable: true, minimum: 0, maximum: 200 }
+        grr180d: { type: number, nullable: true, minimum: 0, maximum: 200 }
+        nrr180d: { type: number, nullable: true, minimum: 0, maximum: 200 }
+        grrAnnual: { type: number, nullable: true, minimum: 0, maximum: 200 }
+        nrrAnnual: { type: number, nullable: true, minimum: 0, maximum: 200 }
+    CreateOutcomeInterventionInput:
+      type: object
+      required: [pillar, action, occurredOn, owner]
+      properties:
+        pillar: { $ref: "#/components/schemas/OutcomePillarValue" }
+        action: { type: string, minLength: 1, maxLength: 2000 }
+        occurredOn:
+          type: string
+          pattern: '^\d{4}-\d{2}-\d{2}$'
+          description: Calendar day, YYYY-MM-DD.
+        owner: { type: string, minLength: 1, maxLength: 200 }
+    OutcomeInterventionRecord:
+      type: object
+      required: [id, companyId, pillar, action, occurredOn, owner, createdAt, createdBy]
+      properties:
+        id: { type: integer }
+        companyId: { type: integer }
+        pillar: { $ref: "#/components/schemas/OutcomePillarValue" }
+        action: { type: string }
+        occurredOn: { type: string }
+        owner: { type: string }
+        createdAt: { type: string }
+        createdBy: { type: string }
+    AdminCompanyOutcomes:
+      type: object
+      required: [companyId, companyName, firmSlug, metrics, interventions]
+      properties:
+        companyId: { type: integer }
+        companyName: { type: string }
+        firmSlug: { type: string, nullable: true }
+        metrics: { $ref: "#/components/schemas/OutcomeMetricsSnapshot" }
+        interventions:
+          type: array
+          items:
+            $ref: "#/components/schemas/OutcomeInterventionRecord"
 
     # ---- CQ-37 tier model ----
     Tier2ConnectorValue:
