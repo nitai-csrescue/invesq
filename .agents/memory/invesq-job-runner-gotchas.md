@@ -32,3 +32,6 @@ Discovery inserts portfolio companies with `status: "candidate"`; only `POST /ad
 The build-job Notion writer (`artifacts/api-server/src/lib/notion.ts`) searches by title at runtime rather than hardcoding a database id, so a database that is not shared with the integration surfaces as a clean, logged "database not found or not shared" failure rather than a crash.
 
 **How to apply:** if asked to debug "Notion write isn't working" for an integration that resolves by title/search at runtime, verify sharing first (`/v1/search` from the integration's own key) before assuming a schema/property-mapping bug — an unshared DB looks identical to a missing one.
+
+## Boot routines must not fire jobs the resume scan will also pick up
+A startup routine that inserts a queued build job AND calls runBuildJob directly races the subsequent resumeQueuedBuildJobs() scan — the scan reclaims even running jobs (allowReclaimRunning), so the same firm can be researched twice concurrently. Rule: boot-time queuers only insert the queued row (conflict-aware against the partial unique index on type+targetId) and let the resume scan be the single executor. Also: stamp the "restored" marker at queue time only if a state-driven retry branch re-queues when companies remain assessment-less with no active job (covers terminal build failures).
