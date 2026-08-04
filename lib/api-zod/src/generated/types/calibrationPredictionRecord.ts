@@ -10,7 +10,8 @@ import type { CalibrationPillarScores } from "./calibrationPillarScores";
 export interface CalibrationPredictionRecord {
   id: number;
   companyId: number;
-  assessmentId: number;
+  /** Provenance only; null after the source assessment is deleted (e.g. same-day re-score). */
+  assessmentId?: number | null;
   pillars: CalibrationPillarScores;
   /** Phase 1 tier composite 0-16 */
   composite: number;

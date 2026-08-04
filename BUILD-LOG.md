@@ -1412,3 +1412,16 @@ curl -X POST https://<prod-domain>/api/admin/repair-assessments-dedup \
   - Backfilled 4 historical calibration points (Nomis Solutions, Profisee, Pied Piper, Hooli): locked predictions from their real scored diagnostics + manual_backfill observations + 2 resolution events.
   - All /api/admin/.../calibration routes 401 unauthenticated; deleteFirmCascade extended for both new company-child tables (before assessments delete, since predictions FK assessments).
   - Purely additive: tenant pages unchanged; anonymous bootstrap has zero calibration/backfill strings.
+
+---
+
+## Calibration Ledger — architect-review hardening (races + re-score FK)
+- Date: 2026-08-04 14:35 UTC
+- Status: complete
+- Files changed: artifacts/api-server/src/routes/adminCalibration.ts, artifacts/api-server/src/lib/slackDigest.ts, lib/db/src/schema/calibration.ts, lib/api-spec/openapi.yaml (+codegen)
+- Validation: typecheck-api + typecheck-web clean; api-server restart clean; double-lock returns 409 (atomic ON CONFLICT, no 500 path); digest claimed 2026-W31 (previous completed week) correctly
+- Republish needed: yes
+- QA notes:
+  - Prediction lock is now an atomic INSERT ... ON CONFLICT DO NOTHING; concurrent double-locks lose with 409, never a unique-violation 500.
+  - Slack digest now summarizes only the PREVIOUS COMPLETED ISO week (fixed Monday-to-Monday UTC boundaries), so events created later in an in-progress week can never be skipped; the calibration_digests row is inserted as an atomic claim BEFORE posting (unique week_key elects one poster) and is released on post failure for retry.
+  - calibration_predictions.assessment_id is now nullable with ON DELETE SET NULL so the same-day re-score path (delete + re-insert assessment) never fails against a locked snapshot; all predicted values are copied into the row, so the immutable snapshot survives intact.

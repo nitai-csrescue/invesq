@@ -3920,7 +3920,12 @@ export const GetAdminCompanyCalibrationResponse = zod.object({
     zod.object({
       id: zod.number(),
       companyId: zod.number(),
-      assessmentId: zod.number(),
+      assessmentId: zod
+        .number()
+        .nullish()
+        .describe(
+          "Provenance only; null after the source assessment is deleted (e.g. same-day re-score).",
+        ),
       pillars: zod
         .record(zod.string(), zod.string())
         .describe(

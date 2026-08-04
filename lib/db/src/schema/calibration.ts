@@ -23,10 +23,14 @@ export const calibrationPredictionsTable = pgTable(
     companyId: integer("company_id")
       .notNull()
       .references(() => companiesTable.id),
-    // Which assessment row the snapshot was derived from (provenance).
-    assessmentId: integer("assessment_id")
-      .notNull()
-      .references(() => assessmentsTable.id),
+    // Which assessment row the snapshot was derived from (provenance only —
+    // all predicted values are COPIED into this row). Nullable with
+    // ON DELETE SET NULL so the same-day re-score path (which deletes and
+    // re-inserts the assessment row) never fails against a locked snapshot;
+    // the immutable snapshot survives with its frozen values intact.
+    assessmentId: integer("assessment_id").references(() => assessmentsTable.id, {
+      onDelete: "set null",
+    }),
     // Frozen per-pillar scores keyed by PILLAR_IDS from
     // @workspace/portfolio-engine (org, onboarding, health, escalation,
     // revenue, leadership, planning, ai). Values are the assessment's text

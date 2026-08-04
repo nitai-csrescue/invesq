@@ -255,6 +255,9 @@ router.post("/companies/:companyId/calibration/prediction", async (req, res) => 
   );
   const band = getTier(composite).label;
   const createdBy = req.user?.email ?? "unknown-admin";
+  // Atomic claim: the unique index on company_id decides the winner. A
+  // concurrent double-lock loses cleanly with a 409, never a 500 — do not
+  // replace this with a read-then-insert.
   const [row] = await db
     .insert(calibrationPredictionsTable)
     .values({
@@ -268,7 +271,14 @@ router.post("/companies/:companyId/calibration/prediction", async (req, res) => 
       predictedAt: new Date(`${assessment.date}T00:00:00Z`),
       createdBy,
     })
+    .onConflictDoNothing({ target: calibrationPredictionsTable.companyId })
     .returning();
+  if (!row) {
+    res.status(409).json({
+      error: "A locked prediction snapshot already exists for this company (immutable)",
+    });
+    return;
+  }
   res.status(201).json(predictionJson(row));
 });
 

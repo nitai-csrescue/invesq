@@ -3883,11 +3883,11 @@ components:
         type: string
     CalibrationPredictionRecord:
       type: object
-      required: [id, companyId, assessmentId, pillars, composite, band, rubricVersion, predictedAt, lockedAt]
+      required: [id, companyId, pillars, composite, band, rubricVersion, predictedAt, lockedAt]
       properties:
         id: { type: integer }
         companyId: { type: integer }
-        assessmentId: { type: integer }
+        assessmentId: { type: integer, nullable: true, description: "Provenance only; null after the source assessment is deleted (e.g. same-day re-score)." }
         pillars: { $ref: "#/components/schemas/CalibrationPillarScores" }
         composite: { type: integer, description: Phase 1 tier composite 0-16, NA substituted as 1. }
         band: { type: string, description: Tier band label frozen at snapshot time. }
