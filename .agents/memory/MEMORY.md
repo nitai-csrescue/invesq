@@ -38,4 +38,5 @@
 - [Boot backfill vs response cache](boot-backfill-cache-snapshot.md) — a cache-on-first-request payload can freeze a mid-refresh snapshot; boot backfills must invalidate it, and UI headlines the latest row, not flipped historical ones.
 - [Calibration Ledger design invariants](calibration-ledger-design.md) — locked-snapshot immutability, claim-before-post digest weeks, and why assessment FKs must survive the re-score delete+reinsert.
 - [Boot-migration completion markers](boot-migration-completion-markers.md) — one-shot boot migrations need a durable marker, never "row count" heuristics; sequence with RLS DDL and job resumption.
+- [Slug-keyed backfills collide](slug-keyed-backfills-collide.md) — re-onboarded companies regain old slugs; legacy slug-keyed boot backfills re-stamp them, and the ICP all-or-none rule then breaks the firm.
 - [Dispute resolution atomic claim](dispute-audit-atomic-claim.md) — conditionally claim rows inside the tx (never precheck-then-update); expiring tokens must enforce expires_at in the claim itself.
