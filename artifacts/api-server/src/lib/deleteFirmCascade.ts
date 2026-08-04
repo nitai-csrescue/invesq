@@ -52,8 +52,9 @@ export interface DeleteFirmCascadeResult {
  */
 export async function deleteFirmCompaniesCascade(
   firmId: number,
+  opts?: { stampFirmMeta?: Record<string, unknown> },
 ): Promise<DeleteFirmCascadeResult> {
-  return runCascade(firmId, { deleteFirmRow: false });
+  return runCascade(firmId, { deleteFirmRow: false, stampFirmMeta: opts?.stampFirmMeta });
 }
 
 export async function deleteFirmCascade(firmId: number): Promise<DeleteFirmCascadeResult> {
@@ -62,7 +63,15 @@ export async function deleteFirmCascade(firmId: number): Promise<DeleteFirmCasca
 
 async function runCascade(
   firmId: number,
-  opts: { deleteFirmRow: boolean },
+  opts: {
+    deleteFirmRow: boolean;
+    // Optional replacement firms.meta written INSIDE the same transaction as
+    // the deletes (keep-firm mode only). Lets one-shot migrations make their
+    // durable completion marker atomic with the destructive wipe, so a crash
+    // between "wiped" and "marked done" can never leave an unmarked firm that
+    // would be re-wiped on the next boot.
+    stampFirmMeta?: Record<string, unknown>;
+  },
 ): Promise<DeleteFirmCascadeResult> {
   const companies = await db
     .select({ id: companiesTable.id })
@@ -168,6 +177,11 @@ async function runCascade(
         .delete(ingestionSourcesTable)
         .where(eq(ingestionSourcesTable.firmId, firmId));
       await tx.delete(firmsTable).where(eq(firmsTable.id, firmId));
+    } else if (opts.stampFirmMeta !== undefined) {
+      await tx
+        .update(firmsTable)
+        .set({ meta: opts.stampFirmMeta })
+        .where(eq(firmsTable.id, firmId));
     }
   });
 

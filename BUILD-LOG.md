@@ -1553,3 +1553,14 @@ curl -X POST https://<prod-domain>/api/admin/repair-assessments-dedup \
 - What/why: Pamlico/Long Arc/Solen de-legacized identically to STG — company rows + FK children wiped via shared deleteFirmCompaniesCascade (12 companies total), firm rows preserved, durable marker firms.meta.migratedToPipelineAt per firm. Raviga (fictional HBO Silicon Valley demo data, confirmed for full removal) deleted entirely via deleteFirmCascade; deletion naturally idempotent (absent firm row = done). Remaining raviga code references are all slug-gated (isRaviga checks, literal /raviga/signals route) and are dead-but-harmless with the firm gone — left untouched to keep the diff scoped.
 - QA notes: typecheck api+web clean; no stale queued jobs before restart. Dev verified: raviga firm+10 companies gone (/api/portfolio/raviga/signals -> 404), pamlico/longarc/solen exist with 0 companies + markers set, bootstrap 200 listing all three as empty portfolios, /pamlico/portfolio renders clean empty state with zero console errors, STG untouched (still 6 pipeline-built companies).
 - Self-report: entry written by the agent immediately after the change.
+
+---
+
+## Review hardening: atomic migration marker + marker survives admin meta edits
+- Date: 2026-08-04 18:25 UTC
+- Status: complete
+- Files changed: artifacts/api-server/src/lib/deleteFirmCascade.ts (optional stampFirmMeta written inside the cascade transaction), artifacts/api-server/src/lib/migratePhase2Tenants.ts (marker now stamped atomically with the wipe), artifacts/api-server/src/routes/admin.ts (PATCH /firms/:id preserves migration marker keys when replacing portal meta)
+- Republish needed: yes (rides with the Phase 2 migration publish)
+- What/why: architect review found two severe gaps: (1) wipe and completion marker were separate transactions, so a crash in between could re-wipe on next boot; (2) the admin firm PATCH replaces the whole meta object, which would erase migratedToPipelineAt/stgPipelineSeededAt and let a later restart wipe freshly re-onboarded companies. Marker is now written inside the same transaction as the deletes, and the PATCH merges marker keys back into any replacement meta.
+- QA notes: typecheck clean; restart is a verified no-op (markers present, counts unchanged: stg 6 / pamlico 0 / longarc 0 / solen 0, raviga absent).
+- Self-report: entry written by the agent immediately after the change.

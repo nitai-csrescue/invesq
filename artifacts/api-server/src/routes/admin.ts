@@ -582,9 +582,27 @@ router.patch("/firms/:id", async (req, res) => {
 
   const updates: Partial<typeof firmsTable.$inferInsert> = {};
   if (dataAuthority !== undefined) updates.dataAuthority = dataAuthority;
-  if (meta !== undefined) updates.meta = meta;
 
   try {
+    if (meta !== undefined) {
+      // `meta` replaces the whole PORTAL-metadata object, but system marker
+      // keys (one-shot boot-migration completion markers) live in the same
+      // JSON column and must survive admin edits — losing them would let a
+      // destructive migration re-run on the next boot.
+      const MIGRATION_MARKER_KEYS = ["migratedToPipelineAt", "stgPipelineSeededAt"] as const;
+      const [existing] = await db
+        .select({ meta: firmsTable.meta })
+        .from(firmsTable)
+        .where(eq(firmsTable.id, id))
+        .limit(1);
+      const existingMeta = (existing?.meta ?? {}) as Record<string, unknown>;
+      const preserved: Record<string, unknown> = {};
+      for (const key of MIGRATION_MARKER_KEYS) {
+        if (existingMeta[key] !== undefined) preserved[key] = existingMeta[key];
+      }
+      updates.meta = { ...meta, ...preserved };
+    }
+
     const [updated] = await db
       .update(firmsTable)
       .set(updates)

@@ -49,11 +49,11 @@ export async function migratePhase2Tenants(): Promise<void> {
       const meta = (firm.meta ?? {}) as Record<string, unknown>;
       if (meta["migratedToPipelineAt"]) continue; // durable marker: done
 
-      const result = await deleteFirmCompaniesCascade(firm.id);
-      await db
-        .update(firmsTable)
-        .set({ meta: { ...meta, migratedToPipelineAt: new Date().toISOString() } })
-        .where(eq(firmsTable.id, firm.id));
+      // Marker is stamped INSIDE the cascade's transaction — the wipe and the
+      // durable completion marker commit or roll back together.
+      const result = await deleteFirmCompaniesCascade(firm.id, {
+        stampFirmMeta: { ...meta, migratedToPipelineAt: new Date().toISOString() },
+      });
       changed = true;
       logger.info(
         { slug, firmId: firm.id, ...result },
