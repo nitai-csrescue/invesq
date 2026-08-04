@@ -1471,3 +1471,12 @@ curl -X POST https://<prod-domain>/api/admin/repair-assessments-dedup \
 - What/why: live admin "add company" left prod company 64 (Trellix, STG) as a bare row with no meta/assessments; STG's legacy bootstrap validation fails loud on such rows, so the next cache reload would white-screen every tenant portal. The agent has no prod write channel, so per replit.md convention #3 this idempotent startup routine writes the exact meta + single 2026-08-04 assessment (org 1 / onboarding 1 / health 2 / escalation NA / revenue 2 / leadership 1 / planning 2 / ai 2; rubric columns Medium/Medium/High/High, PortCo High, version v6) already created and screenshot-verified in dev (company 208), then invalidates the portfolio cache.
 - Safety: guards require id 64 + firm slug stg + company slug trellix + name Trellix + status active; meta written only when NULL; assessment inserted only when the company has zero; single transaction; touches no other row. No-ops in dev (verified boot log: "guards not met, skipping") and on every prod boot after the first.
 - QA notes: typecheck-api clean; dev restart clean; dev bootstrap still serves STG with 6 companies (dev row 208 unaffected).
+
+---
+
+## Removed TEMP STG Trellix boot repair routine (verified live)
+- Date: 2026-08-04 16:20 UTC
+- Status: complete
+- Files changed: artifacts/api-server/src/lib/repairStgTrellix.ts (deleted), artifacts/api-server/src/index.ts (unwired)
+- Republish needed: yes (next Publish ships without the routine; harmless until then — idempotent no-op now that prod company 64 has meta + assessment)
+- What/why: prod repair confirmed live (company 64 has_meta=true, 1 assessment; user downloaded the Trellix diagnostic PDF). Per plan, the temporary routine is removed so it leaves no permanent surface area. Typecheck clean; `rg repairStgTrellix` returns nothing.

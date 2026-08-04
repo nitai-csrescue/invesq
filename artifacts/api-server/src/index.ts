@@ -9,7 +9,6 @@ import { backfillRubricV2 } from "./lib/backfillRubricV2";
 import { backfillEngagement } from "./lib/backfillEngagement";
 import { ensureRlsPolicies } from "./lib/rlsPolicies";
 import { removePamlicoCapitalDuplicate } from "./lib/removePamlicoCapitalDuplicate";
-import { repairStgTrellix } from "./lib/repairStgTrellix";
 import { seedStuckFirms } from "./lib/seedStuckFirms";
 import { logSystemHealthOnStartup } from "./lib/systemHealth";
 
@@ -53,7 +52,6 @@ app.listen(port, (err) => {
   void backfillEngagement();
   void ensureRlsPolicies();
   void removePamlicoCapitalDuplicate();
-  void repairStgTrellix();
   void seedStuckFirms();
   void resumeQueuedDiscoveryJobs();
   void resumeQueuedBuildJobs();
