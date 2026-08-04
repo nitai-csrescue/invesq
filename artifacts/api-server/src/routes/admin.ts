@@ -44,6 +44,7 @@ import adminConfirmationsRouter from "./adminConfirmations.js";
 import {
   getOrGenerateReportExport,
   getCompanyWebsite,
+  getCompanyAdditionalSources,
   loadEffectiveReport,
   toWorkflow,
   toValidationStamp,
@@ -1294,8 +1295,11 @@ router.post("/companies/:id/ship-to-drive", async (req, res) => {
       return;
     }
 
-    const website = await getCompanyWebsite(id);
-    const html = buildReportPdfHtml(eff.response, website, toValidationStamp(eff.validation));
+    const [website, additionalSources] = await Promise.all([
+      getCompanyWebsite(id),
+      getCompanyAdditionalSources(id),
+    ]);
+    const html = buildReportPdfHtml(eff.response, website, toValidationStamp(eff.validation), additionalSources);
     const pdf = await renderHtmlToPdf(html);
 
     const dateIso = new Date().toISOString().slice(0, 10);
@@ -1383,7 +1387,11 @@ router.get("/companies/:id/report-pdf", async (req, res) => {
   }
 
   try {
-    const [eff, website] = await Promise.all([loadEffectiveReport(id), getCompanyWebsite(id)]);
+    const [eff, website, additionalSources] = await Promise.all([
+      loadEffectiveReport(id),
+      getCompanyWebsite(id),
+      getCompanyAdditionalSources(id),
+    ]);
     const data = eff.response;
 
     if (!data.meta.generatedAt) {

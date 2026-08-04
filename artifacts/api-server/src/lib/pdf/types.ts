@@ -31,6 +31,10 @@ export interface ReportContext {
   // Not part of DiagnosticReportData — fetched separately from the
   // `companies` row for the Page 7 Sources list.
   companyWebsite: string | null;
+  // Per-company extension of the Page 7 Sources list, from
+  // companies.meta.additionalSourcesReviewed. Empty for companies without the
+  // meta key — the shared source categories are unaffected.
+  additionalSources: Array<{ label: string; note: string }>;
   // Dual-validation state driving the chrome variant: validated => client
   // "Validated · {names} · {date}" / "Confidential"; not validated => "DRAFT ·
   // NOT VALIDATED". Public tenant exports are only ever produced validated (the

@@ -50,6 +50,10 @@ export function renderPage7(ctx: ReportContext): string {
       label: "Product & Pricing Pages",
       note: "Reviewed for onboarding, support tiers, and customer-success motion signals.",
     },
+    // Per-company extension rows (companies.meta.additionalSourcesReviewed) —
+    // empty for companies without the meta key, so the shared list above is
+    // the template default for everyone else.
+    ...ctx.additionalSources.map((s) => ({ label: s.label, note: s.note })),
   ];
 
   const { validated, validatorNames, validatedAt, overrideNote } = ctx.validation;

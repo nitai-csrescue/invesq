@@ -9,6 +9,7 @@ import { backfillEngagement } from "./lib/backfillEngagement";
 import { ensureRlsPolicies } from "./lib/rlsPolicies";
 import { removePamlicoCapitalDuplicate } from "./lib/removePamlicoCapitalDuplicate";
 import { migratePhase2Tenants } from "./lib/migratePhase2Tenants";
+import { seedTrellixManualEvidence } from "./lib/seedTrellixManualEvidence";
 import { seedStuckFirms } from "./lib/seedStuckFirms";
 import { logSystemHealthOnStartup } from "./lib/systemHealth";
 
@@ -54,6 +55,7 @@ app.listen(port, (err) => {
   // tenant migration runs in between (touches the same relations).
   void ensureRlsPolicies()
     .then(() => migratePhase2Tenants())
+    .then(() => seedTrellixManualEvidence())
     .then(() => {
       void resumeQueuedDiscoveryJobs();
       void resumeQueuedBuildJobs();

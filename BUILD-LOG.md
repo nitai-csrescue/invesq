@@ -1574,3 +1574,14 @@ curl -X POST https://<prod-domain>/api/admin/repair-assessments-dedup \
 - Republish needed: yes (this unblocks the failed 18:15 publish)
 - What/why: the Phase 2 publish failed at the image-upload step with HTTP 413 Payload Too Large while pushing the repl layer; the build itself compiled cleanly. Removed the largest unreferenced files to bring the layer size back under the limit. Grep confirmed neither mp4 is referenced anywhere in code, config, or docs.
 - Self-report: entry written by the agent immediately after the change.
+
+---
+
+## Trellix (STG): Manual-source pillar evidence + per-company Sources Reviewed rows
+- Date: 2026-08-04 19:30 UTC
+- Status: complete in dev; prod applies via next Republish (TEMPORARY seedTrellixManualEvidence boot routine, remove after prod verification)
+- Files changed: artifacts/api-server/src/lib/seedTrellixManualEvidence.ts (new one-shot idempotent seed), artifacts/api-server/src/index.ts (wired after migratePhase2Tenants, before job resumption), artifacts/api-server/src/lib/reportExport.ts (new getCompanyAdditionalSources), artifacts/api-server/src/lib/pdf/types.ts + reportHtml.ts + pages/page7Sources.ts (per-company additionalSources rows on Page 7), artifacts/api-server/src/routes/admin.ts + portfolio.ts (plumb additionalSources into the three PDF export paths)
+- Republish needed: yes
+- What/why: logged stakeholder feedback as Manual-source evidence on Trellix's latest assessment only — appended "[Source: Manual]"-tagged entries to p3_evidence (Health Scoring primary) and p5_evidence (Renewal & Expansion primary; consolidation p3+p4 / p5+p7 per rubricV2). The model stores evidence as plain text with no per-entry source field, so the tag is carried inline (visible verbatim in the admin Edit Pillar Evidence modal and report data). Em-dashes in the supplied copy were stored as "--" exactly as savePillarEvidence's stripEmDashes would have done on the real admin path. Sources Reviewed: added companies.meta.additionalSourcesReviewed (G2, Capterra, Gartner Peer Insights, TrustRadius, Partner/Channel Program Pages) rendered as extra Page 7 rows for Trellix only; the shared template constant is untouched. No scores, bands, or composites changed (verified p3/p4/p5/p7 = 1/1/1/1 and rubric v2 bands Medium/Medium/Medium before and after).
+- QA notes: typecheck api+web clean. Verified via authed admin API: report-data pillarEvidence p3+p5 both contain the Manual entries; rendered report HTML for Trellix includes all 5 extra source rows + Manual tag while TaxCalc has none; other 5 STG companies confirmed untouched via SQL. verify-db-invariants failures are pre-existing (findings-less pipeline assessments 176/180-185, and longarc intentionally empty post-Phase 2) — none introduced by this change. Throwaway verification session + scripts deleted.
+- Self-report: entry written by the agent immediately after the change.

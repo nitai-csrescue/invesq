@@ -22,11 +22,13 @@ export function buildReportPdfHtml(
   data: AdminCompanyReportData,
   companyWebsite: string | null,
   validation: ReportValidationStamp,
+  additionalSources: Array<{ label: string; note: string }> = [],
 ): string {
   const ctx: ReportContext = {
     reportData: data.reportData,
     meta: data.meta,
     companyWebsite,
+    additionalSources,
     validation,
   };
 

@@ -623,6 +623,29 @@ export async function getCompanyWebsite(companyId: number): Promise<string | nul
   return company.website;
 }
 
+// Per-company extension rows for the PDF Page 7 Sources list, stored under
+// companies.meta.additionalSourcesReviewed as [{ label, note }]. Defensive
+// parse: malformed entries are dropped rather than crashing the export.
+export async function getCompanyAdditionalSources(
+  companyId: number,
+): Promise<Array<{ label: string; note: string }>> {
+  const [company] = await db
+    .select({ meta: companiesTable.meta })
+    .from(companiesTable)
+    .where(eq(companiesTable.id, companyId))
+    .limit(1);
+  if (!company) throw new CompanyNotFoundError(`Company ${companyId} not found`);
+  const raw = (company.meta as Record<string, unknown> | null)?.["additionalSourcesReviewed"];
+  if (!Array.isArray(raw)) return [];
+  return raw.filter(
+    (e): e is { label: string; note: string } =>
+      !!e &&
+      typeof e === "object" &&
+      typeof (e as Record<string, unknown>).label === "string" &&
+      typeof (e as Record<string, unknown>).note === "string",
+  );
+}
+
 // Distribution posture for a company's owning firm, derived from the firm's
 // FirmMeta jsonb. Fail CLOSED: a null/missing meta is treated as internal-only
 // (not sendable) so a mis-seeded or pipeline-created firm can never leak a

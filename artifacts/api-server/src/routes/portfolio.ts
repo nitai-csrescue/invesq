@@ -6,6 +6,7 @@ import { getPortfolioBootstrapForSession } from "../lib/portfolioData.js";
 import { getTenantSession, LOGIN_GATED_SLUGS } from "../lib/tenantAuth.js";
 import {
   getCompanyWebsite,
+  getCompanyAdditionalSources,
   loadEffectiveReport,
   toValidationStamp,
   resolveCompanyBySlug,
@@ -178,9 +179,10 @@ router.get("/:firmSlug/companies/:companySlug/report-pdf", async (req, res) => {
       return;
     }
 
-    const [eff, website] = await Promise.all([
+    const [eff, website, additionalSources] = await Promise.all([
       loadEffectiveReport(resolved.companyId),
       getCompanyWebsite(resolved.companyId),
+      getCompanyAdditionalSources(resolved.companyId),
     ]);
     const data = eff.response;
 
@@ -194,7 +196,7 @@ router.get("/:firmSlug/companies/:companySlug/report-pdf", async (req, res) => {
       return;
     }
 
-    const html = buildReportPdfHtml(data, website, toValidationStamp(eff.validation));
+    const html = buildReportPdfHtml(data, website, toValidationStamp(eff.validation), additionalSources);
     const pdf = await renderHtmlToPdf(html);
 
     const safeCompanyName = data.reportData.companyName.replace(/[\\/:*?"<>|]/g, "").trim();
