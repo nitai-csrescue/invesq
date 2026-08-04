@@ -1472,6 +1472,12 @@ export interface PortfolioCompany {
    * @nullable
    */
   arrForRollup: number[] | null;
+  /** @nullable */
+  arr?: number | null;
+  /** @nullable */
+  arrAsOf?: string | null;
+  /** @nullable */
+  arrSource?: string | null;
   confidence: PortfolioCompanyConfidence;
   engagement: string;
   invesqSignal: string;

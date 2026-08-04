@@ -65,6 +65,11 @@ export interface Tier {
   invesqSignal: string;
   arrRisk: string;
   riskMidpoint: number; // used to estimate ARR at risk
+  // CQ-45: the tier's published risk-% band as numeric bounds, used to turn a
+  // first-class ARR point value into an ARR-at-risk dollar range. null low =
+  // open-ended downward ("<5%"); null high = open-ended upward (">20%").
+  riskBandLow: number | null;
+  riskBandHigh: number | null;
 }
 
 // ---------------------------------------------------------------------------
@@ -112,6 +117,12 @@ export interface RawCompany {
   hq: string;
   employeesDisplay: string;    // "77", "175", or "Unconfirmed" — never a fabricated point figure
   arrDisplay: string;          // human-readable ARR ("$10M–$20M", "Undisclosed")
+  // CQ-45: first-class ARR point value (whole dollars) from companies.arr,
+  // with provenance. Optional/null = Undisclosed. When set, buildCompany
+  // derives arrAtRiskRange from the tier's published risk-% band.
+  arr?: number | null;
+  arrAsOf?: string | null;
+  arrSource?: string | null;
   // ARR range in dollars used for portfolio rollups.
   // null = undisclosed — excluded from Total ARR and Est. ARR at Risk.
   arrForRollup: [number, number] | null;

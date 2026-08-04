@@ -187,12 +187,38 @@ export function buildCompany(raw: RawCompany): Company {
   const tier = getTier(tierComposite);
   const gaps = computeGaps(scores, raw.gapNotes);
 
-  const arrAtRiskRange: [number, number] | null = raw.arrForRollup
-    ? [
-        Math.round(raw.arrForRollup[0] * tier.riskMidpoint),
-        Math.round(raw.arrForRollup[1] * tier.riskMidpoint),
-      ]
-    : null;
+  // CQ-45: a first-class ARR point value (companies.arr) takes precedence and
+  // derives the ARR-at-risk dollar range from the tier's PUBLISHED risk-%
+  // band (>20% / 10–20% / 5–10% / <5%), so the dollar figure always matches
+  // the band copy shown beside it. The legacy arrForRollup × riskMidpoint
+  // path is untouched for companies without the new column. Undisclosed ARR
+  // (both null) stays "N/A" and is excluded from rollups — never zero-filled.
+  // ADDITIVE ONLY: no composite/tier math above is affected.
+  const hasArrColumn =
+    typeof raw.arr === "number" && Number.isFinite(raw.arr) && raw.arr > 0;
+  let arrAtRiskRange: [number, number] | null = null;
+  let arrAtRiskDisplay = "N/A";
+  if (hasArrColumn) {
+    const arr = raw.arr as number;
+    const lo = tier.riskBandLow !== null ? Math.round(arr * tier.riskBandLow) : 0;
+    const hi =
+      tier.riskBandHigh !== null
+        ? Math.round(arr * tier.riskBandHigh)
+        : Math.round(arr * (tier.riskBandLow ?? 0));
+    arrAtRiskRange = [lo, hi];
+    arrAtRiskDisplay =
+      tier.riskBandHigh === null
+        ? `>${formatCurrencyCompact(hi)}`
+        : tier.riskBandLow === null
+          ? `<${formatCurrencyCompact(hi)}`
+          : formatCurrencyRange([lo, hi]);
+  } else if (raw.arrForRollup) {
+    arrAtRiskRange = [
+      Math.round(raw.arrForRollup[0] * tier.riskMidpoint),
+      Math.round(raw.arrForRollup[1] * tier.riskMidpoint),
+    ];
+    arrAtRiskDisplay = formatCurrencyRange(arrAtRiskRange);
+  }
 
   return {
     ...raw,
@@ -213,7 +239,7 @@ export function buildCompany(raw: RawCompany): Company {
     gaps,
     topGap: gaps[0] ?? null,
     arrAtRiskRange,
-    arrAtRiskDisplay: arrAtRiskRange ? formatCurrencyRange(arrAtRiskRange) : "N/A",
+    arrAtRiskDisplay,
     // ICP eligibility (additive; the UI hides the chip when label is "Unknown"):
     ...computeIcpFit(raw),
   };

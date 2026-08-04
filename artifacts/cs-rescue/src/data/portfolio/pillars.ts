@@ -150,6 +150,8 @@ export const TIERS: Tier[] = [
       "High-urgency acquisition risk. NRR likely <90%. Immediate value-creation opportunity post-close.",
     arrRisk: ">20% ARR at risk annually",
     riskMidpoint: 0.25,
+    riskBandLow: 0.2,
+    riskBandHigh: null,
   },
   {
     id: 2,
@@ -162,6 +164,8 @@ export const TIERS: Tier[] = [
       "Meaningful structural gaps. Strong INVESQ fit. 10–15pp NRR improvement is achievable.",
     arrRisk: "10–20% ARR at risk annually",
     riskMidpoint: 0.15,
+    riskBandLow: 0.1,
+    riskBandHigh: 0.2,
   },
   {
     id: 3,
@@ -174,6 +178,8 @@ export const TIERS: Tier[] = [
       "Foundation exists. Gaps concentrated in commercial motion or planning. 5–10pp NRR uplift.",
     arrRisk: "5–10% ARR at risk annually",
     riskMidpoint: 0.075,
+    riskBandLow: 0.05,
+    riskBandHigh: 0.1,
   },
   {
     id: 4,
@@ -186,6 +192,8 @@ export const TIERS: Tier[] = [
       "Near-mature. Suitable for benchmarking against the INVESQ cohort. Likely a strong CS operator.",
     arrRisk: "<5% preventable ARR at risk",
     riskMidpoint: 0.03,
+    riskBandLow: null,
+    riskBandHigh: 0.05,
   },
 ];
 

@@ -3604,6 +3604,16 @@ components:
           maxItems: 2
           items:
             type: number
+        # CQ-45: first-class ARR (companies.arr / arr_as_of / arr_source).
+        # All optional & nullable; absent/null = Undisclosed. When set, the
+        # portfolio engine (client-side too) derives the ARR-at-risk dollar
+        # range from the tier's published risk-% band.
+        arr:
+          type: [number, "null"]
+        arrAsOf:
+          type: [string, "null"]
+        arrSource:
+          type: [string, "null"]
         confidence:
           type: string
           enum: [High, Medium, Low]

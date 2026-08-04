@@ -835,6 +835,9 @@ export const GetPortfolioBootstrapResponse = zod.object({
                 getPortfolioBootstrapResponseFirmsItemCompaniesItemArrForRollupMax,
               )
               .nullable(),
+            arr: zod.number().nullish(),
+            arrAsOf: zod.string().nullish(),
+            arrSource: zod.string().nullish(),
             confidence: zod.enum(["High", "Medium", "Low"]),
             engagement: zod.string(),
             invesqSignal: zod.string(),

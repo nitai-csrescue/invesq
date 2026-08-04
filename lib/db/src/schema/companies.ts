@@ -1,5 +1,5 @@
 import { sql } from "drizzle-orm";
-import { date, index, integer, jsonb, pgTable, serial, text, timestamp, uniqueIndex } from "drizzle-orm/pg-core";
+import { date, index, integer, jsonb, numeric, pgTable, serial, text, timestamp, uniqueIndex } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod/v4";
 import { firmsTable } from "./firms";
@@ -68,6 +68,19 @@ export const companiesTable = pgTable(
     fundingHistory: jsonb("funding_history"),
     // Country -> employee-count map plus { source, pulledAt } metadata.
     countryHeadcount: jsonb("country_headcount"),
+    // ---- CQ-45: first-class ARR with provenance. All three nullable; null =
+    // Undisclosed (the platform-wide convention: excluded from rollups, never
+    // zero-filled). No backfill was performed — every pre-existing row keeps
+    // null. When `arr` is set, the portfolio engine derives the ARR-at-risk
+    // dollar range from the tier's published risk-% band, and any tenant-facing
+    // surface must qualify the figure with "as of <arr_as_of>" (copy policy:
+    // a dated figure is never presented as current). ----
+    // Annual recurring revenue in whole dollars (numeric to avoid float drift).
+    arr: numeric("arr"),
+    // Calendar date the ARR figure was reported/valid as of (YYYY-MM-DD).
+    arrAsOf: date("arr_as_of", { mode: "string" }),
+    // Free-text provenance, e.g. "press release 2025-06", "company filing".
+    arrSource: text("arr_source"),
     // ---- CQ-37: tiered confidence model. Tiers are INDEPENDENT, never
     // cumulative (design locked by Nitai, Aug 3 2026) — any combination is
     // valid. Tier 1 (INVESQ Initial Scan) has NO column: it is derived from

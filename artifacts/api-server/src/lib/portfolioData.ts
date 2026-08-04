@@ -27,6 +27,7 @@ import {
   type RubricValue,
 } from "@workspace/portfolio-engine";
 import { LEGACY_FIRMS_META } from "@workspace/portfolio-engine/data";
+import { formatCurrencyCompact } from "@workspace/portfolio-engine";
 import { logger } from "./logger.js";
 import { LOGIN_GATED_SLUGS, type TenantSession } from "./tenantAuth.js";
 import { withTenantDb } from "./tenantDb.js";
@@ -125,7 +126,7 @@ async function load(): Promise<PortfolioLoadResult> {
             throw new Error(`companies.meta is missing for company "${c.name}" (id ${c.id})`);
           }
           return {
-            ...companyMeta,
+            ...overlayArrColumns(companyMeta, c),
             id: c.slug,
             name: c.name,
             assessments: assessmentsByCompany.get(c.id) ?? [],
@@ -165,7 +166,7 @@ async function load(): Promise<PortfolioLoadResult> {
             return !!history && history.length > 0;
           })
           .map((c) => ({
-            ...(c.meta as CompanyMeta),
+            ...overlayArrColumns(c.meta as CompanyMeta, c),
             id: c.slug as string,
             name: c.name,
             assessments: assessmentsByCompany.get(c.id) ?? [],
@@ -240,6 +241,37 @@ export async function getPortfolioBootstrap(): Promise<PortfolioLoadResult> {
 // tenant_reader + app.firm_id), so Postgres RLS — not just this code —
 // guarantees the slice can only ever contain that firm's rows.
 // ---------------------------------------------------------------------------
+// ---------------------------------------------------------------------------
+// CQ-45: overlay the first-class ARR columns (companies.arr / arr_as_of /
+// arr_source) onto the CompanyMeta-derived RawCompany fields. Null arr =
+// Undisclosed: the overlay is a no-op, so every pre-existing row (all tenants)
+// behaves byte-identically. When arr is set:
+//   - arr/arrAsOf/arrSource flow to the engine, which derives the ARR-at-risk
+//     dollar range from the tier's published risk-% band;
+//   - arrForRollup becomes [arr, arr] so portfolio rollups include it;
+//   - arrDisplay carries the MANDATORY "as of <date>" qualifier (copy policy:
+//     a dated figure is never presented as current-year ARR).
+// ---------------------------------------------------------------------------
+function overlayArrColumns(
+  fields: Omit<RawCompany, "id" | "name" | "assessments">,
+  row: { arr: string | null; arrAsOf: string | null; arrSource: string | null },
+): Omit<RawCompany, "id" | "name" | "assessments"> {
+  if (row.arr == null) return fields;
+  const arr = Number(row.arr);
+  if (!Number.isFinite(arr) || arr <= 0) return fields;
+  const asOfLabel = row.arrAsOf
+    ? `as of ${new Date(row.arrAsOf + "T00:00:00").toLocaleDateString("en-US", { month: "short", year: "numeric" })}`
+    : "as reported";
+  return {
+    ...fields,
+    arr,
+    arrAsOf: row.arrAsOf,
+    arrSource: row.arrSource,
+    arrForRollup: [arr, arr],
+    arrDisplay: `${formatCurrencyCompact(arr)} (${asOfLabel})`,
+  };
+}
+
 const gatedSliceCache = new Map<number, RawCompany[]>();
 
 async function loadGatedFirmCompanies(firmId: number): Promise<RawCompany[]> {
@@ -278,7 +310,12 @@ async function loadGatedFirmCompanies(firmId: number): Promise<RawCompany[]> {
       if (!c.slug) throw new Error(`companies.slug is missing for company "${c.name}" (id ${c.id})`);
       const companyMeta = c.meta as CompanyMeta | null;
       if (!companyMeta) throw new Error(`companies.meta is missing for company "${c.name}" (id ${c.id})`);
-      return { ...companyMeta, id: c.slug, name: c.name, assessments: byCompany.get(c.id) ?? [] };
+      return {
+        ...overlayArrColumns(companyMeta, c),
+        id: c.slug,
+        name: c.name,
+        assessments: byCompany.get(c.id) ?? [],
+      };
     });
     buildFirmPortfolio(firm.slug, companies);
     return companies;
