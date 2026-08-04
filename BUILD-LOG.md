@@ -1521,3 +1521,13 @@ curl -X POST https://<prod-domain>/api/admin/repair-assessments-dedup \
 - What/why: NOT a data patch. Boot routine mirrors the admin UI exactly: inserts the 6 STG companies (TaxCalc, Nomis Solutions, Cadmium, Confience, MediaValet, Trellix) with the same insert shape as POST /firms/:id/companies, sets firm to "reviewed", queues a "build" job like POST /firms/:id/confirm, and lets the standard resumeQueuedBuildJobs() boot pass execute runBuildJob (Claude research + scoring). One-shot via durable marker firms.meta.stgPipelineSeededAt; skips if the firm already has any companies; respects the jobs partial unique index. Websites were never on file historically — used best public matches (taxcalc.com, nomissolutions.com, gocadmium.com, confience.com, mediavalet.com, trellix.com).
 - QA notes: typecheck clean. Dev run: job 75 completed (~9 min), 6/6 companies with real pipeline meta (sector/HQ/summary/signal), 6 assessments (rubric v6, evidence populated), 102 signals, firm status "ready". Confidence: High x4, Medium x2 (TaxCalc, Nomis); one "Insufficient Data" rubric cell (Nomis health scoring). /stg/portfolio renders full dashboard, no console errors.
 - Self-report: entry written by the agent immediately after the change.
+
+---
+
+## Remove temporary STG re-onboard seed routine after prod verification
+- Date: 2026-08-04 17:45 UTC
+- Status: complete
+- Files changed: artifacts/api-server/src/lib/seedStgPipelineRebuild.ts (deleted), artifacts/api-server/src/index.ts (unwired)
+- Republish needed: optional housekeeping only — prod already ran the seed (job 43 completed, marker firms.meta.stgPipelineSeededAt set 2026-08-04T17:31Z), so the routine left in the live bundle is a guaranteed no-op.
+- What/why: Prod verified live — 6 STG companies with real pipeline assessments/meta, firm "ready", /stg/portfolio renders on cs-rescue.replit.app. Per convention, one-shot repair routines are removed once both environments carry the durable marker.
+- Self-report: entry written by the agent immediately after the change.
