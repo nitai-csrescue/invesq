@@ -29,6 +29,15 @@ import {
 
 const router: IRouter = Router();
 
+// Strict calendar-date check for a YYYY-MM-DD string (regex shape is already
+// guaranteed by the zod schema): round-trips through Date to reject
+// impossible days like 2026-02-30 or 2026-99-99.
+function isRealCalendarDate(value: string): boolean {
+  const [y, m, d] = value.split("-").map(Number);
+  const dt = new Date(Date.UTC(y, m - 1, d));
+  return dt.getUTCFullYear() === y && dt.getUTCMonth() === m - 1 && dt.getUTCDate() === d;
+}
+
 function metricsSnapshot(raw: unknown): OutcomeMetrics {
   const stored = (raw && typeof raw === "object" && !Array.isArray(raw) ? raw : {}) as OutcomeMetrics;
   const snap: OutcomeMetrics = {};
@@ -130,6 +139,13 @@ router.post("/companies/:companyId/outcomes/interventions", async (req, res) => 
   const parsed = CreateAdminOutcomeInterventionBody.safeParse(req.body);
   if (!parsed.success) {
     res.status(400).json({ error: "Invalid body", details: parsed.error.issues });
+    return;
+  }
+  // The zod schema only enforces the YYYY-MM-DD shape; reject impossible
+  // calendar days (e.g. 2026-99-99) here so they 400 instead of surfacing
+  // as a Postgres insert error.
+  if (!isRealCalendarDate(parsed.data.occurredOn)) {
+    res.status(400).json({ error: "occurredOn is not a valid calendar date" });
     return;
   }
   const company = await loadCompanyWithFirm(companyId);
