@@ -1401,7 +1401,7 @@ router.get("/companies/:id/report-pdf", async (req, res) => {
       return;
     }
 
-    const html = buildReportPdfHtml(data, website, toValidationStamp(eff.validation));
+    const html = buildReportPdfHtml(data, website, toValidationStamp(eff.validation), additionalSources);
     const pdf = await renderHtmlToPdf(html);
 
     const safeCompanyName = data.reportData.companyName.replace(/[\\/:*?"<>|]/g, "").trim();
