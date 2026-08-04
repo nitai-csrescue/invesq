@@ -9,6 +9,7 @@ import { backfillRubricV2 } from "./lib/backfillRubricV2";
 import { backfillEngagement } from "./lib/backfillEngagement";
 import { ensureRlsPolicies } from "./lib/rlsPolicies";
 import { removePamlicoCapitalDuplicate } from "./lib/removePamlicoCapitalDuplicate";
+import { seedStgPipelineRebuild } from "./lib/seedStgPipelineRebuild";
 import { seedStuckFirms } from "./lib/seedStuckFirms";
 import { logSystemHealthOnStartup } from "./lib/systemHealth";
 
@@ -51,11 +52,15 @@ app.listen(port, (err) => {
   void backfillRubricV2();
   void backfillEngagement();
   // Sequence job resumption after the RLS DDL: boot routines that touch the
-  // same relations concurrently have deadlocked before.
-  void ensureRlsPolicies().then(() => {
-    void resumeQueuedDiscoveryJobs();
-    void resumeQueuedBuildJobs();
-  });
+  // same relations concurrently have deadlocked before. The one-shot STG
+  // seed runs in between so its queued build job is picked up by the normal
+  // resume pass (the exact code path the admin UI's confirm flow uses).
+  void ensureRlsPolicies()
+    .then(() => seedStgPipelineRebuild())
+    .then(() => {
+      void resumeQueuedDiscoveryJobs();
+      void resumeQueuedBuildJobs();
+    });
   void removePamlicoCapitalDuplicate();
   void seedStuckFirms();
   void logSystemHealthOnStartup();
