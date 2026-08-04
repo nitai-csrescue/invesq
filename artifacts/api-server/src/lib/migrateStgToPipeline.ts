@@ -18,8 +18,10 @@
 // Safety gates:
 //   - Only the firm with slug exactly "stg" is touched; the other four
 //     legacy tenants and all pipeline firms are never read for write.
-//   - Idempotent: on any boot after the companies are gone, the cascade
-//     finds zero company ids and deletes nothing.
+//   - One-shot via a durable marker: after the wipe, firms.meta gains
+//     "migratedToPipelineAt" and every later boot no-ops on that flag —
+//     company count is NOT used as completion state, so companies created
+//     by future pipeline builds are never touched.
 //   - Errors are logged and swallowed (never crash the server at boot).
 // ---------------------------------------------------------------------------
 import { eq } from "drizzle-orm";
@@ -31,7 +33,7 @@ import { logger } from "./logger.js";
 export async function migrateStgToPipeline(): Promise<void> {
   try {
     const [firm] = await db
-      .select({ id: firmsTable.id, slug: firmsTable.slug, name: firmsTable.name })
+      .select({ id: firmsTable.id, slug: firmsTable.slug, meta: firmsTable.meta })
       .from(firmsTable)
       .where(eq(firmsTable.slug, "stg"))
       .limit(1);
@@ -41,12 +43,24 @@ export async function migrateStgToPipeline(): Promise<void> {
       return;
     }
 
-    const result = await deleteFirmCompaniesCascade(firm.id);
-
-    if (result.removedCompanies === 0) {
-      logger.info("migrateStgToPipeline: already migrated (0 companies), nothing to do");
+    const meta = (firm.meta ?? {}) as Record<string, unknown>;
+    if (meta["migratedToPipelineAt"]) {
+      logger.info(
+        { migratedToPipelineAt: meta["migratedToPipelineAt"] },
+        "migrateStgToPipeline: already migrated (durable marker), nothing to do",
+      );
       return;
     }
+
+    const result = await deleteFirmCompaniesCascade(firm.id);
+
+    // Durable completion marker — written AFTER the wipe so a failed wipe
+    // retries next boot, and a successful one is never repeated even after
+    // the pipeline repopulates STG with new companies.
+    await db
+      .update(firmsTable)
+      .set({ meta: { ...meta, migratedToPipelineAt: new Date().toISOString() } })
+      .where(eq(firmsTable.id, firm.id));
 
     invalidatePortfolioCache();
     logger.info(

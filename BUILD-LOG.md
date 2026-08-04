@@ -1491,3 +1491,12 @@ curl -X POST https://<prod-domain>/api/admin/repair-assessments-dedup \
 - What/why: STG is now a standard pipeline-managed tenant (signed off by Nitai). Boot migration wipes ALL STG companies + children (assessments, reports incl. validations, signals, findings, calibration, confirmation requests, tier disputes/audit, backengine, interventions, company-targeted jobs) via the shared cascade; firm row (slug stg, name STG, meta) untouched. Admin "Add company" on STG now follows the normal confirm-and-queue-build pipeline; LEGACY delete/backfill guards no longer apply to stg.
 - QA notes: typecheck api+web clean. Dev verified: migration removed 6 companies/6 assessments; /stg/portfolio renders clean empty state (0 companies, no console errors, no login gate); pamlico (3) / raviga (10) / longarc (3) / solen (6) unchanged and still legacy-classified. First boot hit an RLS/migration deadlock (fixed by sequencing); one stale-log 500 was that boot only.
 - Self-report: this entry written by the agent immediately after the change, per the append-only BUILD-LOG convention.
+
+---
+
+## Hardening: STG migration one-shot marker + job-resume sequencing
+- Date: 2026-08-04 16:50 UTC
+- Status: complete
+- Files changed: artifacts/api-server/src/lib/migrateStgToPipeline.ts, artifacts/api-server/src/index.ts
+- Republish needed: yes (same Publish as the migration itself)
+- What/why: architect review flagged that "0 companies" as the completion check would re-wipe STG after the pipeline repopulates it on any later restart/Publish. Now a durable marker (firms.meta.migratedToPipelineAt) written after the wipe makes it truly one-shot, and queued job resumption is sequenced after the migration so a resumed STG build can never race the wipe. Dev-verified: marker present, second boot no-ops, bootstrap clean.
