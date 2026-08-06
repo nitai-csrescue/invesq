@@ -7,7 +7,7 @@
  */
 
 /**
- * Full-state ARR write. All three keys are required; each value is nullable. arr must be >= 0 whole US dollars or null; a null arr clears all three columns regardless of the other values.
+ * Full-state ARR write. All three keys are required; each value is nullable. arr must be >= 0 whole US dollars or null. A null OR zero arr clears all three columns back to "Undisclosed" regardless of the other values (the portfolio engine only treats a positive figure as a first-class ARR, so zero is an explicit clear, never a stored value).
 
  */
 export interface UpdateCompanyArrInput {

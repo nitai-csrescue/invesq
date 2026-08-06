@@ -1186,7 +1186,10 @@ router.patch("/companies/:id/arr", async (req, res) => {
     return;
   }
 
-  const clearing = arr == null;
+  // Zero is an explicit clear, not a stored value: the portfolio engine only
+  // overlays a POSITIVE first-class ARR, so a persisted "0" would be silently
+  // dropped on the next bootstrap and legacy range fallbacks could resurface.
+  const clearing = arr == null || arr === 0;
   const next = {
     arr: clearing ? null : String(Math.round(arr)),
     arrAsOf: clearing ? null : arrAsOf,

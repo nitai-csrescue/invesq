@@ -622,6 +622,11 @@ function ArrEditDialog({
       setError("ARR must be a non-negative dollar amount (whole US dollars).");
       return;
     }
+    if (amount === 0) {
+      // Zero is not a meaningful disclosure — same as clearing.
+      onSave({ arr: null, arrAsOf: null, arrSource: null });
+      return;
+    }
     if (asOf.trim() !== "" && !/^\d{4}-\d{2}-\d{2}$/.test(asOf.trim())) {
       setError("As-of date must be YYYY-MM-DD.");
       return;
