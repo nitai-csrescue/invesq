@@ -11,6 +11,7 @@ import { removePamlicoCapitalDuplicate } from "./lib/removePamlicoCapitalDuplica
 import { migratePhase2Tenants } from "./lib/migratePhase2Tenants";
 import { seedTrellixManualEvidence } from "./lib/seedTrellixManualEvidence";
 import { restorePhase2Portfolios } from "./lib/restorePhase2Portfolios";
+import { backfillDisclosedArr } from "./lib/backfillDisclosedArr";
 import { seedStuckFirms } from "./lib/seedStuckFirms";
 import { logSystemHealthOnStartup } from "./lib/systemHealth";
 
@@ -61,6 +62,9 @@ app.listen(port, (err) => {
     // (runs the real add-company + build pipeline; marker-gated, idempotent).
     // Must run BEFORE the resume scan so its queued jobs aren't double-fired.
     .then(() => restorePhase2Portfolios())
+    // CQ-48: one-shot marker-gated ARR backfill for 12 named companies; runs
+    // after restore so restored companies exist, before the resume scan.
+    .then(() => backfillDisclosedArr())
     .then(() => {
       void resumeQueuedDiscoveryJobs();
       void resumeQueuedBuildJobs();
