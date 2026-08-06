@@ -49,7 +49,20 @@ export interface CompanyProfile {
   employeesDisplay: string; // "Unconfirmed" when not verifiable — never a fabricated precise figure
   arrDisplay: string; // "Undisclosed" when not verifiable
   arrForRollup: [number, number] | null; // dollars [low, high]; null when undisclosed
+  // Task #69 / CQ-46: a PUBLICLY DISCLOSED ARR/revenue figure (press release,
+  // M&A announcement, funding coverage, trade press) — distinct from the
+  // arrDisplay ESTIMATE above. All-or-nothing guard-parsed: either every field
+  // is present and valid, or the whole disclosure is null. Maps 1:1 onto the
+  // CQ-45 columns companies.arr / arr_as_of / arr_source.
+  arrDisclosure: ArrDisclosure | null;
   summary: string; // executive summary; "" when the model returned none
+}
+
+export interface ArrDisclosure {
+  amount: number; // whole US dollars, > 0
+  asOf: string; // ISO YYYY-MM-DD the figure was reported/valid as of
+  source: string; // outlet + publication date, e.g. "STG launch press release, Jan 2022"
+  basis: "point_in_time" | "run_rate"; // never presented interchangeably in reports
 }
 
 export interface CompanyScoring {
@@ -63,6 +76,7 @@ const DEFAULT_PROFILE: CompanyProfile = {
   employeesDisplay: "Unconfirmed",
   arrDisplay: "Undisclosed",
   arrForRollup: null,
+  arrDisclosure: null,
   summary: "",
 };
 
@@ -117,6 +131,8 @@ function buildSystemPrompt(): string {
     "",
     "You must ALSO research the company itself (what it does, where it is based, roughly how large it is, and its revenue scale) for a short descriptive profile. Apply the same never-fabricate rule to the profile: if you cannot verify a field from a real signal, use its documented fallback rather than guessing.",
     "",
+    "MANDATORY ARR/REVENUE DISCLOSURE CHECK: dedicate at least one web search specifically to a publicly disclosed ARR or revenue figure for the company (e.g. \"<company> revenue\", \"<company> ARR\", \"<company> acquisition revenue\"). Check press releases (company or acquirer/investor), acquisition/merger/carve-out announcements, funding round coverage, and trade press. A disclosure is a specific figure someone actually published about this company — NOT an estimate you infer. If you find one, report it in the profile's arrDisclosed* fields below with its source, date, and whether it was a point-in-time snapshot (e.g. revenue at time of a merger/acquisition) or a stated current run-rate — those two must never be conflated. If no credible dated public figure exists, set all four arrDisclosed* fields to null — never estimate one.",
+    "",
     "Respond with ONLY a single fenced ```json code block (no prose before or after it) containing one JSON object with these keys:",
     "1. The 8 pillar keys (the pillar ids above): \"org\", \"onboarding\", \"health\", \"escalation\", \"revenue\", \"leadership\", \"planning\", \"ai\". Each value must be an object with exactly these three fields:",
     '   - "score": 0, 1, 2, or the literal string "Insufficient Data"',
@@ -136,6 +152,11 @@ function buildSystemPrompt(): string {
     '   - "arrDisplay": string — human-readable ARR estimate, e.g. "$10M-$20M". Use "Undisclosed" if you have no real signal.',
     '   - "arrLow": number (US dollars, e.g. 10000000) or null — low end of the ARR range; null if undisclosed.',
     '   - "arrHigh": number (US dollars) or null — high end of the ARR range; null if undisclosed.',
+    "   The next four fields report the MANDATORY ARR/REVENUE DISCLOSURE CHECK result (ALL four when found, ALL null when no credible dated public disclosure exists):",
+    '   - "arrDisclosedAmount": number (whole US dollars, e.g. 2000000000 for "almost $2 billion") or null.',
+    '   - "arrDisclosedAsOf": ISO date "YYYY-MM-DD" the figure was reported/valid as of (use the first of the month if only a month is public) or null.',
+    '   - "arrDisclosedSource": string naming the outlet/document plus its publication date, e.g. "STG launch press release, Jan 2022 (corroborated: Dark Reading, VentureBeat)", or null.',
+    '   - "arrDisclosedBasis": "point_in_time" (a snapshot tied to an event, e.g. revenue at acquisition/carve-out) or "run_rate" (a stated current run-rate), or null. Never conflate the two.',
     '   - "summary": string — a 2-4 sentence executive summary of the company and its Customer Success operational posture, grounded only in what you found.',
   ].join("\n");
 }
@@ -273,8 +294,44 @@ function parseCompanyProfile(text: string): CompanyProfile {
     // rather than fabricating a format — the range still drives rollups.
     arrDisplay: str(rec.arrDisplay, DEFAULT_PROFILE.arrDisplay),
     arrForRollup,
+    arrDisclosure: parseArrDisclosure(rec),
     summary: str(rec.summary, DEFAULT_PROFILE.summary),
   };
+}
+
+// Task #69: all-or-nothing parse of the disclosed-ARR fields. A disclosure is
+// only usable when the figure, its as-of date, its source, and its
+// point-in-time/run-rate basis are ALL present and valid — a partial
+// disclosure (e.g. a figure with no date) is worse than none, because the
+// copy policy requires qualifying every figure with its date. NEVER throws.
+function parseArrDisclosure(rec: Record<string, unknown>): ArrDisclosure | null {
+  const amount =
+    typeof rec.arrDisclosedAmount === "number" &&
+    Number.isFinite(rec.arrDisclosedAmount) &&
+    rec.arrDisclosedAmount > 0
+      ? Math.round(rec.arrDisclosedAmount)
+      : null;
+  // Accept full ISO dates; tolerate a month-only "YYYY-MM" (normalize to the
+  // first of the month, matching the prompt's own instruction to the model).
+  const asOfRaw = typeof rec.arrDisclosedAsOf === "string" ? rec.arrDisclosedAsOf.trim() : "";
+  const asOf = /^\d{4}-\d{2}-\d{2}$/.test(asOfRaw)
+    ? asOfRaw
+    : /^\d{4}-\d{2}$/.test(asOfRaw)
+      ? `${asOfRaw}-01`
+      : null;
+  // Same deterministic no-em-dash scrub as signal notes — arr_source is
+  // report-facing provenance text.
+  const source =
+    typeof rec.arrDisclosedSource === "string" && rec.arrDisclosedSource.trim().length > 0
+      ? rec.arrDisclosedSource.replace(/\u2014/g, "--").trim()
+      : null;
+  const basis =
+    rec.arrDisclosedBasis === "point_in_time" || rec.arrDisclosedBasis === "run_rate"
+      ? rec.arrDisclosedBasis
+      : null;
+
+  if (amount === null || asOf === null || source === null || basis === null) return null;
+  return { amount, asOf, source, basis };
 }
 
 // Scores all 8 pillars for a single company via Claude + web search, using

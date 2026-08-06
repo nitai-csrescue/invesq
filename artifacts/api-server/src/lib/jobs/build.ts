@@ -223,10 +223,33 @@ async function scoreAndPersistCompany(company: Company, firm: Firm): Promise<Com
   // while the assessment history keeps accumulating (append-only above).
   const companyMeta = buildCompanyMeta(company, pillarResults, profile);
   const existingMeta = (company.meta as Record<string, unknown> | null) ?? {};
+  // Task #69: persist a publicly DISCLOSED ARR figure (CQ-46 research rule)
+  // into the first-class CQ-45 columns, in the same update as the meta.
+  // Write-only-when-found: a null disclosure leaves the columns untouched, so
+  // a re-score that finds nothing can never clear a figure a human (or an
+  // earlier run) already recorded. The basis flag rides in arr_source so the
+  // point-in-time vs run-rate distinction is never lost downstream.
+  const arrColumns = profile.arrDisclosure
+    ? {
+        arr: String(profile.arrDisclosure.amount),
+        arrAsOf: profile.arrDisclosure.asOf,
+        arrSource: `${profile.arrDisclosure.source} (${
+          profile.arrDisclosure.basis === "point_in_time" ? "point-in-time" : "run-rate"
+        })`,
+      }
+    : {};
   await db
     .update(companiesTable)
-    .set({ meta: { ...existingMeta, ...companyMeta } })
+    .set({ meta: { ...existingMeta, ...companyMeta }, ...arrColumns })
     .where(eq(companiesTable.id, company.id));
+  logger.info(
+    profile.arrDisclosure
+      ? { companyId: company.id, arr: profile.arrDisclosure.amount, arrAsOf: profile.arrDisclosure.asOf, basis: profile.arrDisclosure.basis }
+      : { companyId: company.id },
+    profile.arrDisclosure
+      ? "Disclosed ARR persisted from research"
+      : "No usable public ARR disclosure returned by research (columns left untouched)",
+  );
 
   // CQ-15: supplemental third-party enrichment (funding history + country
   // headcount split, plus a headcount divergence check against the legacy
