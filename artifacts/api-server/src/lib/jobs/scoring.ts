@@ -305,19 +305,32 @@ function parseCompanyProfile(text: string): CompanyProfile {
 // disclosure (e.g. a figure with no date) is worse than none, because the
 // copy policy requires qualifying every figure with its date. NEVER throws.
 function parseArrDisclosure(rec: Record<string, unknown>): ArrDisclosure | null {
-  const amount =
-    typeof rec.arrDisclosedAmount === "number" &&
-    Number.isFinite(rec.arrDisclosedAmount) &&
-    rec.arrDisclosedAmount > 0
+  // Round first, THEN validate: a sub-dollar positive value (e.g. 0.1) must
+  // reject, not round down to 0 and slip past the > 0 contract.
+  const rounded =
+    typeof rec.arrDisclosedAmount === "number" && Number.isFinite(rec.arrDisclosedAmount)
       ? Math.round(rec.arrDisclosedAmount)
       : null;
+  const amount = rounded !== null && rounded > 0 && Number.isSafeInteger(rounded) ? rounded : null;
   // Accept full ISO dates; tolerate a month-only "YYYY-MM" (normalize to the
   // first of the month, matching the prompt's own instruction to the model).
+  // Shape alone isn't validity ("2026-02-31" matches the regex but Postgres's
+  // date column rejects it, which would fail the build AFTER the assessment
+  // already committed) — so round-trip through Date to require a real
+  // calendar date.
   const asOfRaw = typeof rec.arrDisclosedAsOf === "string" ? rec.arrDisclosedAsOf.trim() : "";
-  const asOf = /^\d{4}-\d{2}-\d{2}$/.test(asOfRaw)
+  const asOfCandidate = /^\d{4}-\d{2}-\d{2}$/.test(asOfRaw)
     ? asOfRaw
     : /^\d{4}-\d{2}$/.test(asOfRaw)
       ? `${asOfRaw}-01`
+      : null;
+  const asOfDate = asOfCandidate !== null ? new Date(`${asOfCandidate}T00:00:00Z`) : null;
+  const asOf =
+    asOfCandidate !== null &&
+    asOfDate !== null &&
+    !Number.isNaN(asOfDate.getTime()) &&
+    asOfDate.toISOString().slice(0, 10) === asOfCandidate
+      ? asOfCandidate
       : null;
   // Same deterministic no-em-dash scrub as signal notes — arr_source is
   // report-facing provenance text.
