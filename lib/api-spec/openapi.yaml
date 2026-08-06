@@ -975,6 +975,50 @@ paths:
               schema:
                 $ref: "#/components/schemas/ErrorEnvelope"
 
+  /admin/companies/{id}/arr:
+    patch:
+      operationId: updateAdminCompanyArr
+      tags: [admin]
+      summary: Manually set or clear a company's disclosed ARR figure (CQ-47)
+      description: >
+        Full-state write of the CQ-45 ARR columns (companies.arr / arr_as_of /
+        arr_source): all three fields must be supplied, each nullable. Setting
+        arr to null clears ALL three columns back to "Undisclosed" (never
+        zero-filled, excluded from rollups). A non-null arr may carry a null
+        as-of date or source. Does not touch scoring, tiers, revisions, or
+        sign-offs, and never affects other companies.
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateCompanyArrInput"
+      responses:
+        "200":
+          description: ARR saved (or cleared); the stored state as persisted
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CompanyArrState"
+        "400":
+          description: Invalid company id, negative ARR, or malformed as-of date
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+        "404":
+          description: Company not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+
   /admin/companies/{id}/pillar-evidence:
     patch:
       operationId: updateAdminCompanyPillarEvidence
@@ -2651,6 +2695,41 @@ components:
           type: [string, "null"]
           pattern: "^\\d{4}-\\d{2}-\\d{2}$"
           description: Report date shown on the Prepared By card (YYYY-MM-DD); becomes reportData.reportDate.
+
+    UpdateCompanyArrInput:
+      type: object
+      description: >
+        Full-state ARR write. All three keys are required; each value is
+        nullable. arr must be >= 0 whole US dollars or null; a null arr clears
+        all three columns regardless of the other values.
+      required: [arr, arrAsOf, arrSource]
+      properties:
+        arr:
+          type: [number, "null"]
+          minimum: 0
+          description: Disclosed ARR in whole US dollars, or null to clear.
+        arrAsOf:
+          type: [string, "null"]
+          pattern: "^\\d{4}-\\d{2}-\\d{2}$"
+          description: Date the figure was valid as of (YYYY-MM-DD) or null.
+        arrSource:
+          type: [string, "null"]
+          maxLength: 500
+          description: Free-text source citation (press release, filing, call note) or null.
+
+    CompanyArrState:
+      type: object
+      description: The ARR columns exactly as persisted after an update.
+      required: [companyId, arr, arrAsOf, arrSource]
+      properties:
+        companyId:
+          type: integer
+        arr:
+          type: [number, "null"]
+        arrAsOf:
+          type: [string, "null"]
+        arrSource:
+          type: [string, "null"]
 
     UpdatePillarEvidenceInput:
       type: object

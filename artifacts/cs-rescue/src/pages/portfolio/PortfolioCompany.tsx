@@ -819,7 +819,13 @@ export default function PortfolioCompany() {
         Prepared for {firm.displayName} · as of {formatDate(AS_OF_DATE)} · Design-partner preview
       </p>
       <section id="diagnostic-report" className="scroll-mt-4">
-        <PortcoReportWorkflow firmSlug={firmSlug} companySlug={params?.companyId ?? ""} />
+        <PortcoReportWorkflow
+          firmSlug={firmSlug}
+          companySlug={params?.companyId ?? ""}
+          arr={company.arr ?? null}
+          arrAsOf={company.arrAsOf ?? null}
+          arrSource={company.arrSource ?? null}
+        />
       </section>
     </TenantShell>
   );

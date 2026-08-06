@@ -9,6 +9,7 @@ import {
   ReorderAdminFirmsBody,
   SaveAdminCompanyReportRevisionBody,
   SetAdminFirmClearanceBody,
+  UpdateAdminCompanyArrBody,
   UpdateAdminCompanyPillarEvidenceBody,
   UpdateAdminCompanyReportMetaBody,
   UpdateAdminFirmBody,
@@ -1149,6 +1150,66 @@ router.patch("/companies/:id/report-meta", async (req, res) => {
     req.log.error({ err, companyId: id }, "Failed to update report cover metadata");
     res.status(500).json({ error: "Failed to update report metadata" });
   }
+});
+
+// CQ-47: manual ARR edit surface. Full-state write of the CQ-45 ARR columns
+// (arr / arr_as_of / arr_source). arr null clears ALL three back to
+// "Undisclosed" (never zero-filled; a source/date without a figure is
+// meaningless). Never touches scoring, tiers, revisions, sign-offs, or any
+// other company. Bootstrap serves ARR through the portfolio cache, so it is
+// invalidated after a successful write.
+router.patch("/companies/:id/arr", async (req, res) => {
+  const id = Number(req.params.id);
+  if (!Number.isInteger(id) || id <= 0) {
+    res.status(400).json({ error: "Invalid company id" });
+    return;
+  }
+
+  const parsed = UpdateAdminCompanyArrBody.safeParse(req.body);
+  if (!parsed.success) {
+    res.status(400).json({ error: "Invalid ARR payload", details: parsed.error.issues });
+    return;
+  }
+  const { arr, arrAsOf, arrSource } = parsed.data;
+
+  // Zod enforces shape (>= 0, YYYY-MM-DD); shape alone isn't calendar
+  // validity ("2026-02-31" matches but Postgres's date column rejects it).
+  if (arrAsOf != null) {
+    const d = new Date(`${arrAsOf}T00:00:00Z`);
+    if (Number.isNaN(d.getTime()) || d.toISOString().slice(0, 10) !== arrAsOf) {
+      res.status(400).json({ error: "arrAsOf is not a real calendar date" });
+      return;
+    }
+  }
+  if (arr != null && (!Number.isFinite(arr) || !Number.isSafeInteger(Math.round(arr)))) {
+    res.status(400).json({ error: "arr must be a finite whole-dollar amount" });
+    return;
+  }
+
+  const clearing = arr == null;
+  const next = {
+    arr: clearing ? null : String(Math.round(arr)),
+    arrAsOf: clearing ? null : arrAsOf,
+    arrSource: clearing ? null : (arrSource?.trim() || null),
+  };
+
+  const [updated] = await db
+    .update(companiesTable)
+    .set(next)
+    .where(eq(companiesTable.id, id))
+    .returning({ id: companiesTable.id, arr: companiesTable.arr, arrAsOf: companiesTable.arrAsOf, arrSource: companiesTable.arrSource });
+  if (!updated) {
+    res.status(404).json({ error: "Company not found" });
+    return;
+  }
+  invalidatePortfolioCache();
+  req.log.info({ companyId: id, cleared: clearing }, "Admin ARR edit persisted");
+  res.json({
+    companyId: updated.id,
+    arr: updated.arr == null ? null : Number(updated.arr),
+    arrAsOf: updated.arrAsOf,
+    arrSource: updated.arrSource,
+  });
 });
 
 // Update the per-pillar evidence text on the company's latest assessment and

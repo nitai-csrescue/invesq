@@ -40,6 +40,7 @@ import type {
   BeginBrowserLoginParams,
   CalibrationPredictionRecord,
   Company,
+  CompanyArrState,
   ConfirmAdminFirmInput,
   ConfirmationRequestRecord,
   Connector,
@@ -93,6 +94,7 @@ import type {
   TierMutationResult,
   TierSummaryPage,
   UpdateAdminFirmInput,
+  UpdateCompanyArrInput,
   UpdateOutcomeMetricsInput,
   UpdatePillarEvidenceInput,
   UpdateReportMetaInput,
@@ -3137,6 +3139,95 @@ export const useUpdateAdminCompanyReportMeta = <
   TContext
 > => {
   return useMutation(getUpdateAdminCompanyReportMetaMutationOptions(options));
+};
+
+/**
+ * Full-state write of the CQ-45 ARR columns (companies.arr / arr_as_of / arr_source): all three fields must be supplied, each nullable. Setting arr to null clears ALL three columns back to "Undisclosed" (never zero-filled, excluded from rollups). A non-null arr may carry a null as-of date or source. Does not touch scoring, tiers, revisions, or sign-offs, and never affects other companies.
+
+ * @summary Manually set or clear a company's disclosed ARR figure (CQ-47)
+ */
+export const getUpdateAdminCompanyArrUrl = (id: number) => {
+  return `/api/admin/companies/${id}/arr`;
+};
+
+export const updateAdminCompanyArr = async (
+  id: number,
+  updateCompanyArrInput: UpdateCompanyArrInput,
+  options?: RequestInit,
+): Promise<CompanyArrState> => {
+  return customFetch<CompanyArrState>(getUpdateAdminCompanyArrUrl(id), {
+    ...options,
+    method: "PATCH",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(updateCompanyArrInput),
+  });
+};
+
+export const getUpdateAdminCompanyArrMutationOptions = <
+  TError = ErrorType<ErrorEnvelope>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof updateAdminCompanyArr>>,
+    TError,
+    { id: number; data: BodyType<UpdateCompanyArrInput> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof updateAdminCompanyArr>>,
+  TError,
+  { id: number; data: BodyType<UpdateCompanyArrInput> },
+  TContext
+> => {
+  const mutationKey = ["updateAdminCompanyArr"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof updateAdminCompanyArr>>,
+    { id: number; data: BodyType<UpdateCompanyArrInput> }
+  > = (props) => {
+    const { id, data } = props ?? {};
+
+    return updateAdminCompanyArr(id, data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type UpdateAdminCompanyArrMutationResult = NonNullable<
+  Awaited<ReturnType<typeof updateAdminCompanyArr>>
+>;
+export type UpdateAdminCompanyArrMutationBody = BodyType<UpdateCompanyArrInput>;
+export type UpdateAdminCompanyArrMutationError = ErrorType<ErrorEnvelope>;
+
+/**
+ * @summary Manually set or clear a company's disclosed ARR figure (CQ-47)
+ */
+export const useUpdateAdminCompanyArr = <
+  TError = ErrorType<ErrorEnvelope>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof updateAdminCompanyArr>>,
+    TError,
+    { id: number; data: BodyType<UpdateCompanyArrInput> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof updateAdminCompanyArr>>,
+  TError,
+  { id: number; data: BodyType<UpdateCompanyArrInput> },
+  TContext
+> => {
+  return useMutation(getUpdateAdminCompanyArrMutationOptions(options));
 };
 
 /**

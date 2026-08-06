@@ -547,6 +547,44 @@ export interface UpdateReportMetaInput {
 }
 
 /**
+ * Full-state ARR write. All three keys are required; each value is nullable. arr must be >= 0 whole US dollars or null; a null arr clears all three columns regardless of the other values.
+
+ */
+export interface UpdateCompanyArrInput {
+  /**
+   * Disclosed ARR in whole US dollars, or null to clear.
+   * @minimum 0
+   * @nullable
+   */
+  arr: number | null;
+  /**
+   * Date the figure was valid as of (YYYY-MM-DD) or null.
+   * @nullable
+   * @pattern ^\d{4}-\d{2}-\d{2}$
+   */
+  arrAsOf: string | null;
+  /**
+   * Free-text source citation (press release, filing, call note) or null.
+   * @maxLength 500
+   * @nullable
+   */
+  arrSource: string | null;
+}
+
+/**
+ * The ARR columns exactly as persisted after an update.
+ */
+export interface CompanyArrState {
+  companyId: number;
+  /** @nullable */
+  arr: number | null;
+  /** @nullable */
+  arrAsOf: string | null;
+  /** @nullable */
+  arrSource: string | null;
+}
+
+/**
  * Partial per-pillar evidence update for the company's latest assessment. Every field is optional; only supplied fields are changed. An empty string or null clears the field. Keys map to assessments.p1_evidence..p8_evidence in PILLARS order (p1 CS Org Design through p8 AI Adoption Maturity).
 
  */

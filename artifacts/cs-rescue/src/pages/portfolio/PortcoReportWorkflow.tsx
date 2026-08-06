@@ -38,6 +38,7 @@ import {
   getGetAdminCompanyReportDataQueryKey,
   useGenerateAdminCompanyReportExport,
   useSaveAdminCompanyReportRevision,
+  useUpdateAdminCompanyArr,
   useUpdateAdminCompanyPillarEvidence,
   useUpdateAdminCompanyReportMeta,
   useValidateAdminCompanyReport,
@@ -575,6 +576,114 @@ function OverrideModal({
 }
 
 // ---------------------------------------------------------------------------
+// ArrEditDialog — CQ-47 manual ARR edit surface. Full-state write of the
+// CQ-45 columns via PATCH /admin/companies/:id/arr. Clearing the ARR field
+// (or "Clear all") nulls all three columns back to "Undisclosed" — never
+// zero-filled. Does not touch scoring, revisions, or sign-offs.
+// ---------------------------------------------------------------------------
+function ArrEditDialog({
+  open,
+  initial,
+  saving,
+  onCancel,
+  onSave,
+}: {
+  open: boolean;
+  initial: { arr: number | null; arrAsOf: string | null; arrSource: string | null };
+  saving: boolean;
+  onCancel: () => void;
+  onSave: (input: { arr: number | null; arrAsOf: string | null; arrSource: string | null }) => void;
+}) {
+  const [arr, setArr] = useState("");
+  const [asOf, setAsOf] = useState("");
+  const [source, setSource] = useState("");
+  const [error, setError] = useState<string | null>(null);
+
+  // Re-seed the fields each time the dialog opens.
+  useEffect(() => {
+    if (!open) return;
+    setArr(initial.arr != null ? String(initial.arr) : "");
+    setAsOf(initial.arrAsOf ?? "");
+    setSource(initial.arrSource ?? "");
+    setError(null);
+  }, [open, initial.arr, initial.arrAsOf, initial.arrSource]);
+
+  const INPUT = "h-8 text-sm bg-white text-gray-900 border-slate-200 placeholder:text-slate-400 focus-visible:ring-slate-300";
+
+  const handleSave = () => {
+    const arrTrim = arr.trim();
+    if (arrTrim === "") {
+      // Empty ARR = clear everything, matching the "Undisclosed" convention.
+      onSave({ arr: null, arrAsOf: null, arrSource: null });
+      return;
+    }
+    const amount = Number(arrTrim.replace(/[,$\s]/g, ""));
+    if (!Number.isFinite(amount) || amount < 0) {
+      setError("ARR must be a non-negative dollar amount (whole US dollars).");
+      return;
+    }
+    if (asOf.trim() !== "" && !/^\d{4}-\d{2}-\d{2}$/.test(asOf.trim())) {
+      setError("As-of date must be YYYY-MM-DD.");
+      return;
+    }
+    setError(null);
+    onSave({
+      arr: Math.round(amount),
+      arrAsOf: asOf.trim() === "" ? null : asOf.trim(),
+      arrSource: source.trim() === "" ? null : source.trim(),
+    });
+  };
+
+  return (
+    <Dialog open={open} onOpenChange={(o) => { if (!o) onCancel(); }}>
+      <DialogContent className="bg-white text-gray-900 sm:max-w-md">
+        <DialogHeader>
+          <DialogTitle className="text-gray-900">Edit disclosed ARR</DialogTitle>
+          <DialogDescription className="text-slate-500">
+            Sets this company's disclosed ARR figure, its as-of date, and a source citation.
+            Leaving ARR blank clears all three back to Undisclosed (excluded from rollups).
+            Scores, tiers, and sign-offs are not affected.
+          </DialogDescription>
+        </DialogHeader>
+        <div className="space-y-3">
+          <div className="space-y-1">
+            <Label htmlFor="pc-arr-amount" className="text-[11px] text-slate-600">ARR (whole US dollars)</Label>
+            <Input id="pc-arr-amount" inputMode="numeric" value={arr} onChange={(e) => setArr(e.target.value)} placeholder="e.g. 25000000" className={INPUT} />
+          </div>
+          <div className="space-y-1">
+            <Label htmlFor="pc-arr-asof" className="text-[11px] text-slate-600">As of (YYYY-MM-DD)</Label>
+            <Input id="pc-arr-asof" type="date" value={asOf} onChange={(e) => setAsOf(e.target.value)} className={INPUT} />
+          </div>
+          <div className="space-y-1">
+            <Label htmlFor="pc-arr-source" className="text-[11px] text-slate-600">Source citation</Label>
+            <Input id="pc-arr-source" value={source} onChange={(e) => setSource(e.target.value)} placeholder="e.g. Company press release, Jan 2026" maxLength={500} className={INPUT} />
+          </div>
+          {error && <p className="text-xs text-red-600">{error}</p>}
+        </div>
+        <DialogFooter className="gap-2 sm:gap-0">
+          {initial.arr != null && (
+            <Button
+              variant="outline"
+              size="sm"
+              className="text-red-600 border-red-200 hover:bg-red-50 sm:mr-auto"
+              onClick={() => onSave({ arr: null, arrAsOf: null, arrSource: null })}
+              disabled={saving}
+            >
+              Clear all
+            </Button>
+          )}
+          <Button variant="outline" size="sm" onClick={onCancel} disabled={saving} className="text-gray-700">Cancel</Button>
+          <Button size="sm" onClick={handleSave} disabled={saving}>
+            {saving ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Check className="h-3.5 w-3.5" />}
+            Save ARR
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+// ---------------------------------------------------------------------------
 // PortcoReportWorkflow — admin-only single-button state machine at the
 // bottom of the portco page. Hidden entirely for non-@csrescue.com users.
 //
@@ -585,9 +694,16 @@ function OverrideModal({
 export function PortcoReportWorkflow({
   firmSlug,
   companySlug,
+  arr = null,
+  arrAsOf = null,
+  arrSource = null,
 }: {
   firmSlug: string;
   companySlug: string;
+  /** CQ-47: current disclosed-ARR state (from the bootstrap company) used to pre-fill the Edit ARR dialog. */
+  arr?: number | null;
+  arrAsOf?: string | null;
+  arrSource?: string | null;
 }) {
   const { user } = useAuth();
   const { toast } = useToast();
@@ -601,6 +717,11 @@ export function PortcoReportWorkflow({
   const [overrideTarget, setOverrideTarget] = useState<string | null>(null);
   const [overrideReason, setOverrideReason] = useState("");
   const [isDownloadingPdf, setIsDownloadingPdf] = useState(false);
+  const [isEditingArr, setIsEditingArr] = useState(false);
+  // Local copy of the ARR state so the dialog re-opens with what was just
+  // saved (the bootstrap props only refresh on a full page reload).
+  const [arrState, setArrState] = useState({ arr, arrAsOf, arrSource });
+  useEffect(() => { setArrState({ arr, arrAsOf, arrSource }); }, [arr, arrAsOf, arrSource]);
 
   const userEmail = user?.email?.toLowerCase() ?? null;
   const isAdminUser = !!userEmail && userEmail.endsWith("@csrescue.com");
@@ -693,6 +814,30 @@ export function PortcoReportWorkflow({
       },
       onError: () =>
         toast({ title: "Save failed", description: "Could not save the pillar evidence.", variant: "destructive" }),
+    },
+  });
+
+  const arrMutation = useUpdateAdminCompanyArr({
+    mutation: {
+      onSuccess: (state) => {
+        setArrState({ arr: state.arr, arrAsOf: state.arrAsOf, arrSource: state.arrSource });
+        setIsEditingArr(false);
+        toast({
+          title: state.arr == null ? "ARR cleared" : "ARR saved",
+          description:
+            state.arr == null
+              ? "This company is back to Undisclosed and excluded from ARR rollups."
+              : "Reload the page to see the figure reflected across the portfolio views.",
+        });
+      },
+      onError: (err) => {
+        const serverError =
+          err instanceof ApiError && err.data != null && typeof err.data === "object" &&
+          "error" in err.data && typeof (err.data as { error?: unknown }).error === "string"
+            ? (err.data as { error: string }).error
+            : null;
+        toast({ title: "Save failed", description: serverError ?? "Could not save the ARR figure.", variant: "destructive" });
+      },
     },
   });
 
@@ -878,8 +1023,23 @@ export function PortcoReportWorkflow({
         <DropdownMenuItem onClick={() => setIsEditingEvidence(true)}>
           Edit pillar evidence
         </DropdownMenuItem>
+        <DropdownMenuItem onClick={() => setIsEditingArr(true)}>
+          Edit ARR
+        </DropdownMenuItem>
       </DropdownMenuContent>
     </DropdownMenu>
+  );
+
+  // CQ-47: rendered in every workflow state (the kebab is too), so the ARR
+  // figure is editable even before a narrative revision exists.
+  const arrDialog = (
+    <ArrEditDialog
+      open={isEditingArr}
+      initial={arrState}
+      saving={arrMutation.isPending}
+      onCancel={() => setIsEditingArr(false)}
+      onSave={(input) => { if (companyId != null) arrMutation.mutate({ id: companyId, data: input }); }}
+    />
   );
 
   if (isEditingEvidence) {
@@ -929,6 +1089,7 @@ export function PortcoReportWorkflow({
           {generateMutation.isPending ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <FileText className="h-3.5 w-3.5" />}
           {generateMutation.isPending ? "Generating..." : "Export editable report"}
         </Button>
+        {arrDialog}
       </section>
     );
   }
@@ -982,6 +1143,7 @@ export function PortcoReportWorkflow({
           onConfirm={handleOverrideSubmit}
           loading={validateMutation.isPending}
         />
+        {arrDialog}
       </section>
     );
   }
@@ -1023,6 +1185,7 @@ export function PortcoReportWorkflow({
           </a>
         )}
       </div>
+      {arrDialog}
     </section>
   );
 }

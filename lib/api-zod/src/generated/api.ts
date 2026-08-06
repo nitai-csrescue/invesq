@@ -2276,6 +2276,55 @@ export const UpdateAdminCompanyReportMetaResponse = zod
   );
 
 /**
+ * Full-state write of the CQ-45 ARR columns (companies.arr / arr_as_of / arr_source): all three fields must be supplied, each nullable. Setting arr to null clears ALL three columns back to "Undisclosed" (never zero-filled, excluded from rollups). A non-null arr may carry a null as-of date or source. Does not touch scoring, tiers, revisions, or sign-offs, and never affects other companies.
+
+ * @summary Manually set or clear a company's disclosed ARR figure (CQ-47)
+ */
+export const UpdateAdminCompanyArrParams = zod.object({
+  id: zod.coerce.number(),
+});
+
+export const updateAdminCompanyArrBodyArrMin = 0;
+
+export const updateAdminCompanyArrBodyArrAsOfRegExp = new RegExp(
+  "^\\d{4}-\\d{2}-\\d{2}$",
+);
+export const updateAdminCompanyArrBodyArrSourceMax = 500;
+
+export const UpdateAdminCompanyArrBody = zod
+  .object({
+    arr: zod
+      .number()
+      .min(updateAdminCompanyArrBodyArrMin)
+      .nullable()
+      .describe("Disclosed ARR in whole US dollars, or null to clear."),
+    arrAsOf: zod
+      .string()
+      .regex(updateAdminCompanyArrBodyArrAsOfRegExp)
+      .nullable()
+      .describe("Date the figure was valid as of (YYYY-MM-DD) or null."),
+    arrSource: zod
+      .string()
+      .max(updateAdminCompanyArrBodyArrSourceMax)
+      .nullable()
+      .describe(
+        "Free-text source citation (press release, filing, call note) or null.",
+      ),
+  })
+  .describe(
+    "Full-state ARR write. All three keys are required; each value is nullable. arr must be >= 0 whole US dollars or null; a null arr clears all three columns regardless of the other values.\n",
+  );
+
+export const UpdateAdminCompanyArrResponse = zod
+  .object({
+    companyId: zod.number(),
+    arr: zod.number().nullable(),
+    arrAsOf: zod.string().nullable(),
+    arrSource: zod.string().nullable(),
+  })
+  .describe("The ARR columns exactly as persisted after an update.");
+
+/**
  * Persists admin corrections to the raw per-pillar evidence text on the company's latest assessment (assessments.p1_evidence..p8_evidence) and mirrors each change into the matching findings row. Only supplied fields are changed; an empty string or null clears the field. The effective report rebuilds pillar evidence and gap descriptions from the live assessment on every load, so edits show up immediately in the scorecard pillar notes and gap cards WITHOUT creating a revision, resetting sign-offs, or changing any score, composite, or tier. Returns the fresh workflow state.
 
  * @summary Update the per-pillar evidence text on a company's latest assessment
