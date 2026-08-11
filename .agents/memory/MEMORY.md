@@ -40,4 +40,5 @@
 - [Boot-migration completion markers](boot-migration-completion-markers.md) — one-shot boot migrations need a durable marker, never "row count" heuristics; sequence with RLS DDL and job resumption.
 - [Slug-keyed backfills collide](slug-keyed-backfills-collide.md) — re-onboarded companies regain old slugs; legacy slug-keyed boot backfills re-stamp them, and the ICP all-or-none rule then breaks the firm.
 - [Dual engines + bootstrap stripping](dual-engine-and-bootstrap-schema.md) — tenant UI uses a client-side engine copy; new bootstrap fields vanish unless declared in openapi.yaml.
+- [ARR range vs point-value state](arr-range-vs-point-state.md) — disclosed ranges live in meta arrForRollup/arrDisplay, never collapsed to one number; ARR editor full-state writes must reset the meta range in-statement.
 - [Dispute resolution atomic claim](dispute-audit-atomic-claim.md) — conditionally claim rows inside the tx (never precheck-then-update); expiring tokens must enforce expires_at in the claim itself.
