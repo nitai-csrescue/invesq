@@ -614,7 +614,13 @@ export function formatCurrencyCompact(value: number): string {
 }
 
 export function formatCurrencyRange([lo, hi]: [number, number]): string {
-  return `${formatCurrencyCompact(lo)}–${formatCurrencyCompact(hi)}`;
+  const loStr = formatCurrencyCompact(lo);
+  const hiStr = formatCurrencyCompact(hi);
+  // A degenerate range (summing point values yields lo === hi, and nearby
+  // endpoints can round to the same compact label) is a single figure, not
+  // a "$2B–$2B" style non-range.
+  if (loStr === hiStr) return loStr;
+  return `${loStr}–${hiStr}`;
 }
 
 export function formatDate(iso: string): string {

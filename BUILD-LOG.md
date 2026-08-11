@@ -1680,3 +1680,40 @@ curl -X POST https://<prod-domain>/api/admin/repair-assessments-dedup \
   2. Both ARR backfills' no-clobber guards now live ON the UPDATE statements (arr IS NULL + meta-range absence as SQL predicates; firm markers via atomic "jsonb ||" merge conditional on marker absence) -- no select-then-write window can overwrite a concurrent CQ-47 edit or firm-meta change.
 - QA notes: typecheck-api + typecheck-web PASSED (validation engine). After restart, markers made both backfills no-ops and Tinubu is unchanged. The amended route UPDATE was proven against Tinubu inside a rolled-back transaction: clear resets display to "Undisclosed", nulls arrForRollup and arr_source, and the rollback restored the live range. Dev first-class arr count still exactly 3 (STG seeds untouched).
 - Self-report: entry written by the agent immediately after the change; verify via /api/build-status.
+
+---
+
+## CQ-50-fix: Combined ARR rollup display fix + explicit per-firm/per-company research accounting (QA follow-up)
+- Date: 2026-08-11 (UTC)
+- Status: complete in dev; NOT republished (per ticket -- another QA round first)
+- Republish needed: yes (rollup display fix + relaxed Tinubu backfill guard land in prod on next Publish)
+- Validation: typecheck-api PASSED, typecheck-web PASSED (validation engine run, both green)
+
+### 1) Rollup fix
+- Root cause: the "Combined ARR" rollup math was already a correct sum across all disclosed figures (STG: $13.7M + $16.5M + $2B = $2.0302B), but formatCurrencyRange rendered the degenerate summed range as "$2B\u2013$2B" -- point values sum to lo === hi, and both endpoints compact-format to the same label.
+- Fix: formatCurrencyRange now collapses to a single figure whenever both endpoints format to the same compact label (degenerate sums AND nearby endpoints that round together). True ranges are unchanged (e.g. Tinubu "$25.1M\u2013$26.3M", Long Arc combined stays a real range).
+- Files: lib/portfolio-engine/src/engine.ts AND artifacts/cs-rescue/src/data/portfolio/engine.ts (the tenant UI renders from its own engine copy -- both changed in lockstep).
+- Hand re-verification against STG: sum [2,030,200,000, 2,030,200,000] now renders "$2B" (single figure, no fake range); [25,124,000, 26,266,000] still renders "$25.1M\u2013$26.3M". Executed against the real engine module, not a re-implementation.
+- Bonus fix found during verification: prod Tinubu carries a hand-authored SEED meta range from onboarding data, which the CQ-50 backfill's "skip if a range already exists" guard would have silently skipped -- the sourced Les Echos range would never have landed in prod. Guard relaxed to "first-class arr IS NULL" only (a CQ-47 manual SET writes arr; a manual CLEAR nulls the range; the one-shot firm marker prevents re-stamps). Proven against a simulated prod state (seed range + no marker) in a rolled-back transaction: seed range replaced by the sourced range. File: artifacts/api-server/src/lib/backfillDisclosedArrCq50.ts.
+
+### 2) Scope accounting -- why the live site showed no CQ-50 activity
+- The research pass DID cover all 38 non-CQ-48 companies (13 prod firms + dev-only Mainsail). The live published site shows none of it because CQ-50 (and CQ-48 for the 9 non-STG firms) exists only in dev: prod has not been republished, so prod pages and prod /api/build-status predate CQ-50. STG's live figures come from the earlier prod ARR seeding. Everything below lands on the next Publish.
+- Pamlico spot re-verification (fresh research pass run for this ticket, per the Stage 1 research rules): EHS Insight -- no public ARR/revenue disclosure (Dec 2025 Pamlico/Level Equity recap release has no dollar figures; GetLatka $6.7M is a prohibited estimate site, rejected). CEATI International -- no disclosure (Jul 2021 Pamlico release discloses member counts only; CB Insights $13.5M is funding, and prohibited anyway). Profisee -- no absolute figure; only growth percentages are public (FY2025 "30% YoY ARR", FY2026 "37% ARR CAGR", Profisee press releases Feb 2025/Feb 2026). Matches the original pass.
+- Per-firm breakdown, all 13 prod firms + dev-only Mainsail (researched = swept under CQ-46 rules this pass or CQ-48; disclosed/total):
+  - stg 3/6 (CQ-48 seeds: MediaValet $13.7M, TaxCalc $16.5M, Trellix $2B; Cadmium, Confience, Nomis Solutions researched -- no disclosure; Confience identity flag stands)
+  - staley-capital 2/2 (CQ-48: Capacity, MNTN)
+  - inflexion 3/5 (CQ-48: aosphere, EcoOnline, Infront; Axiom GRC, Curinos researched -- no disclosure)
+  - ta-associates 1/2 (CQ-48: Appfire (2021 figure, re-verify task open); Certinia researched -- explicitly does not publish financials)
+  - triton-partners 1/2 (CQ-48: Cint Group; Prenax researched -- no disclosure)
+  - sixth-street-growth 2/4 (CQ-48: Gravitee, Kiteworks; Awardco researched -- funding/valuation only; DrFirst researched -- no disclosure)
+  - longarc 1/3 (CQ-50: Tinubu EUR 22-23M FY2020 range, Les Echos Feb 2020; CircleBlack, Concertiv researched -- no disclosure)
+  - pamlico 0/3 (EHS Insight, CEATI International, Profisee -- all researched, twice; no disclosure, see above)
+  - solen 0/6 (Cairn Applications, Champ Software, Primate Technologies, SMRTR, Track Star, ViaPeople -- researched; no disclosure)
+  - guardian-capital-partners 0/5 (Havis, Heatscape, Illuminati Labs, Raptor Power Systems, Team LINX -- researched; no disclosure)
+  - sentinel-capital 0/1 (TriMech -- researched; Solid Solutions UK turnover excluded as a different entity)
+  - m33-growth 0/4 (Apogee Interactive (Brillion), BeSmartee, GoDocs, SwiftComply -- researched; no disclosure)
+  - tritium-partners 0/4 (Inbenta, Loxo, Public Relay, VanillaSoft -- researched; no disclosure)
+  - mainsail-partners (dev-only) 0/3 (Fullbay, MirrorWeb, Syncro -- researched; no disclosure)
+- No firm was skipped. Total: 13/50 disclosed (12 CQ-48 + Tinubu), 37 Undisclosed -- every absolute number found elsewhere came from prohibited estimate sites (Growjo/GetLatka/ZoomInfo/Owler/CB Insights et al.) and was rejected per the never-estimate rule.
+- Note for QA: prod also carries hand-authored seed meta ranges on a few non-CQ-48 companies (Infront, Awardco, Kiteworks, Capacity, Public Relay, Tinubu) from onboarding data; only Tinubu's is replaced by CQ-50. Whether the others should be cleared as undisclosed is a product call -- flagged, not changed here.
+- Self-report: entry written by the agent immediately after the change; verify via /api/build-status.

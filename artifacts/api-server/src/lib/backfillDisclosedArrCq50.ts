@@ -59,8 +59,13 @@ export async function backfillDisclosedArrCq50(): Promise<void> {
     });
 
     await db.transaction(async (tx) => {
-      // All no-clobber conditions are ON the UPDATE itself: first-class arr
-      // still null AND no meta range already present (JSON null or absent).
+      // No-clobber condition is ON the UPDATE itself: first-class arr must
+      // still be null (a CQ-47 manual SET writes arr; a manual CLEAR resets
+      // the meta range to null with display "Undisclosed"). An existing meta
+      // range is deliberately NOT a skip condition: prod Tinubu carries a
+      // hand-authored seed range from onboarding data that this sourced
+      // figure must replace -- and the one-shot firm marker prevents any
+      // re-stamp after a later manual edit.
       const updated = await tx
         .update(companiesTable)
         .set({
@@ -73,7 +78,6 @@ export async function backfillDisclosedArrCq50(): Promise<void> {
             eq(companiesTable.slug, TINUBU.companySlug),
             isNull(companiesTable.arr),
             sql`${companiesTable.meta} IS NOT NULL`,
-            sql`COALESCE(${companiesTable.meta} -> 'arrForRollup', 'null'::jsonb) = 'null'::jsonb`,
           ),
         )
         .returning({ id: companiesTable.id });
