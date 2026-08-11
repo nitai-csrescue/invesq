@@ -584,12 +584,15 @@ function OverrideModal({
 function ArrEditDialog({
   open,
   initial,
+  arrEstimateDisplay,
   saving,
   onCancel,
   onSave,
 }: {
   open: boolean;
   initial: { arr: number | null; arrAsOf: string | null; arrSource: string | null };
+  /** Admin-only analytical estimate (meta.arrEstimateDisplay); read-only, never shown to investors. */
+  arrEstimateDisplay?: string | null;
   saving: boolean;
   onCancel: () => void;
   onSave: (input: { arr: number | null; arrAsOf: string | null; arrSource: string | null }) => void;
@@ -664,6 +667,18 @@ function ArrEditDialog({
             <Input id="pc-arr-source" value={source} onChange={(e) => setSource(e.target.value)} placeholder="e.g. Company press release, Jan 2026" maxLength={500} className={INPUT} />
           </div>
           {error && <p className="text-xs text-red-600">{error}</p>}
+          {arrEstimateDisplay && (
+            <div className="rounded-md border border-amber-200 bg-amber-50 px-3 py-2">
+              <div className="text-[11px] font-medium text-amber-800">
+                Estimated ARR (internal only, not shown to investors)
+              </div>
+              <div className="font-mono text-sm text-amber-900">{arrEstimateDisplay}</div>
+              <div className="text-[10px] text-amber-700">
+                Modeled analytical estimate, not a disclosed figure. Tenant pages and reports keep showing
+                &ldquo;Undisclosed&rdquo; unless a disclosed ARR is set above.
+              </div>
+            </div>
+          )}
         </div>
         <DialogFooter className="gap-2 sm:gap-0">
           {initial.arr != null && (
@@ -727,6 +742,20 @@ export function PortcoReportWorkflow({
   // saved (the bootstrap props only refresh on a full page reload).
   const [arrState, setArrState] = useState({ arr, arrAsOf, arrSource });
   useEffect(() => { setArrState({ arr, arrAsOf, arrSource }); }, [arr, arrAsOf, arrSource]);
+  // Admin-only analytical estimate (meta.arrEstimateDisplay), fetched from the
+  // admin-gated route. Never part of the tenant bootstrap — investors can't see it.
+  const [arrEstimate, setArrEstimate] = useState<string | null>(null);
+  useEffect(() => {
+    if (companyId == null) return;
+    let cancelled = false;
+    fetch(`/api/admin/companies/${companyId}/arr-estimate`, { credentials: "include" })
+      .then((r) => (r.ok ? r.json() : null))
+      .then((body: { arrEstimateDisplay?: string | null } | null) => {
+        if (!cancelled) setArrEstimate(body?.arrEstimateDisplay ?? null);
+      })
+      .catch(() => { if (!cancelled) setArrEstimate(null); });
+    return () => { cancelled = true; };
+  }, [companyId]);
 
   const userEmail = user?.email?.toLowerCase() ?? null;
   const isAdminUser = !!userEmail && userEmail.endsWith("@csrescue.com");
@@ -1041,6 +1070,7 @@ export function PortcoReportWorkflow({
     <ArrEditDialog
       open={isEditingArr}
       initial={arrState}
+      arrEstimateDisplay={arrEstimate}
       saving={arrMutation.isPending}
       onCancel={() => setIsEditingArr(false)}
       onSave={(input) => { if (companyId != null) arrMutation.mutate({ id: companyId, data: input }); }}

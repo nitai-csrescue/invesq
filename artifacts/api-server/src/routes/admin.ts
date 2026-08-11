@@ -1042,6 +1042,43 @@ router.get("/companies/resolve", async (req, res) => {
   res.json({ companyId: row.id });
 });
 
+// ARR-estimate ticket: admin-only read of the analytical ARR estimate meta
+// keys (arrEstimateDisplay / arrEstimateRange / arrIsEstimate). These are
+// MODELED ESTIMATES for internal dashboards only — deliberately NOT part of
+// the tenant bootstrap/openapi contract, so no investor-facing surface can
+// ever receive them. Served raw-fetch style (like /companies/resolve) behind
+// the same admin gate as every other route in this router.
+router.get("/companies/:id/arr-estimate", async (req, res) => {
+  const id = Number(req.params.id);
+  if (!Number.isInteger(id) || id <= 0) {
+    res.status(400).json({ error: "Invalid company id" });
+    return;
+  }
+  const [row] = await db
+    .select({ meta: companiesTable.meta })
+    .from(companiesTable)
+    .where(eq(companiesTable.id, id))
+    .limit(1);
+  if (!row) {
+    res.status(404).json({ error: "Company not found" });
+    return;
+  }
+  const meta = (row.meta ?? {}) as Record<string, unknown>;
+  const display = typeof meta.arrEstimateDisplay === "string" ? meta.arrEstimateDisplay : null;
+  const range =
+    Array.isArray(meta.arrEstimateRange) &&
+    meta.arrEstimateRange.length === 2 &&
+    meta.arrEstimateRange.every((n) => typeof n === "number")
+      ? (meta.arrEstimateRange as [number, number])
+      : null;
+  res.json({
+    companyId: id,
+    arrEstimateDisplay: display,
+    arrEstimateRange: range,
+    arrIsEstimate: meta.arrIsEstimate === true,
+  });
+});
+
 // Serves the full report WORKFLOW for a company's latest assessment: the
 // effective report data (computed scores/tier/gap-titles + the current
 // edited-or-generated narrative) plus revision, dual-validation, and Drive

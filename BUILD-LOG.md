@@ -1717,3 +1717,44 @@ curl -X POST https://<prod-domain>/api/admin/repair-assessments-dedup \
 - No firm was skipped. Total: 13/50 disclosed (12 CQ-48 + Tinubu), 37 Undisclosed -- every absolute number found elsewhere came from prohibited estimate sites (Growjo/GetLatka/ZoomInfo/Owler/CB Insights et al.) and was rejected per the never-estimate rule.
 - Note for QA: prod also carries hand-authored seed meta ranges on a few non-CQ-48 companies (Infront, Awardco, Kiteworks, Capacity, Public Relay, Tinubu) from onboarding data; only Tinubu's is replaced by CQ-50. Whether the others should be cleared as undisclosed is a product call -- flagged, not changed here.
 - Self-report: entry written by the agent immediately after the change; verify via /api/build-status.
+
+---
+
+## ARR-estimate backfill: admin-only analytical estimates for 27 companies (Notion 3b91114c714a8143a5a6fe0a9ed3fc04)
+- Date: 2026-08-11 (UTC)
+- Status: complete in dev; Republish needed to land in prod (marker-gated boot backfill)
+- Validation: typecheck-api PASSED, typecheck-web PASSED (validation engine run, both green)
+
+### What changed
+- New one-shot marker-gated boot backfill artifacts/api-server/src/lib/backfillArrEstimates.ts (marker firms.meta.arrEstimateBackfilledAt), wired into index.ts after the CQ-50 backfill. Writes THREE NEW meta keys per company via atomic jsonb merge: arrEstimateDisplay (string with mandatory "(Estimate)" label), arrEstimateRange ([low, high] whole USD), arrIsEstimate (true). Guarded: only when meta lacks arrEstimateDisplay (never overwrites), seed-shape sanity checks (positive, non-inverted, label present).
+- New admin-gated route GET /api/admin/companies/:id/arr-estimate (routes/admin.ts, same auth gate as the router; verified 401 unauthenticated). Deliberately NOT added to openapi.yaml/bootstrap — the tenant contract cannot carry these keys.
+- Admin surface: ArrEditDialog (PortcoReportWorkflow.tsx) now shows a read-only amber block "Estimated ARR (internal only, not shown to investors)" when the admin-only fetch returns an estimate.
+
+### Who got which keys (27 companies; all three keys each)
+- inflexion: axiom-grc $100M-$140M; curinos $95M-$145M
+- longarc: circleblack $4M-$7M; concertiv $8M-$12M
+- m33-growth: apogee-interactive-brillion $10M-$16M; besmartee $7M-$10M; godocs $5M-$8M; swiftcomply $4M-$8M
+- pamlico: ceati-international $8M-$18M; ehs-insight $9M-$14M; profisee $25M-$40M
+- sixth-street-growth: awardco $65M-$90M; drfirst $80M-$110M
+- solen: cairn-applications $1.5M-$3M; champ-software $3M-$5M; primate-technologies $2M-$3.5M; smrtr $2M-$4M; track-star $0.5M-$2M; viapeople $4M-$6M
+- stg: cadmium $28M-$42M; confience $21M-$32M; nomis-solutions $14M-$22M
+- ta-associates: certinia $200M-$260M
+- tritium-partners: inbenta $45M-$60M; loxo $95M-$125M; public-relay $18M-$27M; vanillasoft $13M-$20M
+(All displays carry the "(Estimate)" suffix. In dev only the 14 companies whose firms exist in dev were stamped — longarc, pamlico, solen, stg; the rest apply on the next prod Publish via the firm markers.)
+- The 7 non-recurring-revenue companies were left COMPLETELY untouched (no keys, no arr_source note — arr_source is tenant-rendered, so per the corrected ticket rule nothing was written): Havis, Heatscape, Illuminati Labs, Raptor Power Systems, Team LINX (guardian-capital-partners), TriMech (sentinel-capital), Prenax (triton-partners).
+
+### Non-touch proof (self-report clause)
+- git diff --stat: only index.ts (+4 wiring), routes/admin.ts (+37, the new GET route), PortcoReportWorkflow.tsx (+30, dialog block + fetch), plus the new backfill file. No engine, openapi, schema, or tenant-page files changed.
+- The backfill's SET list contains ONLY the meta jsonb merge of the three new keys — companies.arr / arr_as_of / arr_source are structurally untouchable by it, and arrDisplay/arrForRollup are preserved by the merge.
+- DB diff after dev boot: all 14 stamped rows show arr NULL, arr_as_of NULL, arr_source NULL, arrDisplay unchanged ("Undisclosed"; profisee kept its PRE-EXISTING dev-only legacy "$19M-$21M" seed range — present before this ticket, not written by it, flagged for the task-73 family), arrForRollup unchanged.
+
+### Rollup exclusion (main risk of the ticket) — verified
+- The engine's ARR-at-risk/combined-ARR math reads ONLY companies.arr (via overlayArrColumns) and meta.arrForRollup (engine.ts lines ~215/259/379/737/807). Neither engine copy references any arrEstimate* key (rg across artifacts/cs-rescue/src + lib: sole client match is PortcoReportWorkflow.tsx, the admin dialog). All 27 estimates are therefore excluded from rollups by construction, same as before this ticket.
+
+### QA (most important checks)
+- Tenant bootstrap payload grep: zero arrEstimate* keys served (curl /api/portfolio/bootstrap).
+- Tenant company page AND tenant report page for solen/champ-software screenshot-verified: ARR "Undisclosed", no estimate anywhere.
+- Playwright e2e (admin session): Edit ARR dialog on champ-software shows the amber "Estimated ARR (internal only, not shown to investors)" block with "$3M-$5M (Estimate)"; fields empty; after Cancel the page still shows Undisclosed. Verdict: success, screenshots captured.
+- Admin route: 401 unauthenticated; authed fetch returns {arrEstimateDisplay, arrEstimateRange, arrIsEstimate} for cadmium.
+- Temporary QA scaffolding fully removed before commit (rg "dev/test-login" clean; synthetic session rows deleted; api-server restarted after removal).
+- Self-report: entry written by the agent immediately after the change; verify via /api/build-status.

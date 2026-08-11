@@ -13,6 +13,7 @@ import { seedTrellixManualEvidence } from "./lib/seedTrellixManualEvidence";
 import { restorePhase2Portfolios } from "./lib/restorePhase2Portfolios";
 import { backfillDisclosedArr } from "./lib/backfillDisclosedArr";
 import { backfillDisclosedArrCq50 } from "./lib/backfillDisclosedArrCq50";
+import { backfillArrEstimates } from "./lib/backfillArrEstimates";
 import { seedStuckFirms } from "./lib/seedStuckFirms";
 import { logSystemHealthOnStartup } from "./lib/systemHealth";
 
@@ -69,6 +70,9 @@ app.listen(port, (err) => {
     // CQ-50: one-shot marker-gated range backfill (Tinubu only; the full
     // 38-company research pass found exactly one qualifying disclosure).
     .then(() => backfillDisclosedArrCq50())
+    // ARR-estimate ticket: one-shot marker-gated backfill of admin-only
+    // analytical estimates (meta.arrEstimate* keys) for 27 companies.
+    .then(() => backfillArrEstimates())
     .then(() => {
       void resumeQueuedDiscoveryJobs();
       void resumeQueuedBuildJobs();
