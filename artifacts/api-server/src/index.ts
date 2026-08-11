@@ -12,6 +12,7 @@ import { migratePhase2Tenants } from "./lib/migratePhase2Tenants";
 import { seedTrellixManualEvidence } from "./lib/seedTrellixManualEvidence";
 import { restorePhase2Portfolios } from "./lib/restorePhase2Portfolios";
 import { backfillDisclosedArr } from "./lib/backfillDisclosedArr";
+import { backfillDisclosedArrCq50 } from "./lib/backfillDisclosedArrCq50";
 import { seedStuckFirms } from "./lib/seedStuckFirms";
 import { logSystemHealthOnStartup } from "./lib/systemHealth";
 
@@ -65,6 +66,9 @@ app.listen(port, (err) => {
     // CQ-48: one-shot marker-gated ARR backfill for 12 named companies; runs
     // after restore so restored companies exist, before the resume scan.
     .then(() => backfillDisclosedArr())
+    // CQ-50: one-shot marker-gated range backfill (Tinubu only; the full
+    // 38-company research pass found exactly one qualifying disclosure).
+    .then(() => backfillDisclosedArrCq50())
     .then(() => {
       void resumeQueuedDiscoveryJobs();
       void resumeQueuedBuildJobs();
