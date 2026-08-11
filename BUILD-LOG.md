@@ -1758,3 +1758,11 @@ curl -X POST https://<prod-domain>/api/admin/repair-assessments-dedup \
 - Admin route: 401 unauthenticated; authed fetch returns {arrEstimateDisplay, arrEstimateRange, arrIsEstimate} for cadmium.
 - Temporary QA scaffolding fully removed before commit (rg "dev/test-login" clean; synthetic session rows deleted; api-server restarted after removal).
 - Self-report: entry written by the agent immediately after the change; verify via /api/build-status.
+
+### Review-round fixes (same ticket, post-review)
+- Date: 2026-08-11 (UTC)
+- Status: complete in dev; included in the same Republish
+- Admin PATCH /api/admin/firms/:id whole-meta replacement now preserves ALL one-shot backfill markers (cq48ArrBackfilledAt, cq50ArrBackfilledAt, arrEstimateBackfilledAt) alongside the two migration markers — previously an ordinary firm-meta edit would have deleted them and let the boot backfills re-run on re-onboarded slugs (pre-existing gap for CQ-48/50, fixed for all three).
+- Admin dialog: company id + estimate state now reset before re-resolving on firm/company slug change, so a reused component can never briefly show the previous company's admin-only estimate.
+- Validation: typecheck-api + typecheck-web PASSED after the fixes.
+- Self-report: entry written by the agent immediately after the change; verify via /api/build-status.

@@ -591,7 +591,16 @@ router.patch("/firms/:id", async (req, res) => {
       // keys (one-shot boot-migration completion markers) live in the same
       // JSON column and must survive admin edits — losing them would let a
       // destructive migration re-run on the next boot.
-      const MIGRATION_MARKER_KEYS = ["migratedToPipelineAt", "stgPipelineSeededAt"] as const;
+      const MIGRATION_MARKER_KEYS = [
+        "migratedToPipelineAt",
+        "stgPipelineSeededAt",
+        // One-shot ARR backfill completion markers: losing any of these would
+        // let the corresponding boot backfill re-run and re-stamp re-onboarded
+        // companies (slug-keyed backfill collision policy).
+        "cq48ArrBackfilledAt",
+        "cq50ArrBackfilledAt",
+        "arrEstimateBackfilledAt",
+      ] as const;
       const [existing] = await db
         .select({ meta: firmsTable.meta })
         .from(firmsTable)

@@ -762,6 +762,10 @@ export function PortcoReportWorkflow({
 
   useEffect(() => {
     if (!isAdminUser) return;
+    // Reset per-company state before resolving, so a reused component never
+    // briefly shows the previous company's id or admin-only ARR estimate.
+    setCompanyId(null);
+    setArrEstimate(null);
     let cancelled = false;
     fetch(
       `/api/admin/companies/resolve?firmSlug=${encodeURIComponent(firmSlug)}&companySlug=${encodeURIComponent(companySlug)}`,
