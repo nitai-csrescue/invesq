@@ -15,16 +15,18 @@
 // arrDisplay with the mandatory "as of" qualifier -- NOT as a fabricated
 // single number in companies.arr. The citation goes into companies.arr_source
 // (provenance column; overlayArrColumns leaves display alone while arr is
-// null, so the engine renders the meta range untouched).
+// null, so the engine renders the meta range untouched). The CQ-47 admin
+// route treats the meta range as part of its full-state semantics, so a
+// later manual edit deliberately replaces/clears it.
 //
-// Safety (same pattern as CQ-48's backfillDisclosedArr):
-//   - one-shot per firm via firms.meta marker, stamped in the same tx;
-//   - write gated on the company still being undisclosed (arr IS NULL AND
-//     meta.arrForRollup == null) so no manual edit is ever clobbered;
+// Safety (per architect review: all guards live ON the UPDATE statements,
+// so no select-then-write race can clobber a concurrent edit):
+//   - company write conditional on arr IS NULL AND no existing meta range;
+//   - firm marker is an atomic jsonb merge conditional on marker absence;
 //   - keyed firm slug + company slug; firms absent in an env skip quietly;
 //   - non-fatal on error; portfolio cache invalidated after.
 // ---------------------------------------------------------------------------
-import { eq, and, isNull } from "drizzle-orm";
+import { eq, and, isNull, sql } from "drizzle-orm";
 import { db, companiesTable, firmsTable } from "@workspace/db";
 import { logger } from "./logger";
 import { invalidatePortfolioCache } from "./portfolioData";
@@ -51,30 +53,31 @@ export async function backfillDisclosedArrCq50(): Promise<void> {
     const firmMeta = (firm.meta ?? {}) as Record<string, unknown>;
     if (firmMeta[MARKER_KEY]) return; // one-shot: never re-stamp
 
+    const metaPatch = JSON.stringify({
+      arrDisplay: TINUBU.arrDisplay,
+      arrForRollup: TINUBU.arrForRollup,
+    });
+
     await db.transaction(async (tx) => {
-      const [company] = await tx
-        .select()
-        .from(companiesTable)
+      // All no-clobber conditions are ON the UPDATE itself: first-class arr
+      // still null AND no meta range already present (JSON null or absent).
+      const updated = await tx
+        .update(companiesTable)
+        .set({
+          meta: sql`${companiesTable.meta} || ${metaPatch}::jsonb`,
+          arrSource: TINUBU.arrSource,
+        })
         .where(
           and(
             eq(companiesTable.firmId, firm.id),
             eq(companiesTable.slug, TINUBU.companySlug),
-            isNull(companiesTable.arr), // never clobber a first-class value
+            isNull(companiesTable.arr),
+            sql`${companiesTable.meta} IS NOT NULL`,
+            sql`COALESCE(${companiesTable.meta} -> 'arrForRollup', 'null'::jsonb) = 'null'::jsonb`,
           ),
-        );
-      const meta = (company?.meta ?? null) as Record<string, unknown> | null;
-      if (company && meta && meta["arrForRollup"] == null) {
-        await tx
-          .update(companiesTable)
-          .set({
-            meta: {
-              ...meta,
-              arrDisplay: TINUBU.arrDisplay,
-              arrForRollup: TINUBU.arrForRollup,
-            },
-            arrSource: TINUBU.arrSource,
-          })
-          .where(eq(companiesTable.id, company.id));
+        )
+        .returning({ id: companiesTable.id });
+      if (updated.length > 0) {
         logger.info(
           { firmSlug: TINUBU.firmSlug, companySlug: TINUBU.companySlug },
           "CQ-50 ARR backfill: disclosed range applied",
@@ -85,10 +88,19 @@ export async function backfillDisclosedArrCq50(): Promise<void> {
           "CQ-50 ARR backfill: company missing or already disclosed; left untouched",
         );
       }
+      // Atomic marker merge, conditional on marker absence -- a concurrent
+      // firm-meta edit is merged against, never overwritten by a stale spread.
       await tx
         .update(firmsTable)
-        .set({ meta: { ...firmMeta, [MARKER_KEY]: new Date().toISOString() } })
-        .where(eq(firmsTable.id, firm.id));
+        .set({
+          meta: sql`COALESCE(${firmsTable.meta}, '{}'::jsonb) || jsonb_build_object(${MARKER_KEY}::text, ${new Date().toISOString()}::text)`,
+        })
+        .where(
+          and(
+            eq(firmsTable.id, firm.id),
+            sql`NOT (COALESCE(${firmsTable.meta}, '{}'::jsonb) ? ${MARKER_KEY})`,
+          ),
+        );
     });
     invalidatePortfolioCache();
   } catch (err) {

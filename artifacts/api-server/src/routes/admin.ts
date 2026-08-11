@@ -1,5 +1,5 @@
 import { Router, type IRouter } from "express";
-import { and, asc, count, desc, eq, inArray, like, notInArray } from "drizzle-orm";
+import { and, asc, count, desc, eq, inArray, like, notInArray, sql } from "drizzle-orm";
 import { db, assessmentsTable, companiesTable, firmsTable, jobsTable } from "@workspace/db";
 import {
   AddAdminFirmCompanyBody,
@@ -1196,9 +1196,17 @@ router.patch("/companies/:id/arr", async (req, res) => {
     arrSource: clearing ? null : (arrSource?.trim() || null),
   };
 
+  // Full-state semantics extend to the legacy meta-range representation
+  // (CompanyMeta.arrDisplay/arrForRollup, e.g. the CQ-50 Tinubu range): any
+  // admin ARR write -- set OR clear -- deliberately replaces the whole ARR
+  // state, so the meta range is reset in the same statement. Otherwise a
+  // clear would leave a stale range displayed with its provenance deleted.
   const [updated] = await db
     .update(companiesTable)
-    .set(next)
+    .set({
+      ...next,
+      meta: sql`CASE WHEN ${companiesTable.meta} IS NULL THEN ${companiesTable.meta} ELSE ${companiesTable.meta} || jsonb_build_object('arrDisplay', 'Undisclosed'::text, 'arrForRollup', NULL) END`,
+    })
     .where(eq(companiesTable.id, id))
     .returning({ id: companiesTable.id, arr: companiesTable.arr, arrAsOf: companiesTable.arrAsOf, arrSource: companiesTable.arrSource });
   if (!updated) {

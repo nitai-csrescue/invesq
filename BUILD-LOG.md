@@ -1668,3 +1668,15 @@ curl -X POST https://<prod-domain>/api/admin/repair-assessments-dedup \
 - Supersedes: pending task #66 (Pamlico/Long Arc/Solen ARR) -- all three firms were researched here; only Tinubu had a public figure, so #66 is complete-by-superset and should be closed rather than re-run.
 - QA: dev boot applied the range; longarc bootstrap serves Tinubu "$25.1M-$26.3M (as of Feb 2020)" with arrForRollup [25124000, 26266000] while CircleBlack/Concertiv remain "Undisclosed"; dev count of companies with non-null first-class arr is still exactly 3 (the CQ-48 STG seeds -- untouched).
 - Self-report: entry written by the agent immediately after the change; verify via /api/build-status.
+
+---
+
+## CQ-50 hardening (review round): meta-range state made first-class in the admin ARR route; race-proof backfill guards
+- Date: 2026-08-11 (UTC)
+- Status: complete in dev; ships with CQ-50 on next Republish
+- Files changed: artifacts/api-server/src/routes/admin.ts, artifacts/api-server/src/lib/backfillDisclosedArrCq50.ts, artifacts/api-server/src/lib/backfillDisclosedArr.ts
+- What/why (architect review found two severe issues):
+  1. The CQ-47 PATCH route's full-state semantics now extend to the legacy meta-range representation: any admin ARR write (set OR clear) also resets CompanyMeta.arrDisplay to "Undisclosed" and arrForRollup to null in the same UPDATE statement. Previously a clear on a meta-range company (e.g. Tinubu) would delete the citation while leaving the stale range displayed -- an unsupported orphan state.
+  2. Both ARR backfills' no-clobber guards now live ON the UPDATE statements (arr IS NULL + meta-range absence as SQL predicates; firm markers via atomic "jsonb ||" merge conditional on marker absence) -- no select-then-write window can overwrite a concurrent CQ-47 edit or firm-meta change.
+- QA notes: typecheck-api + typecheck-web PASSED (validation engine). After restart, markers made both backfills no-ops and Tinubu is unchanged. The amended route UPDATE was proven against Tinubu inside a rolled-back transaction: clear resets display to "Undisclosed", nulls arrForRollup and arr_source, and the rollback restored the live range. Dev first-class arr count still exactly 3 (STG seeds untouched).
+- Self-report: entry written by the agent immediately after the change; verify via /api/build-status.

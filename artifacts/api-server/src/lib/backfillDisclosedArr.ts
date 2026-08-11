@@ -17,7 +17,7 @@
 // Safe to delete after both dev and prod have booted once with it (markers
 // prevent any further effect either way).
 // ---------------------------------------------------------------------------
-import { eq, and, isNull } from "drizzle-orm";
+import { eq, and, isNull, sql } from "drizzle-orm";
 import { db, companiesTable, firmsTable } from "@workspace/db";
 import { UpdateAdminCompanyArrBody } from "@workspace/api-zod";
 import { logger } from "./logger";
@@ -184,11 +184,20 @@ export async function backfillDisclosedArr(): Promise<void> {
               "CQ-48 ARR backfill: company missing or arr already set; left untouched",
             );
         }
-        // Marker stamped in the same transaction as the writes.
+        // Marker stamped in the same transaction as the writes. Atomic jsonb
+        // merge conditional on marker absence -- a concurrent firm-meta edit
+        // is merged against, never overwritten by a stale spread.
         await tx
           .update(firmsTable)
-          .set({ meta: { ...meta, [MARKER_KEY]: new Date().toISOString() } })
-          .where(eq(firmsTable.id, firm.id));
+          .set({
+            meta: sql`COALESCE(${firmsTable.meta}, '{}'::jsonb) || jsonb_build_object(${MARKER_KEY}::text, ${new Date().toISOString()}::text)`,
+          })
+          .where(
+            and(
+              eq(firmsTable.id, firm.id),
+              sql`NOT (COALESCE(${firmsTable.meta}, '{}'::jsonb) ? ${MARKER_KEY})`,
+            ),
+          );
       });
       logger.info({ firmSlug, companiesUpdated: wrote }, "CQ-48 ARR backfill applied for firm");
     }
